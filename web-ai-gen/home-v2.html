@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UFA007 — ufabet เว็บตรง ทางเข้ายูฟ่าเบท แทงบอล คาสิโน สล็อต</title>
+<meta name="description" content="UFA007 ทางเข้า ufabet เว็บตรง ไม่ผ่านเอเย่นต์ ค่าน้ำ 4 ตังค์เต็ม ฝากถอนออโต้ 30 วิ รองรับมือถือทุกรุ่น แทงบอล บาคาร่า สล็อต คาสิโน ครบในเว็บเดียว">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/webp" href="../assets/favicon.webp">
+<link rel="apple-touch-icon" href="../assets/favicon.webp">
+<style>
+/* ============ BLACK + GOLD — mobile-first, @media ชุดเดียว ============ */
+:root{
+  --bg-0:#000; --bg-1:#070707; --bg-2:#0e0e0d; --bg-3:#141312;
+  --glass:rgba(20,19,17,.62); --glass-2:rgba(12,12,11,.82);
+  /* ทองแท้ (classic gold) — ไม่ออกส้ม */
+  --gold:#e3c14e; --gold-2:#ffe9a0; --orange:#b58a25; /* --orange = ทองเข้ม (ชื่อเดิม) */
+  --line:rgba(227,193,78,.20); --line-2:rgba(227,193,78,.48);
+  --text:#f4efe6; --muted:#b3a892; --muted-2:#7a7160;
+  --r:14px; --shadow:0 22px 60px rgba(0,0,0,.7);
+  --max:1140px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:"IBM Plex Sans Thai",system-ui,sans-serif;
+  color:var(--text);line-height:1.65;
+  background:
+    radial-gradient(900px 480px at 82% -6%,rgba(227,193,78,.13),transparent 60%),
+    radial-gradient(760px 560px at -5% 18%,rgba(181,138,37,.10),transparent 55%),
+    linear-gradient(180deg,#000,#0a0a09 46%,#000);
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:84px; /* เผื่อ sticky bar ล่างจอ */
+}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%;height:auto}
+h1,h2,h3,.dp{font-family:"Chakra Petch",sans-serif;letter-spacing:.2px}
+.wrap{width:min(var(--max),calc(100% - 32px));margin-inline:auto}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;color:var(--gold);
+  font-family:"Chakra Petch";font-weight:600;font-size:12.5px;letter-spacing:2px;text-transform:uppercase}
+.eyebrow::before{content:"";width:26px;height:2px;background:linear-gradient(90deg,var(--gold),transparent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:50px;padding:0 22px;border-radius:10px;font-family:"Chakra Petch";
+  font-weight:700;font-size:15px;cursor:pointer;border:1px solid transparent;
+  transition:transform .2s,box-shadow .2s,background .2s}
+.btn:active{transform:translateY(1px)}
+.btn-go{color:#1a0f00;background:linear-gradient(135deg,var(--gold-2),var(--gold) 55%,var(--orange));
+  box-shadow:0 12px 30px rgba(227,193,78,.28)}
+.btn-go:hover{transform:translateY(-2px);box-shadow:0 18px 42px rgba(227,193,78,.4)}
+.btn-ghost{color:var(--gold-2);border-color:var(--line-2);background:rgba(255,255,255,.03)}
+.btn-ghost:hover{background:rgba(227,193,78,.08)}
+section{padding:52px 0}
+.s-head{margin-bottom:24px}
+.s-head h2{font-size:clamp(24px,6vw,40px);line-height:1.12;font-weight:700}
+.s-head p{color:var(--muted);margin-top:10px;max-width:60ch}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);
+  backdrop-filter:blur(12px);box-shadow:var(--shadow)}
+.svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---- IMAGE PLACEHOLDER (แทนรูปจริง — ล็อก ratio + บอกขนาดที่ควรใส่) ---- */
+.ph{position:relative;display:grid;place-items:center;width:100%;height:100%;
+  background:linear-gradient(135deg,#15130a,#0a0a09);
+  border:1px dashed var(--line-2);border-radius:inherit;overflow:hidden}
+.ph::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(45deg,transparent,transparent 13px,rgba(227,193,78,.045) 13px,rgba(227,193,78,.045) 26px)}
+.ph .pi{position:relative;z-index:1;display:grid;gap:5px;justify-items:center;padding:14px;text-align:center}
+.ph .pi svg{width:30px;height:30px;color:var(--gold);opacity:.65}
+.ph .pi b{font-family:"Chakra Petch";font-weight:700;font-size:13px;color:var(--gold-2)}
+.ph .pi small{font-size:11px;color:var(--muted-2);letter-spacing:.5px}
+.media-img{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+
+/* ====== IMG POLISH (CSS-only, reversible — 2026-05-18 · ถอดทั้งบล็อกนี้ = กลับเดิม) ====== */
+/* (1) unify color-grade — ทุกรูป: 13 ภาพดูเป็นชุดเดียว แก้โทน/contrast เหลื่อม */
+.media-img{filter:contrast(1.06) saturate(1.05) brightness(.965);
+  transition:transform .5s cubic-bezier(.2,.7,.2,1),filter .3s ease}
+
+/* --- กลุ่ม FRAMED: tile กดได้จริง (.sc/.game) → กรอบทอง + depth + hover --- */
+.sc,.game{position:relative;isolation:isolate;background:#000;
+  box-shadow:0 18px 44px rgba(0,0,0,.6),0 0 0 1px rgba(227,193,78,.14);
+  transition:transform .3s ease,box-shadow .3s ease}
+.sc::after,.game::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;
+  background:
+    radial-gradient(130% 112% at 50% 0%,transparent 52%,rgba(0,0,0,.5)),
+    linear-gradient(180deg,transparent 58%,rgba(0,0,0,.34));
+  box-shadow:inset 0 0 0 1px rgba(227,193,78,.12),inset 0 0 28px rgba(0,0,0,.55)}
+@media(hover:hover){
+  .sc:hover,.game:hover{transform:translateY(-3px);
+    box-shadow:0 26px 56px rgba(0,0,0,.66),0 0 0 1px rgba(227,193,78,.34),
+      0 14px 40px rgba(227,193,78,.18)}
+  .sc:hover .media-img,.game:hover .media-img{transform:scale(1.045)}
+}
+
+/* --- กลุ่ม BLEED: รูปประกอบ/ซ้อนในการ์ด → ไม่มีกรอบ เลือดไหลเข้าพื้นดำ --- */
+.hero-visual,.mplay .pic .frame,.steps-pic,.article .pic{
+  position:relative;isolation:isolate;background:#000;border:0!important}
+.hero-visual::after,.mplay .pic .frame::after,.steps-pic::after,.article .pic::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;
+  background:
+    radial-gradient(135% 120% at 50% 42%,transparent 56%,rgba(0,0,0,.5)),
+    linear-gradient(180deg,transparent 64%,rgba(0,0,0,.3))}
+
+@media(prefers-reduced-motion:reduce){
+  .media-img,.sc,.game{transition:none}
+  .sc:hover .media-img,.game:hover .media-img{transform:none}
+}
+/* ====== /IMG POLISH ====== */
+
+/* ---- header ---- */
+.hd{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);
+  background:rgba(0,0,0,.84);backdrop-filter:blur(16px)}
+.hd .wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:64px}
+.brand{display:flex;align-items:center}
+.brand img{height:34px;width:auto;display:block}
+.ft .brand img{height:44px}
+/* hamburger (CSS-only checkbox hack) */
+.mnav-t{display:none}
+.burger{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  width:44px;height:44px;cursor:pointer;border:1px solid var(--line-2);border-radius:10px;
+  background:rgba(255,255,255,.03);flex:none}
+.burger span{width:20px;height:2px;background:var(--gold-2);border-radius:2px;transition:.25s}
+.mnav-t:checked ~ .burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.mnav-t:checked ~ .burger span:nth-child(2){opacity:0}
+.mnav-t:checked ~ .burger span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.hd nav{position:absolute;left:0;right:0;top:100%;display:flex;flex-direction:column;gap:0;
+  background:rgba(0,0,0,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--line-2);
+  max-height:0;overflow:hidden;transition:max-height .32s ease;
+  color:var(--muted);font-family:"Chakra Petch";font-weight:500}
+.mnav-t:checked ~ nav{max-height:78vh}
+.hd nav a{padding:15px 20px;width:100%;font-size:15px;border-bottom:1px solid var(--line)}
+.hd nav a:hover{color:var(--gold-2);background:rgba(227,193,78,.06)}
+.hd .cta{display:none;gap:9px} /* mobile: ซ่อน — ใช้ sticky bar ล่างแทน */
+.hd .btn{min-height:42px;padding:0 15px;font-size:13.5px}
+.hd .btn-ghost{display:none}
+
+/* ---- hero ---- */
+.hero{padding:30px 0 40px}
+.hero .grid{display:grid;gap:20px}
+.hero-card{padding:24px 20px}
+.hero h1{font-size:clamp(30px,8.2vw,54px);line-height:1.06;font-weight:700;margin:13px 0 13px}
+.hero h1 i{font-style:normal;background:linear-gradient(120deg,var(--gold-2),var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{color:var(--muted);font-size:16px;margin-bottom:20px}
+.hero .acts{display:flex;flex-direction:column;gap:11px;margin-bottom:20px}
+.hero .acts .btn{width:100%}
+.trust{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.trust div{border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:rgba(0,0,0,.5)}
+.trust b{display:block;font-family:"Chakra Petch";color:var(--gold-2);font-size:15px}
+.trust span{font-size:12px;color:var(--muted-2)}
+.hero-visual{border-radius:var(--r);overflow:hidden;border:1px solid var(--line-2);
+  box-shadow:var(--shadow);aspect-ratio:16/11}
+
+/* ---- showcase ---- */
+.showcase{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+.sc{border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:4/5}
+
+/* ---- reasons ---- */
+.reasons{display:grid;gap:13px}
+.reason{display:grid;grid-template-columns:46px 1fr;gap:13px;align-items:start;
+  padding:17px;border:1px solid var(--line);border-radius:var(--r);background:var(--glass-2)}
+.reason .n{font-family:"Chakra Petch";font-weight:700;font-size:20px;
+  width:46px;height:46px;display:grid;place-items:center;border-radius:12px;
+  color:var(--gold-2);background:rgba(227,193,78,.10);border:1px solid var(--line-2)}
+.reason h3{font-size:16px;font-weight:700;margin-bottom:5px}
+.reason p{font-size:14px;color:var(--muted)}
+
+/* ---- games ---- */
+.games{display:grid;grid-template-columns:repeat(2,1fr);gap:11px}
+.game{border-radius:var(--r);overflow:hidden;border:1px solid var(--line);aspect-ratio:1/1}
+
+/* ---- mobile play ---- */
+.mplay{display:grid;gap:18px;align-items:center;
+  border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;
+  background:radial-gradient(500px 300px at 100% 0%,rgba(227,193,78,.12),transparent),var(--glass-2)}
+.mplay .txt{padding:24px 20px}
+.mplay h2{font-size:clamp(22px,6vw,34px);margin-bottom:10px}
+.mplay p{color:var(--muted);font-size:15px;margin-bottom:16px}
+.mplay .pic{padding:0 20px 24px}
+.mplay .pic .frame{border-radius:12px;overflow:hidden;border:1px solid var(--line);aspect-ratio:5/6}
+
+/* ---- compare ---- */
+.cmp{border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden;background:var(--glass-2)}
+.cmp .row{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:1px}
+.cmp .row>div{padding:14px 12px;font-size:13.5px}
+.cmp .row.h>div{font-family:"Chakra Petch";font-weight:700;background:rgba(227,193,78,.10);color:var(--gold-2)}
+.cmp .row:not(.h){border-top:1px solid var(--line)}
+.cmp .yes{color:var(--gold-2);font-weight:600}
+.cmp .no{color:var(--muted-2)}
+.cmp .lbl{color:var(--muted);font-weight:600}
+
+/* ---- steps ---- */
+.steps{display:grid;gap:12px;counter-reset:st}
+.step{counter-increment:st;position:relative;padding:19px 17px 19px 56px;
+  border:1px solid var(--line);border-radius:var(--r);background:var(--glass-2)}
+.step::before{content:"0" counter(st);position:absolute;left:15px;top:17px;
+  font-family:"Chakra Petch";font-weight:700;font-size:21px;color:var(--gold)}
+.step h3{font-size:16px;font-weight:700;margin-bottom:4px}
+.step p{font-size:13.5px;color:var(--muted)}
+.steps-pic{margin-top:16px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);aspect-ratio:5/2}
+
+/* ---- article ---- */
+.article{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  background:var(--glass-2);margin-bottom:14px}
+.article .pic{aspect-ratio:16/7}
+.article .bd{padding:22px 20px}
+.article h3{font-size:clamp(18px,5vw,24px);line-height:1.25;margin-bottom:12px}
+.article p{color:var(--muted);font-size:15px;margin-bottom:13px}
+.article p:last-child{margin-bottom:0}
+.article strong{color:var(--gold-2);font-weight:600}
+
+/* ---- faq ---- */
+.faq details{border:1px solid var(--line);border-radius:12px;background:var(--glass-2);
+  margin-bottom:10px;overflow:hidden}
+.faq summary{cursor:pointer;list-style:none;padding:16px 18px;font-family:"Chakra Petch";
+  font-weight:600;font-size:15px;display:flex;justify-content:space-between;gap:14px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--gold);font-size:20px;line-height:1}
+.faq details[open] summary::after{content:"–"}
+.faq details p{padding:0 18px 18px;color:var(--muted);font-size:14px}
+
+/* ---- cta ---- */
+.cta .box{position:relative;padding:34px 22px;text-align:center;overflow:hidden;
+  border:1px solid var(--line-2);border-radius:var(--r);
+  background:radial-gradient(600px 240px at 50% 0%,rgba(227,193,78,.18),transparent),var(--glass)}
+.cta h2{font-size:clamp(22px,6vw,36px);margin-bottom:8px}
+.cta p{color:var(--muted);margin-bottom:20px}
+
+/* ---- footer ---- */
+.ft{border-top:1px solid var(--line);background:#040403;margin-top:46px;padding:34px 0 40px}
+.ft .cols{display:grid;gap:24px}
+.ft .brand{margin-bottom:10px}
+.ft .about{color:var(--muted-2);font-size:13px;max-width:42ch}
+.ft .col h4{font-family:"Chakra Petch";color:var(--gold-2);font-size:13px;letter-spacing:1px;
+  text-transform:uppercase;margin-bottom:11px}
+.ft .col a{display:block;color:var(--muted);font-size:14px;padding:5px 0}
+.ft .col a:hover{color:var(--gold-2)}
+.ft .legal{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted-2);font-size:12.5px;text-align:center;line-height:1.9}
+
+/* ---- sticky 5-channel bar (footer menu ติดล่างจอตลอด) ---- */
+.sticky{position:fixed;left:0;right:0;bottom:0;z-index:70;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  background:rgba(0,0,0,.95);backdrop-filter:blur(18px);border-top:1px solid var(--line-2)}
+.sticky a{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 3px;
+  border-radius:10px;font-family:"Chakra Petch";font-weight:600;font-size:10.5px;
+  color:var(--muted);text-align:center;line-height:1.15;transition:color .2s,background .2s}
+.sticky a:hover,.sticky a:active{color:var(--gold-2);background:rgba(227,193,78,.07)}
+.sticky .ic{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;
+  color:var(--gold-2);background:rgba(227,193,78,.12);border:1px solid var(--line-2);font-size:15px}
+.sticky a.go .ic{color:#1a0f00;border:none;background:linear-gradient(135deg,var(--gold-2),var(--orange))}
+.sticky a.go{color:var(--gold-2)}
+
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.rv{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+.rv:nth-child(2){animation-delay:.08s}.rv:nth-child(3){animation-delay:.16s}
+
+/* ===================== DESKTOP (single @media, no dup) ===================== */
+@media(min-width:880px){
+  section{padding:78px 0}
+  .burger,.mnav-t{display:none}
+  .hd .cta{display:flex}
+  .hd nav{position:static;flex-direction:row;max-height:none;overflow:visible;
+    background:none;backdrop-filter:none;border:none;gap:25px;font-size:14px}
+  .hd nav a{padding:0;width:auto;border:none}
+  .hd nav a:hover{background:none}
+  .hd .btn-ghost{display:inline-flex}
+  .hero{padding:56px 0 66px}
+  .hero .grid{grid-template-columns:1.05fr .95fr;align-items:center;gap:40px}
+  .hero-card{padding:0;background:none;border:none;box-shadow:none;backdrop-filter:none}
+  .hero .acts{flex-direction:row}.hero .acts .btn{width:auto}
+  .trust{grid-template-columns:repeat(4,1fr)}
+  .showcase{grid-template-columns:repeat(4,1fr)}
+  .reasons{grid-template-columns:repeat(2,1fr);gap:16px}
+  .reasons .reason:first-child{grid-column:1/-1}
+  .games{grid-template-columns:repeat(4,1fr)}
+  .mplay{grid-template-columns:1.1fr .9fr}
+  .mplay .pic{padding:24px 24px 24px 0}
+  .steps{grid-template-columns:repeat(4,1fr)}
+  .article{display:grid;grid-template-columns:.85fr 1.15fr}
+  .article .pic{aspect-ratio:auto}
+  .ft .cols{grid-template-columns:1.6fr 1fr 1fr 1fr}
+  .sticky{left:50%;right:auto;transform:translateX(-50%);
+    width:min(620px,calc(100% - 40px));border:1px solid var(--line-2);
+    border-radius:16px 16px 0 0;padding:10px 14px}
+  .s-head h2{font-size:clamp(30px,3.4vw,46px)}
+}
+@media(min-width:1100px){.games,.showcase{gap:16px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="hd">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="../assets/logo-ufa007.png" alt="UFA007 — ufabet เว็บตรง"></a>
+    <input type="checkbox" id="mnav" class="mnav-t" aria-hidden="true">
+    <nav>
+      <a href="/">ทางเข้า ufabet</a><a href="/">แทงบอล</a><a href="/">คาสิโน</a>
+      <a href="/">สล็อต</a><a href="/">โปรโมชั่น</a><a href="/">บทความ</a>
+    </nav>
+    <div class="cta">
+      <a class="btn btn-ghost" href="#">เข้าสู่ระบบ</a>
+      <a class="btn btn-go" href="#">สมัครสมาชิก</a>
+    </div>
+    <label for="mnav" class="burger" aria-label="เปิด/ปิดเมนู"><span></span><span></span><span></span></label>
+  </div>
+</header>
+
+<main>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="wrap grid">
+    <div class="hero-card card rv">
+      <span class="eyebrow">ufabet เว็บตรง · ไม่ผ่านเอเย่นต์</span>
+      <h1>ทางเข้า <i>ufabet</i> ที่สายบอลจริงเลือกใช้</h1>
+      <p class="lead">เว็บหลักตรง ๆ ค่าน้ำ 4 ตังค์ได้เต็ม ฝากถอนออโต้ไม่ถึงครึ่งนาที
+        เล่นบนมือถือได้ทุกรุ่นโดยไม่ต้องโหลดแอป — บอล บาคาร่า สล็อต คาสิโน อยู่ในบัญชีเดียว</p>
+      <div class="acts">
+        <a class="btn btn-go" href="#">สมัครรับโปรสมาชิกใหม่</a>
+        <a class="btn btn-ghost" href="/">ดูบริการทั้งหมด</a>
+      </div>
+      <div class="trust">
+        <div><b>เว็บตรง</b><span>ไม่ผ่านคนกลาง</span></div>
+        <div><b>ค่าน้ำ 4 ตังค์</b><span>ราคาดีสุดในเอเชีย</span></div>
+        <div><b>ออโต้ 30 วิ</b><span>ฝาก-ถอนไม่รอ</span></div>
+        <div><b>มือถือลื่น</b><span>ไม่ต้องลงแอป</span></div>
+      </div>
+    </div>
+    <figure class="hero-visual rv">
+      <img class="media-img" src="../assets/img-hero.webp" alt="UFABET เว็บตรง">
+    </figure>
+  </div>
+</section>
+
+<!-- ===== SHOWCASE ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">ครบทุกการเดิมพัน</span>
+      <h2>เปิดบัญชีเดียว เล่นได้ทุกอย่างกับ ufabet</h2></div>
+    <div class="showcase">
+      <a class="sc" href="/"><img class="media-img" src="../assets/img-showcase-football.webp" alt="แทงบอล"></a>
+      <a class="sc" href="/"><img class="media-img" src="../assets/img-showcase-casino.webp" alt="คาสิโนสด"></a>
+      <a class="sc" href="/"><img class="media-img" src="../assets/img-showcase-slot.webp" alt="สล็อต"></a>
+      <a class="sc" href="/"><img class="media-img" src="../assets/img-showcase-sport.webp" alt="กีฬา"></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 5 เหตุผล ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">ทำไมต้องที่นี่</span>
+      <h2>5 เหตุผลที่คนย้ายมาเล่น ufabet เว็บตรงกับเรา</h2>
+      <p>ไม่ได้พูดให้ดูดี — นี่คือสิ่งที่คนเล่นจริงเจอแล้วบ่นถึงเวลาไปเล่นที่อื่น</p></div>
+    <div class="reasons">
+      <div class="reason"><div class="n">1</div><div><h3>ราคาบอลกินเต็ม ค่าน้ำ 4 ตังค์</h3>
+        <p>ใครเคยเล่นผ่านเอเย่นต์จะรู้ว่าโดนหักค่าน้ำไปเท่าไหร่ ufabet เว็บตรงจ่ายเต็ม ไม่มีใครมาตัดหัวคิวตรงกลาง บิลเดียวก็เห็นความต่าง</p></div></div>
+      <div class="reason"><div class="n">2</div><div><h3>ครบจริง ไม่ต้องมีหลายยูส</h3>
+        <p>แทงบอล บาคาร่า สล็อต คาสิโนสด กีฬาอื่น ๆ อยู่ในยูสเดียว ไม่ต้องโยกเงินไปมาให้เสียเวลา</p></div></div>
+      <div class="reason"><div class="n">3</div><div><h3>ฝากถอนออโต้ ไม่เกิน 30 วิ</h3>
+        <p>กดถอนแล้วเงินเข้าก่อนจะลุกไปชงกาแฟเสร็จ ไม่มีขั้นต่ำกวน ๆ ไม่มีค่าธรรมเนียมแฝง</p></div></div>
+      <div class="reason"><div class="n">4</div><div><h3>เล่นบนมือถือได้เลย</h3>
+        <p>เปิดผ่านเบราว์เซอร์ก็เล่นได้ ไม่ต้องโหลดแอปให้เปลืองเครื่อง รองรับทั้ง iOS และ Android รุ่นเก่ารุ่นใหม่</p></div></div>
+      <div class="reason"><div class="n">5</div><div><h3>โปรไม่หลอก เงื่อนไขอ่านรู้เรื่อง</h3>
+        <p>เครดิตฟรีและโบนัสสมาชิกใหม่บอกเงื่อนไขตรง ๆ ไม่ได้เขียนตัวเล็กไว้ให้งง</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== เกมเดิมพัน ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">ค่ายดังครบ</span>
+      <h2>เกมเดิมพัน ufabet มีให้เลือกทุกแนว</h2></div>
+    <div class="games">
+      <a class="game" href="/"><img class="media-img" src="../assets/img-game-football.webp" alt="แทงบอล"></a>
+      <a class="game" href="/"><img class="media-img" src="../assets/img-game-baccarat.webp" alt="บาคาร่า"></a>
+      <a class="game" href="/"><img class="media-img" src="../assets/img-game-slot.webp" alt="สล็อต"></a>
+      <a class="game" href="/"><img class="media-img" src="../assets/img-game-sport.webp" alt="กีฬา"></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== เล่นบนมือถือ ===== -->
+<section>
+  <div class="wrap">
+    <div class="mplay">
+      <div class="txt">
+        <span class="eyebrow">เล่นได้ทุกที่</span>
+        <h2>ufabet บนมือถือ ลื่นเท่าเล่นบนคอม</h2>
+        <p>ไม่ต้องโหลดแอปให้กินพื้นที่ เปิดเบราว์เซอร์ก็เข้าเล่นได้เลย จอเล็กจอใหญ่ปรับให้พอดีอัตโนมัติ
+          ฝากถอนระหว่างนั่งรถก็ทันก่อนถึงป้าย</p>
+        <a class="btn btn-go" href="#">เปิดบนมือถือเลย</a>
+      </div>
+      <div class="pic"><div class="frame"><img class="media-img" src="../assets/img-mobile.webp" alt="ufabet บนมือถือ"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== เปรียบเทียบ ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">เทียบให้เห็นชัด</span>
+      <h2>เว็บตรง ufabet ต่างกับเว็บผ่านเอเย่นต์ตรงไหน</h2></div>
+    <div class="cmp">
+      <div class="row h"><div>หัวข้อ</div><div>ufabet เว็บตรง (เรา)</div><div>ผ่านเอเย่นต์</div></div>
+      <div class="row"><div class="lbl">ค่าน้ำ / ราคาบอล</div><div class="yes">4 ตังค์ เต็ม</div><div class="no">โดนหักก่อนถึงมือ</div></div>
+      <div class="row"><div class="lbl">ฝาก-ถอน</div><div class="yes">ออโต้ ≤ 30 วิ</div><div class="no">รอแอดมิน มีคิว</div></div>
+      <div class="row"><div class="lbl">เงินทุน</div><div class="yes">เว็บหลักดูแลเอง</div><div class="no">ขึ้นกับเอเย่นต์</div></div>
+      <div class="row"><div class="lbl">ข้อมูลส่วนตัว</div><div class="yes">เข้ารหัส SSL 256-bit</div><div class="no">ผ่านมือคนกลาง</div></div>
+      <div class="row"><div class="lbl">ทีมงาน</div><div class="yes">คนไทย 24 ชม.</div><div class="no">ตอบช้า บางเจ้าหาย</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== วิธีสมัคร ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">เริ่มเล่นใน 4 ขั้น</span>
+      <h2>สมัคร ufabet ใช้เวลาไม่ถึง 2 นาที</h2></div>
+    <div class="steps">
+      <div class="step"><h3>กดสมัคร</h3><p>กรอกเบอร์กับบัญชีธนาคารที่ใช้จริง ไม่ต้องแนบเอกสารวุ่นวาย</p></div>
+      <div class="step"><h3>ฝากเงิน</h3><p>โอนเข้าระบบออโต้ ยอดขึ้นเองภายในไม่กี่วินาที</p></div>
+      <div class="step"><h3>รับโปร</h3><p>เลือกรับโบนัสสมาชิกใหม่หรือข้ามไปเล่นเลยก็ได้ ไม่บังคับ</p></div>
+      <div class="step"><h3>เลือกเล่น</h3><p>เข้าบอล บาคาร่า สล็อต หรือคาสิโนจากเมนูเดียว</p></div>
+    </div>
+    <div class="steps-pic"><img class="media-img" src="../assets/img-steps.webp" alt="ขั้นตอนสมัคร ufabet"></div>
+  </div>
+</section>
+
+<!-- ===== บทความ ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">อ่านก่อนเริ่ม</span>
+      <h2>เว็บตรง ufabet คืออะไร แล้วทำไมราคาบอลถึงดีกว่า</h2></div>
+    <article class="article">
+      <div class="pic"><img class="media-img" src="../assets/img-article-1.webp" alt="ราคาบอลค่าน้ำดี"></div>
+      <div class="bd">
+        <p>คำว่า <strong>ufabet เว็บตรง</strong> ที่เห็นกันเกลื่อน จริง ๆ แล้วหมายถึงการเล่นกับเว็บหลัก
+          โดยไม่มีเอเย่นต์มาคั่นกลาง ฟังดูเหมือนเรื่องเล็ก แต่พอเล่นยาว ๆ มันคือเงินในกระเป๋าล้วน ๆ
+          เพราะเอเย่นต์ทุกเจ้าต้องกินส่วนต่างของตัวเอง ราคาบอลกับค่าน้ำที่ถึงมือเราเลยบางลงทุกที</p>
+        <p>กับ UFA007 เราต่อตรงเข้าเว็บหลัก ค่าน้ำเลยอยู่ที่ 4 ตังค์เต็ม ๆ ไม่ใช่ตัวเลขที่โดนเล็มมาแล้ว
+          ใครย้ายมาจากเว็บที่เล่นผ่านคนกลางมักรู้สึกได้ตั้งแต่บิลแรก</p>
+      </div>
+    </article>
+    <article class="article">
+      <div class="pic"><img class="media-img" src="../assets/img-article-2.webp" alt="ฝากถอนออโต้ 30 วิ"></div>
+      <div class="bd">
+        <h3>ฝากถอนออโต้ของ ufabet เร็วจริงไหม ทำไมถึงสำคัญ</h3>
+        <p>หลายคนเลือกเว็บจากโปรอย่างเดียว แต่พอเล่นจริงสิ่งที่กวนใจที่สุดคือตอน <strong>ถอนเงิน ufabet</strong>
+          แล้วต้องรอ ระบบออโต้ของเราออกแบบให้กดแล้วจบไม่เกิน 30 วินาที ไม่มีขั้นต่ำแปลก ๆ ไม่มีค่าธรรมเนียมซ่อน</p>
+        <p>รองรับธนาคารไทยทุกเจ้าและทรูวอลเล็ต โอนจากแอปธนาคารปกติได้เลย และเพราะเป็นเว็บตรง
+          ระบบเลยจัดการเองทั้งหมด ไม่ต้องรอแอดมินมานั่งกดอนุมัติทีละราย</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section>
+  <div class="wrap">
+    <div class="s-head"><span class="eyebrow">Q&amp;A</span>
+      <h2>คำถามที่คนถามก่อนสมัคร ufabet</h2></div>
+    <div class="faq">
+      <details open><summary>เว็บตรงกับผ่านเอเย่นต์ต่างกันยังไง</summary>
+        <p>เว็บตรงคือเล่นกับเว็บหลักโดยตรง ค่าน้ำและราคาบอลไม่โดนหักก่อนถึงมือ ฝากถอนระบบจัดการเอง
+          ส่วนผ่านเอเย่นต์จะมีคนกลางกินส่วนต่างและคุมเงินอีกชั้น</p></details>
+      <details><summary>สมัคร ufabet ต้องใช้อะไรบ้าง</summary>
+        <p>แค่เบอร์โทรกับบัญชีธนาคารที่เป็นชื่อตัวเอง ใช้เวลาไม่ถึง 2 นาที ไม่ต้องแนบบัตรประชาชน</p></details>
+      <details><summary>เล่นบนมือถือต้องโหลดแอปไหม</summary>
+        <p>ไม่ต้อง เปิดผ่านเบราว์เซอร์บนมือถือได้เลย ทั้ง iOS และ Android ภาพลื่นเหมือนเล่นบนคอม</p></details>
+      <details><summary>ถอนเงินช้าหรือมีลิมิตไหม</summary>
+        <p>ระบบออโต้ปกติไม่เกิน 30 วินาที ไม่มีค่าธรรมเนียม จำนวนครั้งต่อวันไม่จำกัดในเงื่อนไขปกติ</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta">
+  <div class="wrap">
+    <div class="box">
+      <h2>พร้อมลองเว็บตรง ufabet จริง ๆ แล้วยัง</h2>
+      <p>สมัครรับโปรสมาชิกใหม่ หรือเข้าดูบริการก่อนก็ได้ ไม่กดดัน</p>
+      <a class="btn btn-go" href="#">สมัครสมาชิก ufabet</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ===== FOOTER ===== -->
+<footer class="ft">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="/"><img src="../assets/logo-ufa007.png" alt="UFA007 — ufabet เว็บตรง"></a>
+        <p class="about">ทางเข้า ufabet เว็บตรง ไม่ผ่านเอเย่นต์ — แทงบอล บาคาร่า สล็อต คาสิโน
+          ฝากถอนออโต้ รองรับมือถือทุกรุ่น</p>
+      </div>
+      <div class="col"><h4>เกี่ยวกับ</h4>
+        <a href="/">เกี่ยวกับเรา</a><a href="/">ติดต่อทีมงาน</a><a href="/">บทความ</a></div>
+      <div class="col"><h4>นโยบาย</h4>
+        <a href="/">ความเป็นส่วนตัว</a><a href="/">เงื่อนไขการใช้งาน</a><a href="/">เล่นพนันอย่างมีสติ</a></div>
+      <div class="col"><h4>บริการ</h4>
+        <a href="/">ทางเข้า ufabet</a><a href="/">โปรโมชั่น</a><a href="/">วิธีสมัคร</a></div>
+    </div>
+    <div class="legal">
+      © 2026 UFA007 — ทางเข้า ufabet เว็บตรง<br>
+      18+ การพนันมีความเสี่ยง โปรดเล่นอย่างมีสติและพอประมาณ
+    </div>
+  </div>
+</footer>
+
+<nav class="sticky" aria-label="เมนูด่วน">
+  <a href="/"><span class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>ทางเข้า</a>
+  <a href="#"><span class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg></span>เข้าสู่ระบบ</a>
+  <a class="go" href="#"><span class="ic"><svg class="svg" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M19 8v6M22 11h-6"/></svg></span>สมัคร</a>
+  <a href="#"><span class="ic"><svg class="svg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>ฝาก-ถอน</a>
+  <a href="#"><span class="ic"><svg class="svg" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-2.9-.4-4.1-1L3 20l1-5.4A8.5 8.5 0 1 1 21 11.5z"/></svg></span>@UFA007</a>
+</nav>
+
+</body>
+</html>

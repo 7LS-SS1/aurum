@@ -1,0 +1,5 @@
+interface:
+  display_name: "WP Elementor Landing Page"
+  short_description: "Build WordPress landing pages with Elementor"
+  default_prompt: "Use $wp-elementor-landing-page to build and validate a WordPress landing page with Elementor."
+

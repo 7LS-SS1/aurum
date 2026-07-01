@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+enum SiteAuthType {
+  APP_PASSWORD
+  JWT
+}
+
+enum SiteHealth {
+  OK
+  ERROR
+  UNKNOWN
+}
+
+enum MovieStatus {
+  DRAFT
+  DISTRIBUTING
+  DONE
+  PARTIAL
+  FAILED
+}
+
+enum DistributionStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+/// Admin/editor accounts — every mutating API call is tied to one of these.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String?
+  role         Role     @default(EDITOR)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+/// Master content record — uploaded once, video_url is shared by every
+/// distribution. Per-site text/metadata overrides live in MovieSiteDraft.
+model Movie {
+  id            String      @id @default(cuid())
+  title         String
+  slug          String?     @unique
+  excerpt       String?
+  content       String?
+  mainCategory  String?     @map("main_category")
+  categories    Json        @default("[]")
+  tags          Json        @default("[]")
+  thumbnailUrl  String?     @map("thumbnail_url")
+  videoUrl      String?     @map("video_url")
+  videoProvider String?     @map("video_provider")
+  extraMeta     Json        @default("{}") @map("extra_meta")
+  status        MovieStatus @default(DRAFT)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  siteDrafts    MovieSiteDraft[]
+  distributions Distribution[]
+
+  @@index([status])
+  @@index([mainCategory])
+  @@index([createdAt])
+  @@map("movies")
+}
+
+/// Destination WordPress site. Credentials are always AES-256-GCM encrypted
+/// (see src/lib/crypto.ts) — plaintext never touches the database.
+model TargetSite {
+  id                String       @id @default(cuid())
+  name              String
+  baseUrl           String       @map("base_url")
+  authType          SiteAuthType @default(APP_PASSWORD) @map("auth_type")
+  wpUsername        String?      @map("wp_username")
+  credentialEnc     String       @map("credential_enc")
+  credentialIv      String       @map("credential_iv")
+  credentialTag     String       @map("credential_tag")
+  postType          String       @default("posts") @map("post_type")
+  categoryRestBase  String       @default("categories") @map("category_rest_base")
+  tagRestBase       String       @default("tags") @map("tag_rest_base")
+  defaultStatus     String       @default("publish") @map("default_status")
+  isActive          Boolean      @default(true) @map("is_active")
+  healthStatus      SiteHealth   @default(UNKNOWN) @map("health_status")
+  lastCheckedAt     DateTime?    @map("last_checked_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+
+  siteDrafts    MovieSiteDraft[]
+  distributions Distribution[]
+
+  @@map("target_sites")
+}
+
+/// Per-(movie, site) content override. Any null field falls back to the
+/// parent Movie's value when the distribution payload is built — the video
+/// itself is never overridden here, it always comes from Movie.videoUrl.
+model MovieSiteDraft {
+  id         String   @id @default(cuid())
+  movieId    String   @map("movie_id")
+  siteId     String   @map("site_id")
+  title      String?
+  slug       String?
+  excerpt    String?
+  content    String?
+  categories Json?
+  tags       Json?
+  extraMeta  Json?    @map("extra_meta")
+  status     String   @default("draft")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  movie Movie      @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  site  TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, siteId])
+  @@map("movie_site_drafts")
+}
+
+/// Per-(movie, site) distribution status/history. Idempotent — one row per
+/// pair, updated in place on retry so it also doubles as an audit trail.
+model Distribution {
+  id            String             @id @default(cuid())
+  movieId       String             @map("movie_id")
+  siteId        String             @map("site_id")
+  status        DistributionStatus @default(PENDING)
+  remotePostId  String?            @map("remote_post_id")
+  remotePostUrl String?            @map("remote_post_url")
+  errorMessage  String?            @map("error_message")
+  attempts      Int                @default(0)
+  distributedAt DateTime?          @map("distributed_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  movie Movie      @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  site  TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([movieId, siteId])
+  @@index([movieId])
+  @@index([siteId])
+  @@index([status])
+  @@map("distributions")
+}

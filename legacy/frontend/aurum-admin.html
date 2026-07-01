@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURUM · Admin — อัปโหลด & กระจาย</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f0f; --bg-2:#1c1c1c; --bg-3:#272727; --hover:#3f3f3f;
+  --text:#f1f1f1; --muted:#aaaaaa; --muted-2:#717171;
+  --gold:#d4af37; --gold-bright:#ffe08a; --gold-deep:#a8842a;
+  --line:rgba(255,255,255,.12); --red:#ff4d4d; --ok:#46d369;
+  --field:#121212; --field-line:#303030;
+  --topbar-h:56px; --side-w:240px;
+  --ease:cubic-bezier(.2,.7,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.no-scroll{overflow:hidden}
+::selection{background:var(--gold);color:#000}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{color:inherit;text-decoration:none}
+input,textarea,select{font-family:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#383838;border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#555}
+.serif{font-family:'Playfair Display',serif}
+
+/* ===== TOP BAR ===== */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+.tb-left{display:flex;align-items:center;gap:14px}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--text);transition:background .2s;flex:none}
+.icon-btn:hover{background:var(--bg-3)}
+.logo{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:.06em}
+.logo .mark{width:28px;height:28px;border-radius:50%;flex:none;
+  background:conic-gradient(from 210deg,var(--gold-deep),var(--gold-bright),var(--gold),var(--gold-deep));
+  box-shadow:0 0 12px rgba(212,175,55,.45);display:grid;place-items:center}
+.logo .mark span{font-family:'Playfair Display',serif;color:#1a1407;font-size:16px;font-weight:900;font-style:italic}
+.logo .word{background:linear-gradient(180deg,#fff,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent}
+.admin-tag{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--gold-bright);border:1px solid var(--gold-deep);
+  border-radius:6px;padding:3px 7px;margin-left:2px;align-self:center}
+.tb-spacer{flex:1}
+.env-pill{display:flex;align-items:center;gap:7px;background:var(--bg-3);border:1px solid var(--line);border-radius:40px;
+  padding:6px 13px;font-size:12.5px;color:var(--muted)}
+.env-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.env-pill.live .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.avatar{width:34px;height:34px;border-radius:50%;flex:none;background:linear-gradient(135deg,#3a3a44,#1a1a20);
+  border:1.5px solid var(--gold);display:grid;place-items:center;font-weight:700;color:var(--gold-bright);font-size:15px}
+
+/* ===== SIDEBAR ===== */
+.sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--side-w);overflow-y:auto;
+  padding:14px 12px 30px;z-index:150;background:var(--bg);border-right:1px solid var(--line);transition:transform .25s var(--ease)}
+.side-cat{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2);padding:10px 12px 4px}
+.side-link{display:flex;align-items:center;gap:18px;padding:10px 12px;border-radius:10px;font-size:14px;transition:background .2s;cursor:pointer}
+.side-link:hover{background:var(--bg-3)}
+.side-link.active{background:var(--bg-3);font-weight:500}
+.side-link.active svg{color:var(--gold-bright)}
+.side-link svg{flex:none;color:var(--text)}
+.side-badge{margin-left:auto;font-size:11px;background:var(--gold);color:#1a1407;font-weight:700;border-radius:20px;padding:1px 8px}
+.side-sec{padding:8px 0;border-bottom:1px solid var(--line)}
+.side-sec:last-child{border:none}
+
+/* ===== MAIN ===== */
+.main{margin-top:var(--topbar-h);margin-left:var(--side-w);transition:margin-left .25s var(--ease);padding:26px 28px 80px;max-width:1400px}
+body.side-collapsed .sidebar{transform:translateX(-100%)}
+body.side-collapsed .main{margin-left:0}
+.page-head{margin-bottom:22px}
+.page-head h1{font-family:'Playfair Display',serif;font-size:30px;font-weight:900;letter-spacing:.01em}
+.page-head h1 .g{background:linear-gradient(180deg,#fff,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent}
+.page-head p{color:var(--muted);font-size:14px;margin-top:6px}
+
+.view{display:none}
+.view.active{display:block;animation:fade .3s var(--ease)}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ===== LAYOUT GRID ===== */
+.ad-grid{display:grid;grid-template-columns:1fr 360px;gap:22px;align-items:start}
+@media(max-width:1100px){.ad-grid{grid-template-columns:1fr}}
+
+.panel{background:var(--bg-2);border:1px solid var(--line);border-radius:14px;padding:20px 20px 22px;margin-bottom:22px}
+.panel-head{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+.panel-head .n{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:13px;font-weight:700;
+  background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;flex:none}
+.panel-head h3{font-size:16px;font-weight:700}
+.panel-head .sub{color:var(--muted-2);font-size:12.5px;margin-left:auto}
+
+/* ===== FORM ===== */
+.field{margin-bottom:15px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:7px;font-weight:500}
+.field label .req{color:var(--gold-bright)}
+.field input[type=text],.field input[type=url],.field input[type=number],.field textarea,.field select{
+  width:100%;background:var(--field);border:1px solid var(--field-line);border-radius:10px;padding:11px 13px;
+  color:var(--text);font-size:14.5px;transition:border-color .2s,box-shadow .2s}
+.field textarea{resize:vertical;min-height:88px;line-height:1.55}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.13)}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted-2)}
+.field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23aaa' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;padding-right:38px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px}
+@media(max-width:560px){.row2,.row3{grid-template-columns:1fr}}
+.hint{font-size:12px;color:var(--muted-2);margin-top:6px}
+
+/* tags */
+.tagbox{display:flex;flex-wrap:wrap;gap:7px;align-items:center;background:var(--field);border:1px solid var(--field-line);
+  border-radius:10px;padding:8px 10px;min-height:46px}
+.tagbox:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.13)}
+.tagbox input{flex:1;min-width:90px;background:none;border:none;color:var(--text);font-size:14px;outline:none;padding:3px}
+.tag{display:inline-flex;align-items:center;gap:6px;background:var(--bg-3);border:1px solid var(--line);border-radius:7px;
+  padding:3px 4px 3px 10px;font-size:13px}
+.tag b{font-weight:500}
+.tag button{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--muted);font-size:14px;line-height:1}
+.tag button:hover{background:var(--hover);color:var(--text)}
+
+/* thumbnail */
+.thumb-drop{position:relative;border:1.5px dashed var(--field-line);border-radius:12px;aspect-ratio:16/9;overflow:hidden;
+  display:grid;place-items:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--field)}
+.thumb-drop:hover{border-color:var(--gold-deep);background:#161616}
+.thumb-drop.has-img{border-style:solid;border-color:var(--line)}
+.thumb-drop .ph{text-align:center;color:var(--muted-2);font-size:13px;padding:14px}
+.thumb-drop .ph svg{margin-bottom:8px;color:var(--muted)}
+.thumb-drop .fill{position:absolute;inset:0;background-size:cover;background-position:center}
+.thumb-drop .badge-q{position:absolute;left:8px;top:8px;background:rgba(212,175,55,.92);color:#1a1407;font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+.thumb-drop input[type=file]{display:none}
+
+/* ===== BUTTONS ===== */
+.btn{border-radius:10px;padding:11px 18px;font-size:14.5px;font-weight:700;transition:.2s;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn-gold{background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407}
+.btn-gold:hover{filter:brightness(1.06);box-shadow:0 6px 22px rgba(212,175,55,.28)}
+.btn-gold:disabled{filter:grayscale(.6) brightness(.7);cursor:not-allowed;box-shadow:none}
+.btn-ghost{background:var(--bg-3);border:1px solid var(--line);color:var(--text);font-weight:500}
+.btn-ghost:hover{background:var(--hover)}
+.btn-block{width:100%}
+
+/* ===== RIGHT RAIL: PREVIEW ===== */
+.rail{position:sticky;top:calc(var(--topbar-h) + 18px)}
+.preview-card{cursor:default}
+.vthumb{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden}
+.vthumb .grad{position:absolute;inset:0}
+.vthumb .grad::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 28% 22%,rgba(255,255,255,.16),transparent 55%)}
+.vthumb .fill{position:absolute;inset:0;background-size:cover;background-position:center}
+.vthumb .badge-dur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.82);color:#fff;font-size:12px;font-weight:500;padding:2px 5px;border-radius:5px}
+.vthumb .badge-q{position:absolute;left:8px;top:8px;background:rgba(212,175,55,.92);color:#1a1407;font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+.vmeta{display:flex;gap:12px;margin-top:12px}
+.chan-av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:#fff;border:1px solid var(--line);background:linear-gradient(135deg,#3a2a14,#1a1a20)}
+.vinfo{min-width:0}
+.vtitle{font-size:15px;font-weight:500;line-height:1.35;margin-bottom:5px;word-break:break-word}
+.vchannel{font-size:13px;color:var(--muted)}
+.vstats{font-size:13px;color:var(--muted);margin-top:2px}
+.preview-tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);margin-bottom:10px}
+
+/* ===== TARGET SITES ===== */
+.site-row{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+  margin-bottom:9px;transition:.2s;cursor:pointer;background:var(--bg-3)}
+.site-row:hover{border-color:var(--gold-deep)}
+.site-row.sel{border-color:var(--gold);background:rgba(212,175,55,.07)}
+.cbox{width:20px;height:20px;border-radius:6px;border:1.6px solid var(--muted-2);flex:none;display:grid;place-items:center;transition:.2s}
+.site-row.sel .cbox{background:linear-gradient(135deg,var(--gold-bright),var(--gold));border-color:var(--gold)}
+.cbox svg{opacity:0;color:#1a1407;transition:.15s}
+.site-row.sel .cbox svg{opacity:1}
+.site-info{min-width:0;flex:1}
+.site-info .nm{font-size:14px;font-weight:500;display:flex;align-items:center;gap:7px}
+.site-info .url{font-size:12px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.health{width:7px;height:7px;border-radius:50%;flex:none}
+.health.ok{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.health.unknown{background:var(--muted-2)}
+.health.error{background:var(--red)}
+.sel-bar{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 12px;font-size:13px;color:var(--muted)}
+.sel-bar a{color:var(--gold-bright);cursor:pointer}
+
+/* ===== RESULTS ===== */
+.result-summary{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:12px;background:var(--bg-3);margin-bottom:14px}
+.result-summary .big{font-family:'Playfair Display',serif;font-size:26px;font-weight:900;color:var(--gold-bright)}
+.result-summary .lbl{font-size:13px;color:var(--muted)}
+.res-row{display:flex;align-items:center;gap:13px;padding:13px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:9px}
+.res-row .st{width:10px;height:10px;border-radius:50%;flex:none}
+.res-row .st.pending{background:var(--muted-2)}
+.res-row .st.processing{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:pulse 1s infinite}
+.res-row .st.success{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.res-row .st.failed{background:var(--red);box-shadow:0 0 7px var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.res-row .rinfo{flex:1;min-width:0}
+.res-row .rname{font-size:14px;font-weight:500}
+.res-row .rmsg{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-row .rmsg.err{color:var(--red)}
+.res-row .rmsg a{color:var(--gold-bright)}
+.res-row .stat-txt{font-size:12px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:20px;flex:none}
+.stat-txt.success{background:rgba(70,211,105,.15);color:var(--ok)}
+.stat-txt.failed{background:rgba(255,77,77,.15);color:var(--red)}
+.stat-txt.processing{background:rgba(212,175,55,.15);color:var(--gold-bright)}
+.res-row .retry{font-size:12px;color:var(--gold-bright);cursor:pointer;flex:none}
+
+/* video source: segmented toggle + upload dropzone */
+.seg{display:inline-flex;background:var(--field);border:1px solid var(--field-line);border-radius:10px;padding:3px;gap:3px}
+.seg-btn{padding:8px 16px;border-radius:7px;font-size:13.5px;font-weight:500;color:var(--muted);transition:.2s}
+.seg-btn:hover{color:var(--text)}
+.seg-btn.active{background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;font-weight:700}
+.vid-drop{border:1.5px dashed var(--field-line);border-radius:12px;background:var(--field);padding:18px;transition:border-color .2s,background .2s}
+.vid-drop.busy,.vid-drop.done{border-style:solid;border-color:var(--line)}
+.vd-idle{display:flex;align-items:center;gap:14px;color:var(--muted);cursor:pointer}
+.vid-drop:not(.busy):not(.done):hover{border-color:var(--gold-deep);background:#161616}
+.vd-idle .ic{width:46px;height:46px;border-radius:12px;background:var(--bg-3);display:grid;place-items:center;color:var(--gold-bright);flex:none}
+.vd-idle .t b{display:block;color:var(--text);font-weight:500;font-size:14px}
+.vd-idle .t span{font-size:12px;color:var(--muted-2)}
+.vd-file{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.vd-file .ic{width:40px;height:40px;border-radius:10px;background:var(--bg-3);display:grid;place-items:center;color:var(--gold-bright);flex:none}
+.vd-file .meta{min-width:0;flex:1}
+.vd-file .meta b{display:block;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vd-file .meta span{font-size:12px;color:var(--muted-2)}
+.bar{height:8px;border-radius:6px;background:var(--bg-3);overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--gold),var(--gold-bright));transition:width .2s}
+.bar-info{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:7px}
+.vd-done{display:flex;align-items:center;gap:13px}
+.vd-done .ck{width:40px;height:40px;border-radius:50%;background:rgba(70,211,105,.15);display:grid;place-items:center;color:var(--ok);flex:none}
+.vd-done .meta{min-width:0;flex:1}
+.vd-done .meta b{display:block;font-size:14px;color:var(--ok)}
+.vd-done .meta .u{font-size:12px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vd-re{font-size:12.5px;cursor:pointer;flex:none;background:none}
+.vd-done .re{font-size:12.5px;color:var(--gold-bright);cursor:pointer;flex:none}
+
+/* inline quick-add for category selects */
+.addrow{display:flex;gap:8px}
+.addrow select{flex:1}
+.mini-add{width:42px;flex:none;border:1px solid var(--field-line);border-radius:10px;background:var(--bg-3);color:var(--gold-bright);font-size:20px;font-weight:700;line-height:1;transition:.2s}
+.mini-add:hover{background:var(--hover);border-color:var(--gold-deep)}
+.add-inline{display:flex;gap:8px;margin-top:8px}
+.add-inline input{flex:1;background:var(--field);border:1px solid var(--gold-deep);border-radius:10px;padding:9px 12px;color:var(--text);font-size:14px;outline:none}
+.btn-mini{padding:0 14px;border-radius:9px;font-size:13px;font-weight:500;background:var(--bg-3);border:1px solid var(--line);color:var(--text)}
+.btn-mini:hover{background:var(--hover)}
+.btn-mini.gold{background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;font-weight:700;border:none}
+.tag-suggest{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.tag-suggest .sug{font-size:12.5px;color:var(--muted);background:var(--bg-3);border:1px solid var(--line);border-radius:20px;padding:4px 11px;cursor:pointer;transition:.2s}
+.tag-suggest .sug:hover{border-color:var(--gold);color:var(--gold-bright)}
+.tag-suggest .sug.add{color:var(--gold-bright);border-style:dashed;border-color:var(--gold-deep)}
+
+/* taxonomy manager view */
+.tx-main{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden;background:var(--bg-2)}
+.tx-head{display:flex;align-items:center;gap:11px;padding:13px 15px;background:var(--bg-3)}
+.tx-head .ic{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;font-family:'Playfair Display',serif;font-weight:900;color:#1a1407;background:linear-gradient(135deg,var(--gold-bright),var(--gold))}
+.tx-head b{font-size:15px}
+.tx-head .cnt{font-size:12px;color:var(--muted-2)}
+.tx-head .del{margin-left:auto;color:var(--muted-2);font-size:12.5px;cursor:pointer}
+.tx-head .del:hover{color:var(--red)}
+.tx-subs{padding:13px 15px;display:flex;flex-wrap:wrap;gap:8px}
+.tx-sub{display:inline-flex;align-items:center;gap:7px;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:5px 6px 5px 12px;font-size:13px}
+.tx-sub button{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--muted);font-size:14px}
+.tx-sub button:hover{background:var(--hover);color:var(--red)}
+.tx-add{display:flex;gap:7px;width:100%;margin-top:4px}
+.tx-add input{flex:1;background:var(--field);border:1px solid var(--field-line);border-radius:8px;padding:7px 11px;color:var(--text);font-size:13px;outline:none}
+.tx-add input:focus{border-color:var(--gold)}
+
+.empty{text-align:center;padding:36px 20px;color:var(--muted-2)}
+.empty svg{margin-bottom:12px;color:var(--muted-2)}
+.empty b{display:block;color:var(--muted);font-weight:500;margin-bottom:4px}
+
+/* site manage */
+.sm-row{display:flex;align-items:center;gap:13px;padding:14px;border:1px solid var(--line);border-radius:11px;margin-bottom:10px;background:var(--bg-2)}
+.sm-row .av{width:40px;height:40px;border-radius:10px;flex:none;display:grid;place-items:center;font-family:'Playfair Display',serif;font-weight:900;color:#1a1407;background:linear-gradient(135deg,var(--gold-bright),var(--gold))}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#fff;color:#0a0a0a;
+  font-size:14px;font-weight:500;padding:12px 20px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  opacity:0;pointer-events:none;transition:.3s var(--ease);z-index:500}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:768px){
+  .main{padding:20px 16px 70px}
+  .page-head h1{font-size:24px}
+  body:not(.side-collapsed) .sidebar{transform:translateX(0)}
+  .sidebar{transform:translateX(-100%);box-shadow:0 0 40px rgba(0,0,0,.6)}
+}
+</style>
+</head>
+<body class="">
+
+<!-- ===== TOP BAR ===== -->
+<header class="topbar">
+  <div class="tb-left">
+    <button class="icon-btn" onclick="document.body.classList.toggle('side-collapsed')" aria-label="เมนู">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <div class="logo"><span class="mark"><span>A</span></span><span class="word">AURUM</span><span class="admin-tag">ADMIN</span></div>
+  </div>
+  <div class="tb-spacer"></div>
+  <div class="env-pill" id="envPill"><span class="dot"></span><span id="envTxt">โหมดตัวอย่าง</span></div>
+  <div class="avatar">ก</div>
+</header>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar">
+  <div class="side-sec">
+    <div class="side-cat">ระบบกระจายเนื้อหา</div>
+    <div class="side-link active" data-view="upload" onclick="switchView('upload')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      อัปโหลด & กระจาย
+    </div>
+    <div class="side-link" data-view="sites" onclick="switchView('sites')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+      เว็บปลายทาง<span class="side-badge" id="siteCount">0</span>
+    </div>
+    <div class="side-link" data-view="log" onclick="switchView('log')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity=".0"/><path d="M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01"/></svg>
+      ประวัติการกระจาย
+    </div>
+  </div>
+  <div class="side-sec">
+    <div class="side-cat">เนื้อหา</div>
+    <div class="side-link" data-view="taxo" onclick="switchView('taxo')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h7l2 2h9v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h3l2 2h2"/></svg>
+      จัดการหมวดหมู่
+    </div>
+    <div class="side-link" onclick="toast('คลังหนัง — ต่อยอดได้จาก /api/movies')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 3v18"/></svg>
+      คลังหนัง
+    </div>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<main class="main">
+
+  <!-- ===== VIEW: UPLOAD ===== -->
+  <section class="view active" id="view-upload">
+    <div class="page-head">
+      <h1><span class="g">อัปโหลด</span> & กระจายเนื้อหา</h1>
+      <p>กรอกข้อมูลหนังครั้งเดียว เลือกเว็บปลายทาง แล้วกระจายไปทุกเว็บ WordPress พร้อมกันผ่าน REST API</p>
+    </div>
+
+    <div class="ad-grid">
+      <!-- LEFT: FORM -->
+      <div>
+        <div class="panel">
+          <div class="panel-head"><span class="n">1</span><h3>ข้อมูลหนัง</h3></div>
+          <div class="row2">
+            <div class="field"><label>ชื่อเรื่อง (ไทย) <span class="req">*</span></label>
+              <input type="text" id="f-th" placeholder="เช่น ราตรีสีทอง" oninput="syncPreview()"></div>
+            <div class="field"><label>ชื่อเรื่อง (อังกฤษ)</label>
+              <input type="text" id="f-en" placeholder="Golden Hour" oninput="syncPreview()"></div>
+          </div>
+          <div class="field"><label>เรื่องย่อ</label>
+            <textarea id="f-excerpt" placeholder="เรื่องราวของ..." oninput="syncPreview()"></textarea></div>
+          <div class="row2">
+            <div class="field"><label>หมวดหมู่หลัก <span class="req">*</span></label>
+              <div class="addrow">
+                <select id="f-main" onchange="onMainChange()"></select>
+                <button type="button" class="mini-add" onclick="showAdd('main')" title="เพิ่มหมวดหมู่หลัก">+</button>
+              </div>
+              <div class="add-inline" id="add-main" style="display:none">
+                <input type="text" id="add-main-input" placeholder="หมวดหมู่หลักใหม่ (เช่น สารคดี)" onkeydown="if(event.key==='Enter'){event.preventDefault();addMain()}">
+                <button type="button" class="btn-mini gold" onclick="addMain()">เพิ่ม</button>
+                <button type="button" class="btn-mini" onclick="hideAdd('main')">ยกเลิก</button>
+              </div>
+            </div>
+            <div class="field"><label>หมวดหมู่ย่อย <span class="req">*</span></label>
+              <div class="addrow">
+                <select id="f-sub" onchange="syncPreview()"></select>
+                <button type="button" class="mini-add" onclick="showAdd('sub')" title="เพิ่มหมวดหมู่ย่อย">+</button>
+              </div>
+              <div class="add-inline" id="add-sub" style="display:none">
+                <input type="text" id="add-sub-input" placeholder="หมวดหมู่ย่อยใหม่" onkeydown="if(event.key==='Enter'){event.preventDefault();addSub()}">
+                <button type="button" class="btn-mini gold" onclick="addSub()">เพิ่ม</button>
+                <button type="button" class="btn-mini" onclick="hideAdd('sub')">ยกเลิก</button>
+              </div>
+              <div class="hint" id="subHint">อยู่ภายใต้ "<span id="subHintMain">—</span>"</div>
+            </div>
+          </div>
+          <div class="row3">
+            <div class="field"><label>ปี</label><input type="number" id="f-year" placeholder="2025" value="2025" oninput="syncPreview()"></div>
+            <div class="field"><label>ความยาว</label><input type="text" id="f-dur" placeholder="2:14:30" oninput="syncPreview()"></div>
+            <div class="field"><label>เรตติ้ง</label><input type="number" id="f-rating" step="0.1" max="10" placeholder="9.2" oninput="syncPreview()"></div>
+          </div>
+          <div class="field"><label>แท็ก</label>
+            <div class="tagbox" id="tagbox" onclick="document.getElementById('tagInput').focus()">
+              <input type="text" id="tagInput" placeholder="พิมพ์แล้วกด Enter" onkeydown="tagKey(event)">
+            </div>
+            <div class="tag-suggest" id="tagSuggest"></div>
+            <div class="hint">หมวดหมู่ + แท็ก จะถูกสร้าง/จับคู่เป็น term บน WordPress ทุกเว็บอัตโนมัติตอนกระจาย</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><span class="n">2</span><h3>สื่อ</h3>
+            <span class="sub">รูปหน้าปก + แหล่งวิดีโอ</span></div>
+          <div class="row2" style="align-items:start">
+            <div class="field"><label>รูปหน้าปก (Thumbnail)</label>
+              <label class="thumb-drop" id="thumbDrop">
+                <span class="badge-q" id="dropQ" style="display:none">HD</span>
+                <div class="ph" id="thumbPh">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>
+                  <div>คลิกเพื่ออัปโหลด<br><span style="font-size:11px">อัปขึ้น S3 / Bunny.net</span></div>
+                </div>
+                <div class="fill" id="thumbFill" style="display:none"></div>
+                <input type="file" id="thumbFile" accept="image/*" onchange="onThumb(event)">
+              </label>
+            </div>
+            <div>
+              <div class="field"><label>หรือวาง URL รูป</label>
+                <input type="url" id="f-thumbUrl" placeholder="https://cdn.../poster.jpg" oninput="onThumbUrl()"></div>
+              <div class="field"><label>คุณภาพ</label>
+                <select id="f-quality" onchange="syncPreview()"><option>HD</option><option>4K</option><option>FHD</option><option>CAM</option></select></div>
+            </div>
+          </div>
+          <div class="field"><label>วิดีโอ <span class="req">*</span></label>
+            <div class="seg">
+              <button type="button" class="seg-btn active" id="seg-link" onclick="setVideoMode('link')">วางลิงก์</button>
+              <button type="button" class="seg-btn" id="seg-upload" onclick="setVideoMode('upload')">อัปโหลดไฟล์</button>
+            </div>
+          </div>
+
+          <!-- โหมด: วางลิงก์ -->
+          <div id="videoLink">
+            <div class="row2">
+              <div class="field"><label>ลิงก์วิดีโอ</label>
+                <input type="url" id="f-video" placeholder="https://stream.bunny.net/.../play.m3u8"></div>
+              <div class="field"><label>ผู้ให้บริการ</label>
+                <select id="f-provider"><option value="external">ลิงก์ภายนอก</option><option value="bunny">Bunny.net</option><option value="s3">AWS S3</option></select></div>
+            </div>
+          </div>
+
+          <!-- โหมด: อัปโหลดไฟล์เอง -->
+          <div id="videoUpload" style="display:none">
+            <div class="row2" style="align-items:start">
+              <div class="field"><label>อัปโหลดไปยัง</label>
+                <select id="f-uploadProvider"><option value="bunny">Bunny.net Stream</option><option value="s3">AWS S3</option></select></div>
+              <div class="field"><label>คุณภาพต้นฉบับ</label>
+                <select id="f-srcQ"><option>1080p</option><option>4K (2160p)</option><option>720p</option></select></div>
+            </div>
+            <div class="vid-drop" id="vidDrop">
+              <div class="vd-idle" id="vdIdle" onclick="document.getElementById('vidFile').click()">
+                <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span>
+                <div class="t"><b>คลิกหรือลากไฟล์วิดีโอมาที่นี่</b><span>MP4 / MKV / MOV — อัปตรงสู่ Cloud (ไม่ผ่าน server)</span></div>
+              </div>
+              <div class="vd-busy" id="vdBusy" style="display:none">
+                <div class="vd-file"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8zM2 6h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2z"/></svg></span>
+                  <div class="meta"><b id="vdName">video.mp4</b><span id="vdSize">0 MB</span></div>
+                  <button type="button" class="vd-re" style="color:var(--red)" onclick="cancelVideoUpload()">ยกเลิก</button></div>
+                <div class="bar"><i id="vdBar"></i></div>
+                <div class="bar-info"><span id="vdSpeed">กำลังเตรียม…</span><span id="vdPct">0%</span></div>
+              </div>
+              <div class="vd-done" id="vdDone" style="display:none">
+                <span class="ck"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+                <div class="meta"><b>อัปโหลดเสร็จ — พร้อมกระจาย</b><span class="u" id="vdUrl"></span></div>
+                <span class="re" onclick="resetVideo()">เปลี่ยนไฟล์</span></div>
+              <input type="file" id="vidFile" accept="video/*" style="display:none" onchange="onVideoPick(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: PREVIEW + SITES + ACTION -->
+      <div class="rail">
+        <div class="panel">
+          <div class="preview-tag">ตัวอย่างบนหน้า AURUM</div>
+          <div class="preview-card vcard">
+            <div class="vthumb">
+              <div class="grad" id="pvGrad" style="background:linear-gradient(135deg,#1a2440,#3a1f38)"></div>
+              <div class="fill" id="pvFill" style="display:none"></div>
+              <span class="badge-q" id="pvQ">HD</span>
+              <span class="badge-dur" id="pvDur">0:00</span>
+            </div>
+            <div class="vmeta">
+              <div class="chan-av" id="pvAv">A</div>
+              <div class="vinfo">
+                <div class="vtitle" id="pvTitle">ชื่อเรื่องหนัง</div>
+                <div class="vchannel" id="pvChannel">ออรัม สตูดิโอ</div>
+                <div class="vstats" id="pvStats">หมวดหมู่ · ปี</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><span class="n">3</span><h3>เว็บปลายทาง</h3></div>
+          <div class="sel-bar">
+            <span><b id="selN" style="color:var(--text)">0</b> / <span id="totN">0</span> เว็บ</span>
+            <a onclick="toggleAll()">เลือกทั้งหมด</a>
+          </div>
+          <div id="siteList"></div>
+        </div>
+
+        <button class="btn btn-gold btn-block" id="distBtn" onclick="distribute()" style="font-size:15px;padding:14px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          บันทึก & กระจาย
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="panel" id="resultPanel" style="display:none">
+      <div class="panel-head"><span class="n">✓</span><h3>ผลการกระจาย</h3>
+        <span class="sub" id="resTime"></span></div>
+      <div class="result-summary" id="resSummary"></div>
+      <div id="resRows"></div>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: SITES ===== -->
+  <section class="view" id="view-sites">
+    <div class="page-head"><h1><span class="g">เว็บปลายทาง</span></h1>
+      <p>จัดการเว็บ WordPress ปลายทาง — กุญแจ (Application Password / JWT) จะถูกเข้ารหัส AES-256-GCM ก่อนบันทึก</p></div>
+    <div class="ad-grid">
+      <div class="panel">
+        <div class="panel-head"><h3>เว็บที่เชื่อมต่อ</h3><span class="sub" id="smCount"></span></div>
+        <div id="smList"></div>
+      </div>
+      <div class="rail">
+        <div class="panel">
+          <div class="panel-head"><span class="n">+</span><h3>เพิ่มเว็บ</h3></div>
+          <div class="field"><label>ชื่อเรียก <span class="req">*</span></label><input type="text" id="s-name" placeholder="Site A"></div>
+          <div class="field"><label>URL <span class="req">*</span></label><input type="url" id="s-url" placeholder="https://site-a.com"></div>
+          <div class="field"><label>วิธียืนยันตัวตน</label>
+            <select id="s-auth"><option value="app_password">Application Password</option><option value="jwt">JWT</option></select></div>
+          <div class="field"><label>WP Username</label><input type="text" id="s-user" placeholder="editor"></div>
+          <div class="field"><label>กุญแจ (App Password / Token) <span class="req">*</span></label>
+            <input type="text" id="s-cred" placeholder="xxxx xxxx xxxx xxxx">
+            <div class="hint">ส่งไป POST /api/sites → เข้ารหัสที่ฝั่ง server</div></div>
+          <button class="btn btn-gold btn-block" onclick="addSite()">เพิ่มเว็บ</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== VIEW: LOG ===== -->
+  <section class="view" id="view-log">
+    <div class="page-head"><h1><span class="g">ประวัติ</span>การกระจาย</h1>
+      <p>บันทึกล่าสุดจากตาราง distributions</p></div>
+    <div class="panel" id="logPanel">
+      <div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01"/></svg>
+        <b>ยังไม่มีประวัติการกระจาย</b>ลองกระจายหนังจากหน้า "อัปโหลด & กระจาย"</div>
+    </div>
+  </section>
+  <!-- ===== VIEW: TAXONOMY ===== -->
+  <section class="view" id="view-taxo">
+    <div class="page-head"><h1><span class="g">จัดการ</span>หมวดหมู่</h1>
+      <p>หมวดหมู่หลัก = term แม่ บน WordPress · หมวดหมู่ย่อย = term ลูก (อยู่ใต้หมวดหมู่หลัก) · ทุก term จะถูกสร้าง/จับคู่บนเว็บปลายทางอัตโนมัติตอนกระจาย</p></div>
+    <div class="ad-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-head"><h3>หมวดหมู่หลัก & ย่อย</h3>
+            <span class="sub" id="txMainCount"></span></div>
+          <div id="txList"></div>
+          <div class="add-inline" style="margin-top:14px">
+            <input type="text" id="tx-newmain" placeholder="เพิ่มหมวดหมู่หลักใหม่ (เช่น สารคดี, อนิเมะ)" onkeydown="if(event.key==='Enter'){event.preventDefault();txAddMain()}">
+            <button type="button" class="btn-mini gold" onclick="txAddMain()">เพิ่มหมวดหมู่หลัก</button>
+          </div>
+        </div>
+      </div>
+      <div class="rail">
+        <div class="panel">
+          <div class="panel-head"><h3>แท็กที่ใช้บ่อย</h3></div>
+          <div class="tag-suggest" id="txTagList" style="margin-top:0"></div>
+          <div class="add-inline" style="margin-top:12px">
+            <input type="text" id="tx-newtag" placeholder="เพิ่มแท็ก" onkeydown="if(event.key==='Enter'){event.preventDefault();txAddTag()}">
+            <button type="button" class="btn-mini gold" onclick="txAddTag()">เพิ่ม</button>
+          </div>
+        </div>
+        <div class="panel" style="font-size:13px;color:var(--muted);line-height:1.7">
+          <b style="color:var(--gold-bright);display:block;margin-bottom:6px">การเชื่อมกับ WordPress</b>
+          ตอนกด "บันทึก & กระจาย" ระบบจะ:<br>
+          1. สร้าง/หา <b style="color:var(--text)">หมวดหมู่หลัก</b> เป็น category แม่<br>
+          2. สร้าง/หา <b style="color:var(--text)">หมวดหมู่ย่อย</b> เป็น category ลูก (parent = หลัก)<br>
+          3. ผูกทั้งคู่ + แท็ก เข้ากับโพสต์<br>
+          ทำซ้ำบนทุกเว็บที่เลือก
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   การตั้งค่า — สลับระหว่างโหมดตัวอย่าง (mock) กับ backend จริง
+   ───────────────────────────────────────────────────────
+   ต่อ backend จริง:  ตั้ง MOCK_MODE = false และใส่ API_BASE
+   ระบบจะเรียก:
+     GET  {API_BASE}/api/sites
+     POST {API_BASE}/api/movies
+     POST {API_BASE}/api/movies/:id/distribute
+========================================================= */
+const MOCK_MODE = true;
+const API_BASE  = 'http://localhost:3001';
+
+/* ===== โครงสร้างหมวดหมู่ (หลัก -> ย่อย) =====
+   โหมดจริง: ดึง/บันทึกผ่าน backend ได้ (ดูหมายเหตุท้ายไฟล์) — ตอนกระจายจะสร้าง term บน WP เอง */
+let TAXO = {
+  "หนัง":     ["ดราม่า","ไซไฟ","แอ็คชั่น","ระทึกขวัญ","โรแมนติก","สยองขวัญ"],
+  "คลิป":     ["คลิปไทย","คลิปใหม่ล่าสุด","คลิปฮิต"],
+  "คลิปสั้น":  ["ไวรัล","ตลก"],
+  "AV":       ["ซับไทย","ไม่เซ็นเซอร์"],
+};
+let TAGS = ["2025","HD","ซับไทย","พากย์ไทย","มาสเตอร์","เต็มเรื่อง"];
+const GRADS = [["#1a2440","#3a1f38"],["#2a0f0f","#1a1a1a"],["#0f1420","#2a1a2e"],["#0a1a3a","#1a0a3a"],["#2e1a2a","#3a2418"],["#10221f","#1a1a2e"]];
+const mainKeys = () => Object.keys(TAXO);
+const mainIdx = (m) => Math.max(0, mainKeys().indexOf(m));
+
+/* mock target sites (โหมดจริงจะดึงจาก /api/sites) */
+let SITES = [
+  {id:1,name:"AURUM Main",base_url:"https://aurum-movies.com",post_type:"movies",health_status:"ok"},
+  {id:2,name:"หนังโรง HD",base_url:"https://nangrong-hd.com",post_type:"posts",health_status:"ok"},
+  {id:3,name:"Movie Vault",base_url:"https://movievault.net",post_type:"movies",health_status:"ok"},
+  {id:4,name:"ดูหนัง 4K",base_url:"https://doonang4k.com",post_type:"posts",health_status:"unknown"},
+];
+let selectedSites = new Set();
+let tags = [];
+let thumbDataUrl = null;
+let logHistory = [];
+
+/* ---------- INIT ---------- */
+function init(){
+  renderMainSelect();
+  renderTagSuggest();
+  renderTaxo();
+  if(!MOCK_MODE){ document.getElementById('envPill').classList.add('live');
+    document.getElementById('envTxt').textContent='เชื่อมต่อ backend'; loadSites(); }
+  else renderSites();
+  syncPreview();
+}
+
+/* ---------- CATEGORY SELECTS (main -> sub) ---------- */
+function renderMainSelect(){
+  const sel=document.getElementById('f-main'), cur=sel.value;
+  sel.innerHTML=mainKeys().map(m=>`<option ${m===cur?'selected':''}>${m}</option>`).join('');
+  renderSubSelect();
+}
+function renderSubSelect(){
+  const main=document.getElementById('f-main').value;
+  const sel=document.getElementById('f-sub'), cur=sel.value;
+  const subs=TAXO[main]||[];
+  sel.innerHTML = subs.length
+    ? subs.map(s=>`<option ${s===cur?'selected':''}>${s}</option>`).join('')
+    : `<option value="">— ยังไม่มี กด + เพื่อเพิ่ม —</option>`;
+  document.getElementById('subHintMain').textContent=main||'—';
+}
+function onMainChange(){ renderSubSelect(); syncPreview(); }
+
+function showAdd(which){ document.getElementById('add-'+which).style.display='flex';
+  document.getElementById('add-'+which+'-input').focus(); }
+function hideAdd(which){ document.getElementById('add-'+which).style.display='none';
+  document.getElementById('add-'+which+'-input').value=''; }
+function addMain(){
+  const v=document.getElementById('add-main-input').value.trim(); if(!v)return;
+  if(!TAXO[v]) TAXO[v]=[];
+  renderMainSelect(); document.getElementById('f-main').value=v;
+  renderSubSelect(); hideAdd('main'); renderTaxo(); syncPreview();
+  toast('เพิ่มหมวดหมู่หลัก "'+v+'"');
+}
+function addSub(){
+  const main=document.getElementById('f-main').value;
+  const v=document.getElementById('add-sub-input').value.trim(); if(!v||!main)return;
+  if(!TAXO[main].includes(v)) TAXO[main].push(v);
+  renderSubSelect(); document.getElementById('f-sub').value=v;
+  hideAdd('sub'); renderTaxo(); syncPreview();
+  toast('เพิ่มหมวดหมู่ย่อย "'+v+'" ใต้ "'+main+'"');
+}
+
+/* ---------- TAG SUGGESTIONS ---------- */
+function renderTagSuggest(){
+  const box=document.getElementById('tagSuggest');
+  box.innerHTML=TAGS.filter(t=>!tags.includes(t))
+    .map(t=>`<span class="sug" onclick="addTagFromSuggest('${t}')">+ ${t}</span>`).join('');
+}
+function addTagFromSuggest(t){ if(!tags.includes(t)){tags.push(t);renderTags();renderTagSuggest();} }
+async function loadSites(){
+  try{ const r=await fetch(`${API_BASE}/api/sites`); SITES=await r.json(); }
+  catch(e){ toast('เชื่อม backend ไม่ได้ — ใช้รายการตัวอย่าง'); }
+  renderSites();
+}
+
+/* ---------- SITES (selectable) ---------- */
+function renderSites(){
+  document.getElementById('siteCount').textContent=SITES.length;
+  document.getElementById('totN').textContent=SITES.length;
+  document.getElementById('siteList').innerHTML = SITES.map(s=>`
+    <div class="site-row ${selectedSites.has(s.id)?'sel':''}" onclick="toggleSite(${s.id})">
+      <span class="cbox"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <div class="site-info">
+        <div class="nm">${s.name} <span class="health ${s.health_status}"></span></div>
+        <div class="url">${s.base_url} · ${s.post_type}</div>
+      </div>
+    </div>`).join('');
+  updateSelN();
+  renderSiteManage();
+}
+function toggleSite(id){ selectedSites.has(id)?selectedSites.delete(id):selectedSites.add(id); renderSites(); }
+function toggleAll(){ if(selectedSites.size===SITES.length)selectedSites.clear();
+  else SITES.forEach(s=>selectedSites.add(s.id)); renderSites(); }
+function updateSelN(){ document.getElementById('selN').textContent=selectedSites.size; }
+
+/* ---------- TAGS ---------- */
+function tagKey(e){ if(e.key==='Enter'||e.key===','){ e.preventDefault();
+  const v=e.target.value.trim().replace(/,$/,''); if(v&&!tags.includes(v)){tags.push(v);renderTags();renderTagSuggest();} e.target.value=''; }
+  else if(e.key==='Backspace'&&!e.target.value&&tags.length){ tags.pop(); renderTags(); renderTagSuggest(); } }
+function renderTags(){
+  const box=document.getElementById('tagbox');
+  box.querySelectorAll('.tag').forEach(t=>t.remove());
+  const inp=document.getElementById('tagInput');
+  tags.forEach((t,i)=>{ const el=document.createElement('span'); el.className='tag';
+    el.innerHTML=`<b>${t}</b><button onclick="removeTag(${i})" aria-label="ลบ">×</button>`; box.insertBefore(el,inp); });
+}
+function removeTag(i){ tags.splice(i,1); renderTags(); renderTagSuggest(); }
+
+/* ---------- THUMBNAIL ---------- */
+function onThumb(e){ const f=e.target.files[0]; if(!f)return;
+  const rd=new FileReader(); rd.onload=()=>{ thumbDataUrl=rd.result; applyThumb(); }; rd.readAsDataURL(f);
+  if(MOCK_MODE) toast('โหมดจริงจะอัปไฟล์นี้ขึ้น Cloud Storage'); }
+function onThumbUrl(){ const u=document.getElementById('f-thumbUrl').value.trim();
+  thumbDataUrl = u||null; applyThumb(); }
+function applyThumb(){
+  const drop=document.getElementById('thumbDrop'), fill=document.getElementById('thumbFill'),
+        ph=document.getElementById('thumbPh'), q=document.getElementById('dropQ');
+  if(thumbDataUrl){ drop.classList.add('has-img'); fill.style.display='block'; fill.style.backgroundImage=`url('${thumbDataUrl}')`;
+    ph.style.display='none'; q.style.display='block'; q.textContent=document.getElementById('f-quality').value; }
+  else{ drop.classList.remove('has-img'); fill.style.display='none'; ph.style.display='block'; q.style.display='none'; }
+  syncPreview();
+}
+
+/* ---------- LIVE PREVIEW (โชว์หมวดหมู่หลักบนการ์ดแบบหน้าแสดงผล) ---------- */
+function syncPreview(){
+  const th=document.getElementById('f-th').value.trim();
+  const en=document.getElementById('f-en').value.trim();
+  const main=document.getElementById('f-main').value;       // หมวดหมู่หลัก
+  const sub=document.getElementById('f-sub').value;          // หมวดหมู่ย่อย
+  const year=document.getElementById('f-year').value;
+  const dur=document.getElementById('f-dur').value.trim()||'0:00';
+  const q=document.getElementById('f-quality').value;
+  document.getElementById('pvTitle').textContent = th || en || 'ชื่อเรื่องหนัง';
+  document.getElementById('pvChannel').textContent = main || 'หมวดหมู่หลัก';   // ← แทนช่อง/สตูดิโอ
+  document.getElementById('pvStats').textContent = [sub,year].filter(Boolean).join(' · ')||'หมวดหมู่ย่อย · ปี';
+  document.getElementById('pvDur').textContent = dur;
+  document.getElementById('pvQ').textContent = q;
+  document.getElementById('pvAv').textContent=(main||'A').charAt(0);
+  const g=GRADS[mainIdx(main)%GRADS.length];
+  document.getElementById('pvGrad').style.background=`linear-gradient(135deg,${g[0]},${g[1]})`;
+  const pf=document.getElementById('pvFill'), pg=document.getElementById('pvGrad');
+  if(thumbDataUrl){ pf.style.display='block'; pf.style.backgroundImage=`url('${thumbDataUrl}')`; pg.style.display='none'; }
+  else{ pf.style.display='none'; pg.style.display='block'; }
+}
+
+/* ---------- COLLECT FORM ---------- */
+function videoSource(){
+  if(videoMode==='upload') return {url:uploadedVideoUrl||'', provider:document.getElementById('f-uploadProvider').value};
+  return {url:document.getElementById('f-video').value.trim(), provider:document.getElementById('f-provider').value};
+}
+function collect(){
+  const vid=videoSource();
+  const main=document.getElementById('f-main').value;
+  const sub=document.getElementById('f-sub').value;
+  return {
+    title: document.getElementById('f-th').value.trim(),
+    excerpt: document.getElementById('f-excerpt').value.trim(),
+    main_category: main,            // ← หมวดหมู่หลัก = category แม่บน WP (+โชว์บนหน้าแสดงผล)
+    categories: sub?[sub]:[],       // ← หมวดหมู่ย่อย = category ลูก
+    tags: tags.slice(),
+    thumbnail_url: (document.getElementById('f-thumbUrl').value.trim())|| (thumbDataUrl&&!thumbDataUrl.startsWith('data:')?thumbDataUrl:''),
+    video_url: vid.url,
+    video_provider: vid.provider,
+    extra_meta:{
+      title_en: document.getElementById('f-en').value.trim(),
+      main_category: main,
+      year:+document.getElementById('f-year').value||null,
+      duration: document.getElementById('f-dur').value.trim(),
+      rating:+document.getElementById('f-rating').value||null,
+      quality: document.getElementById('f-quality').value,
+    }
+  };
+}
+
+/* ---------- DISTRIBUTE ---------- */
+async function distribute(){
+  const data=collect();
+  if(!data.title){ toast('กรุณากรอกชื่อเรื่อง (ไทย)'); return; }
+  if(!data.main_category){ toast('กรุณาเลือกหมวดหมู่หลัก'); return; }
+  if(!data.categories.length){ toast('กรุณาเลือกหมวดหมู่ย่อย (กด + เพื่อเพิ่มถ้ายังไม่มี)'); return; }
+  if(!data.video_url){ toast(videoMode==='upload'?'กรุณาอัปโหลดวิดีโอให้เสร็จก่อน':'กรุณาใส่ลิงก์วิดีโอ'); return; }
+  if(!selectedSites.size){ toast('เลือกเว็บปลายทางอย่างน้อย 1 เว็บ'); return; }
+
+  const btn=document.getElementById('distBtn'); btn.disabled=true;
+  const ids=[...selectedSites];
+  showResultSkeleton(ids);
+
+  let result;
+  if(MOCK_MODE) result=await mockDistribute(data,ids);
+  else result=await realDistribute(data,ids);
+
+  renderResults(result);
+  logHistory.unshift({title:data.title,time:new Date(),...result});
+  renderLog();
+  btn.disabled=false;
+  toast(result.summary.success===result.summary.total?'กระจายสำเร็จทุกเว็บ ✓':`สำเร็จ ${result.summary.success}/${result.summary.total} เว็บ`);
+}
+
+async function realDistribute(data,ids){
+  const m=await fetch(`${API_BASE}/api/movies`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(r=>r.json());
+  return fetch(`${API_BASE}/api/movies/${m.id}/distribute`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({siteIds:ids})}).then(r=>r.json());
+}
+
+/* จำลองการยิงแบบ parallel: pending → processing → success/fail (สุ่ม fail ให้เห็นการ retry) */
+async function mockDistribute(data,ids){
+  const results=[];
+  await Promise.all(ids.map(async(id,k)=>{
+    const site=SITES.find(s=>s.id===id);
+    await wait(500+Math.random()*900);
+    setRowState(id,'processing');
+    await wait(500+Math.random()*1000);
+    const fail = site.health_status==='unknown' && Math.random()<0.7;
+    if(fail){ results.push({siteId:id,site:site.name,status:'failed',error:'rest_cannot_create — ตรวจสอบสิทธิ์ผู้ใช้/Application Password'}); }
+    else{ const pid=Math.floor(400+Math.random()*600);
+      results.push({siteId:id,site:site.name,status:'success',postId:pid,url:`${site.base_url}/?p=${pid}`}); }
+  }));
+  const ok=results.filter(r=>r.status==='success').length;
+  return {movieId:Math.floor(Math.random()*900)+100,status:ok===ids.length?'done':ok?'partial':'failed',
+    summary:{total:ids.length,success:ok}, results};
+}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- RESULTS UI ---------- */
+function showResultSkeleton(ids){
+  const p=document.getElementById('resultPanel'); p.style.display='block';
+  document.getElementById('resSummary').innerHTML=`<div><div class="big">…</div><div class="lbl">กำลังกระจายไป ${ids.length} เว็บ</div></div>`;
+  document.getElementById('resRows').innerHTML=ids.map(id=>{const s=SITES.find(x=>x.id===id);
+    return `<div class="res-row" id="row-${id}"><span class="st pending"></span>
+      <div class="rinfo"><div class="rname">${s.name}</div><div class="rmsg">รอคิว…</div></div>
+      <span class="stat-txt processing" style="visibility:hidden">x</span></div>`;}).join('');
+  document.getElementById('resTime').textContent=new Date().toLocaleTimeString('th-TH');
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function setRowState(id,state){ const row=document.getElementById('row-'+id); if(!row)return;
+  row.querySelector('.st').className='st '+state;
+  if(state==='processing') row.querySelector('.rmsg').textContent='กำลังสร้างโพสต์บน WordPress…'; }
+function renderResults(res){
+  document.getElementById('resSummary').innerHTML=
+    `<div><div class="big">${res.summary.success}/${res.summary.total}</div><div class="lbl">เว็บที่สร้างโพสต์สำเร็จ</div></div>
+     <div style="margin-left:auto;text-align:right"><div class="lbl">สถานะรวม</div>
+       <div style="font-weight:700;color:${res.status==='done'?'var(--ok)':res.status==='failed'?'var(--red)':'var(--gold-bright)'}">
+       ${res.status==='done'?'สำเร็จทั้งหมด':res.status==='failed'?'ล้มเหลว':'สำเร็จบางส่วน'}</div></div>`;
+  document.getElementById('resRows').innerHTML=res.results.map(r=>{
+    const ok=r.status==='success';
+    const msg=ok?`โพสต์ #${r.postId} → <a href="${r.url}" target="_blank">${r.url}</a>`:r.error;
+    return `<div class="res-row"><span class="st ${r.status}"></span>
+      <div class="rinfo"><div class="rname">${r.site}</div>
+        <div class="rmsg ${ok?'':'err'}">${msg}</div></div>
+      <span class="stat-txt ${r.status}">${ok?'สำเร็จ':'ล้มเหลว'}</span>
+      ${ok?'':`<span class="retry" onclick="retryOne(${r.siteId})">ลองใหม่</span>`}</div>`;
+  }).join('');
+}
+function retryOne(id){ selectedSites=new Set([id]); renderSites(); distribute(); }
+
+/* ---------- LOG VIEW ---------- */
+function renderLog(){
+  const p=document.getElementById('logPanel');
+  if(!logHistory.length)return;
+  p.innerHTML=logHistory.map(h=>`
+    <div class="res-row" style="margin-bottom:10px">
+      <span class="st ${h.status==='done'?'success':h.status==='failed'?'failed':'processing'}"></span>
+      <div class="rinfo"><div class="rname">${h.title}</div>
+        <div class="rmsg">${h.time.toLocaleString('th-TH')} · ${h.summary.success}/${h.summary.total} เว็บ</div></div>
+      <span class="stat-txt ${h.status==='done'?'success':h.status==='failed'?'failed':'processing'}">${h.summary.success}/${h.summary.total}</span>
+    </div>`).join('');
+}
+
+/* ---------- SITES MANAGE VIEW ---------- */
+function renderSiteManage(){
+  document.getElementById('smCount').textContent=SITES.length+' เว็บ';
+  document.getElementById('smList').innerHTML=SITES.map(s=>`
+    <div class="sm-row"><div class="av">${s.name.charAt(0)}</div>
+      <div class="site-info"><div class="nm">${s.name} <span class="health ${s.health_status}"></span></div>
+        <div class="url">${s.base_url} · post_type: ${s.post_type}</div></div>
+      <span class="stat-txt ${s.health_status==='ok'?'success':s.health_status==='error'?'failed':'processing'}">
+        ${s.health_status==='ok'?'พร้อม':s.health_status==='error'?'ผิดพลาด':'ไม่ทราบ'}</span>
+    </div>`).join('');
+}
+async function addSite(){
+  const name=document.getElementById('s-name').value.trim();
+  const url=document.getElementById('s-url').value.trim();
+  const cred=document.getElementById('s-cred').value.trim();
+  if(!name||!url||!cred){ toast('กรอก ชื่อ / URL / กุญแจ ให้ครบ'); return; }
+  const payload={name,base_url:url,auth_type:document.getElementById('s-auth').value,
+    wp_username:document.getElementById('s-user').value.trim(),credential:cred};
+  if(!MOCK_MODE){ try{ const r=await fetch(`${API_BASE}/api/sites`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const s=await r.json(); SITES.push({...s,health_status:'unknown'}); }catch(e){ toast('บันทึกไม่สำเร็จ'); return; } }
+  else SITES.push({id:Date.now(),name,base_url:url,post_type:'posts',health_status:'unknown'});
+  renderSites();
+  ['s-name','s-url','s-user','s-cred'].forEach(i=>document.getElementById(i).value='');
+  toast('เพิ่มเว็บแล้ว — กุญแจถูกเข้ารหัสที่ฝั่ง server');
+}
+
+/* ---------- VIDEO: MODE + DIRECT UPLOAD ---------- */
+let videoMode='link';
+let uploadedVideoUrl=null;
+let videoXhr=null, videoTus=null;
+
+function setVideoMode(m){
+  videoMode=m;
+  document.getElementById('seg-link').classList.toggle('active',m==='link');
+  document.getElementById('seg-upload').classList.toggle('active',m==='upload');
+  document.getElementById('videoLink').style.display=m==='link'?'':'none';
+  document.getElementById('videoUpload').style.display=m==='upload'?'':'none';
+}
+function fmtSize(b){const u=['B','KB','MB','GB'];let i=0;while(b>=1024&&i<3){b/=1024;i++;}return b.toFixed(b<10&&i>0?1:0)+' '+u[i];}
+function vdShow(state){
+  document.getElementById('vdIdle').style.display=state==='idle'?'':'none';
+  document.getElementById('vdBusy').style.display=state==='busy'?'':'none';
+  document.getElementById('vdDone').style.display=state==='done'?'':'none';
+  const d=document.getElementById('vidDrop');
+  d.classList.toggle('busy',state==='busy'); d.classList.toggle('done',state==='done');
+}
+function setBar(p,extra){ document.getElementById('vdBar').style.width=p+'%';
+  document.getElementById('vdPct').textContent=Math.round(p)+'%';
+  if(extra!==undefined) document.getElementById('vdSpeed').textContent=extra; }
+
+function onVideoPick(e){ const f=e.target.files[0]; if(f) startVideoUpload(f,document.getElementById('f-uploadProvider').value); }
+
+async function startVideoUpload(file,provider){
+  if(!file.type.startsWith('video')){ toast('กรุณาเลือกไฟล์วิดีโอ'); return; }
+  uploadedVideoUrl=null;
+  document.getElementById('vdName').textContent=file.name;
+  document.getElementById('vdSize').textContent=fmtSize(file.size);
+  vdShow('busy'); setBar(0,'กำลังเตรียม…');
+  try{
+    const url = MOCK_MODE ? await mockVideoUpload(file,provider) : await realVideoUpload(file,provider);
+    uploadedVideoUrl=url;
+    document.getElementById('vdUrl').textContent=url;
+    vdShow('done'); toast('อัปโหลดวิดีโอเสร็จ ✓');
+  }catch(err){ vdShow('idle'); toast('อัปโหลดไม่สำเร็จ: '+(err.message||err)); }
+}
+function cancelVideoUpload(){ if(videoXhr)videoXhr.abort(); if(videoTus)videoTus.abort(); vdShow('idle'); }
+function resetVideo(){ uploadedVideoUrl=null; document.getElementById('vidFile').value=''; vdShow('idle'); }
+
+/* mock: จำลอง progress แล้วคืน playback URL ปลอม */
+function mockVideoUpload(file,provider){
+  return new Promise(res=>{ let p=0; const t0=Date.now();
+    const iv=setInterval(()=>{ p+=Math.random()*13+4; if(p>100)p=100;
+      const mb=file.size/1048576, el=Math.max((Date.now()-t0)/1000,.1);
+      setBar(p,(mb*p/100/el).toFixed(1)+' MB/s');
+      if(p>=100){ clearInterval(iv); setTimeout(()=>{ const g=Math.random().toString(36).slice(2,10);
+        res(provider==='bunny'?`https://vz-aurum.b-cdn.net/${g}/playlist.m3u8`
+          :`https://aurum-media.s3.amazonaws.com/videos/${g}/${encodeURIComponent(file.name)}`); },350); }
+    },220); });
+}
+
+/* real: ขอ presign จาก backend แล้วอัปตรงสู่ Cloud
+   - S3   -> presigned PUT (XHR มี progress)
+   - Bunny -> TUS resumable (tus-js-client) */
+async function realVideoUpload(file,provider){
+  const presign=await fetch(`${API_BASE}/api/uploads/presign`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({provider,filename:file.name,contentType:file.type,size:file.size})}).then(r=>r.json());
+  if(presign.strategy==='tus') return tusUpload(file,presign);
+  await xhrPut(presign.uploadUrl,file,presign.method||'PUT',presign.headers||{});
+  return presign.publicUrl;
+}
+function xhrPut(url,file,method,headers){
+  return new Promise((res,rej)=>{ const xhr=new XMLHttpRequest(); videoXhr=xhr;
+    xhr.open(method,url);
+    Object.entries(headers).forEach(([k,v])=>xhr.setRequestHeader(k,v));
+    if(!headers['Content-Type']&&file.type) xhr.setRequestHeader('Content-Type',file.type);
+    const t0=Date.now();
+    xhr.upload.onprogress=e=>{ if(e.lengthComputable){
+      setBar(e.loaded/e.total*100,(e.loaded/1048576/Math.max((Date.now()-t0)/1000,.1)).toFixed(1)+' MB/s'); } };
+    xhr.onload=()=>(xhr.status>=200&&xhr.status<300)?res():rej(new Error('HTTP '+xhr.status));
+    xhr.onerror=()=>rej(new Error('network')); xhr.send(file); });
+}
+async function loadTus(){ if(window.tus)return window.tus;
+  await new Promise((res,rej)=>{ const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/tus-js-client/4.1.0/tus.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('โหลด tus-js-client ไม่ได้')); document.head.appendChild(s); });
+  return window.tus; }
+async function tusUpload(file,presign){ const tus=await loadTus();
+  return new Promise((res,rej)=>{ const up=new tus.Upload(file,{
+    endpoint:presign.uploadUrl, retryDelays:[0,1000,3000,5000], headers:presign.tus,
+    metadata:{filetype:file.type,title:file.name},
+    onProgress:(l,t)=>setBar(l/t*100,(l/1048576).toFixed(0)+'/'+(t/1048576).toFixed(0)+' MB'),
+    onSuccess:()=>res(presign.publicUrl), onError:err=>rej(err) });
+    videoTus=up; up.start(); });
+}
+
+/* ---------- TAXONOMY MANAGER VIEW ---------- */
+function renderTaxo(){
+  const list=document.getElementById('txList'); if(!list)return;
+  const keys=mainKeys();
+  document.getElementById('txMainCount').textContent=keys.length+' หมวดหมู่หลัก';
+  list.innerHTML=keys.map((m,i)=>`
+    <div class="tx-main">
+      <div class="tx-head">
+        <span class="ic">${m.charAt(0)}</span>
+        <div><b>${m}</b> <div class="cnt">${(TAXO[m]||[]).length} หมวดหมู่ย่อย</div></div>
+        <span class="del" onclick="txDelMain('${m}')">ลบ</span>
+      </div>
+      <div class="tx-subs">
+        ${(TAXO[m]||[]).map(s=>`<span class="tx-sub">${s}<button onclick="txDelSub('${m}','${s}')">×</button></span>`).join('')}
+        <div class="tx-add">
+          <input type="text" placeholder="เพิ่มหมวดหมู่ย่อยใน ${m}" onkeydown="if(event.key==='Enter'){event.preventDefault();txAddSub('${m}',this)}">
+          <button type="button" class="btn-mini" onclick="txAddSub('${m}',this.previousElementSibling)">+</button>
+        </div>
+      </div>
+    </div>`).join('');
+  const tl=document.getElementById('txTagList');
+  if(tl) tl.innerHTML=TAGS.map(t=>`<span class="sug">${t}<span style="margin-left:6px;cursor:pointer;color:var(--muted-2)" onclick="txDelTag('${t}')">×</span></span>`).join('')||'<span class="cnt" style="color:var(--muted-2)">ยังไม่มีแท็ก</span>';
+}
+function txAddMain(){ const inp=document.getElementById('tx-newmain'); const v=inp.value.trim(); if(!v)return;
+  if(!TAXO[v])TAXO[v]=[]; inp.value=''; renderTaxo(); renderMainSelect(); toast('เพิ่ม "'+v+'"'); }
+function txDelMain(m){ delete TAXO[m]; renderTaxo(); renderMainSelect(); toast('ลบ "'+m+'"'); }
+function txAddSub(m,inputEl){ const v=inputEl.value.trim(); if(!v)return;
+  if(!TAXO[m].includes(v))TAXO[m].push(v); inputEl.value=''; renderTaxo();
+  if(document.getElementById('f-main').value===m) renderSubSelect(); }
+function txDelSub(m,s){ TAXO[m]=TAXO[m].filter(x=>x!==s); renderTaxo();
+  if(document.getElementById('f-main').value===m) renderSubSelect(); }
+function txAddTag(){ const inp=document.getElementById('tx-newtag'); const v=inp.value.trim(); if(!v)return;
+  if(!TAGS.includes(v))TAGS.push(v); inp.value=''; renderTaxo(); renderTagSuggest(); }
+function txDelTag(t){ TAGS=TAGS.filter(x=>x!==t); renderTaxo(); renderTagSuggest(); }
+
+/* ---------- NAV / TOAST ---------- */
+function switchView(v){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.side-link[data-view]').forEach(l=>l.classList.toggle('active',l.dataset.view===v));
+  if(window.matchMedia('(max-width:768px)').matches) document.body.classList.add('side-collapsed');
+}
+let toastTimer;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);}
+
+if(window.matchMedia('(max-width:768px)').matches) document.body.classList.add('side-collapsed');
+
+/* drag & drop วิดีโอ */
+(function(){ const vd=document.getElementById('vidDrop');
+  ['dragover','dragenter'].forEach(ev=>vd.addEventListener(ev,e=>{e.preventDefault();vd.style.borderColor='var(--gold)';}));
+  ['dragleave','drop'].forEach(ev=>vd.addEventListener(ev,e=>{e.preventDefault();vd.style.borderColor='';}));
+  vd.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0];
+    if(f) startVideoUpload(f,document.getElementById('f-uploadProvider').value); });
+})();
+
+init();
+</script>
+</body>
+</html>

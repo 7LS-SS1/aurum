@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AURUM — ดูหนังออนไลน์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f0f0f;
+  --bg-2:#1c1c1c;
+  --bg-3:#272727;
+  --hover:#3f3f3f;
+  --text:#f1f1f1;
+  --muted:#aaaaaa;
+  --muted-2:#717171;
+  --gold:#d4af37;
+  --gold-bright:#ffe08a;
+  --gold-deep:#a8842a;
+  --line:rgba(255,255,255,.12);
+  --red:#ff4d4d;
+  --topbar-h:56px;
+  --side-w:240px;
+  --ease:cubic-bezier(.2,.7,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body.no-scroll{overflow:hidden}
+::selection{background:var(--gold);color:#000}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+a{color:inherit;text-decoration:none}
+input{font-family:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#383838;border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#555}
+.serif{font-family:'Playfair Display',serif}
+
+/* ============ TOP BAR ============ */
+.topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);z-index:200;display:flex;align-items:center;
+  gap:16px;padding:0 16px;background:var(--bg)}
+.tb-left{display:flex;align-items:center;gap:14px;min-width:170px}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--text);
+  transition:background .2s;flex:none}
+.icon-btn:hover{background:var(--bg-3)}
+.logo{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700;letter-spacing:.06em}
+.logo .mark{width:28px;height:28px;border-radius:50%;flex:none;
+  background:conic-gradient(from 210deg,var(--gold-deep),var(--gold-bright),var(--gold),var(--gold-deep));
+  box-shadow:0 0 12px rgba(212,175,55,.45);display:grid;place-items:center}
+.logo .mark span{font-family:'Playfair Display',serif;color:#1a1407;font-size:16px;font-weight:900;font-style:italic}
+.logo .word{background:linear-gradient(180deg,#fff,var(--gold-bright));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tb-center{flex:1;display:flex;justify-content:center;max-width:680px;margin:0 auto}
+.searchbar{display:flex;flex:1;max-width:560px}
+.searchbar input{flex:1;background:#121212;border:1px solid #303030;border-right:none;border-radius:40px 0 0 40px;
+  padding:10px 18px;color:var(--text);font-size:16px;outline:none}
+.searchbar input:focus{border-color:var(--gold)}
+.searchbar input::placeholder{color:var(--muted-2)}
+.searchbar .go{width:64px;background:var(--bg-3);border:1px solid #303030;border-radius:0 40px 40px 0;
+  display:grid;place-items:center;color:var(--text);transition:background .2s}
+.searchbar .go:hover{background:var(--hover)}
+.mic{width:40px;height:40px;border-radius:50%;background:var(--bg-3);display:grid;place-items:center;margin-left:10px;
+  transition:background .2s;flex:none}
+.mic:hover{background:var(--hover)}
+.tb-right{display:flex;align-items:center;gap:8px;min-width:170px;justify-content:flex-end}
+.avatar{width:34px;height:34px;border-radius:50%;flex:none;background:linear-gradient(135deg,#3a3a44,#1a1a20);
+  border:1.5px solid var(--gold);display:grid;place-items:center;font-weight:700;color:var(--gold-bright);font-size:15px}
+.search-icon-mobile{display:none}
+
+/* ============ SIDEBAR ============ */
+.sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--side-w);overflow-y:auto;
+  padding:12px 12px 30px;z-index:150;background:var(--bg);transition:transform .25s var(--ease)}
+.sidebar::-webkit-scrollbar{width:8px}
+.side-sec{padding:8px 0;border-bottom:1px solid var(--line)}
+.side-sec:last-child{border:none}
+.side-link{display:flex;align-items:center;gap:22px;padding:9px 12px;border-radius:10px;font-size:14px;
+  transition:background .2s;cursor:pointer}
+.side-link:hover{background:var(--bg-3)}
+.side-link.active{background:var(--bg-3);font-weight:500}
+.side-link.active svg{color:var(--gold-bright)}
+.side-link svg{flex:none;color:var(--text)}
+.side-head{font-size:14px;font-weight:500;padding:8px 12px 6px;color:var(--text);display:flex;align-items:center;gap:8px}
+.side-cat{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2);padding:10px 12px 4px}
+
+/* ============ MAIN ============ */
+.main{margin-top:var(--topbar-h);margin-left:var(--side-w);transition:margin-left .25s var(--ease)}
+body.side-collapsed .sidebar{transform:translateX(-100%)}
+body.side-collapsed .main{margin-left:0}
+body.view-watch .sidebar{transform:translateX(-100%)}
+body.view-watch .main{margin-left:0}
+
+/* ============ CHIP BAR ============ */
+.chipbar-wrap{position:sticky;top:var(--topbar-h);z-index:100;background:var(--bg)}
+.chipbar{display:flex;gap:12px;padding:12px 24px;overflow-x:auto;scrollbar-width:none}
+.chipbar::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 14px;border-radius:9px;background:var(--bg-3);font-size:14px;font-weight:500;
+  white-space:nowrap;transition:.2s;border:1px solid transparent}
+.chip:hover{background:var(--hover)}
+.chip.active{background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;font-weight:700}
+
+/* ============ VIDEO GRID ============ */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px 16px;padding:8px 24px 60px}
+.vcard{cursor:pointer}
+.vthumb{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;transition:border-radius .2s}
+.vthumb .grad{position:absolute;inset:0}
+.vthumb .grad::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(circle at 28% 22%,rgba(255,255,255,.16),transparent 55%)}
+.vthumb .badge-dur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.82);color:#fff;
+  font-size:12px;font-weight:500;padding:2px 5px;border-radius:5px;letter-spacing:.02em}
+.vthumb .badge-q{position:absolute;left:8px;top:8px;background:rgba(212,175,55,.92);color:#1a1407;
+  font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:5px}
+.vthumb .hover-play{position:absolute;inset:0;background:rgba(0,0,0,.35);display:grid;place-items:center;
+  opacity:0;transition:.25s}
+.vcard:hover .hover-play{opacity:1}
+.vcard:hover .vthumb{border-radius:0}
+.hover-play .pp{width:54px;height:54px;border-radius:50%;background:rgba(212,175,55,.95);display:grid;place-items:center;color:#1a1407}
+.vmeta{display:flex;gap:12px;margin-top:12px}
+.chan-av{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:#fff;border:1px solid var(--line)}
+.vinfo{min-width:0}
+.vtitle{font-size:15px;font-weight:500;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
+.vchannel{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.vchannel .vc-check{color:var(--muted-2)}
+.vstats{font-size:13px;color:var(--muted)}
+
+/* ============ WATCH PAGE ============ */
+.watch{display:none;max-width:1700px;margin:0 auto;padding:24px 24px 80px;gap:24px;
+  grid-template-columns:minmax(0,1fr) 402px}
+body.view-watch .watch{display:grid}
+body.view-watch .home{display:none}
+
+.player-col{min-width:0}
+.video-stage{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
+.video-stage.theater{border-radius:0;width:100vw;margin-left:calc(-24px - (100vw - 100%)/2 + 24px)}
+.video-stage video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+.poster-fb{position:absolute;inset:0;z-index:1;display:grid;place-items:center;transition:opacity .5s}
+.poster-fb.hidden{opacity:0;pointer-events:none}
+.poster-fb .pg{position:absolute;inset:0}
+.poster-fb::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.3)}
+.big-play{position:relative;z-index:2;width:84px;height:84px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;display:grid;place-items:center;
+  box-shadow:0 10px 36px rgba(0,0,0,.6);transition:transform .25s}
+.big-play:hover{transform:scale(1.08)}
+.cap-box{position:absolute;left:0;right:0;bottom:84px;z-index:3;text-align:center;pointer-events:none;display:none}
+.cap-box.show{display:block}
+.cap-box span{background:rgba(0,0,0,.75);padding:5px 14px;border-radius:7px;font-size:clamp(13px,1.6vw,19px)}
+
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:14px 14px 10px;
+  background:linear-gradient(0deg,rgba(0,0,0,.9),transparent);opacity:0;transition:opacity .3s}
+.video-stage:hover .controls,.controls.show{opacity:1}
+.progress{position:relative;height:5px;background:rgba(255,255,255,.25);border-radius:4px;cursor:pointer;margin-bottom:8px}
+.progress .filled{position:absolute;left:0;top:0;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,var(--gold),var(--gold-bright))}
+.progress .knob{position:absolute;top:50%;left:0;width:13px;height:13px;border-radius:50%;background:var(--gold-bright);
+  transform:translate(-50%,-50%) scale(0);transition:transform .15s;box-shadow:0 1px 6px rgba(0,0,0,.6)}
+.progress:hover{height:7px}
+.progress:hover .knob{transform:translate(-50%,-50%) scale(1)}
+.ctrl-row{display:flex;align-items:center;gap:14px}
+.ctrl-row .spacer{margin-left:auto}
+.cbtn{display:grid;place-items:center;color:#fff;transition:.2s;border-radius:6px;padding:4px}
+.cbtn:hover{color:var(--gold-bright)}
+.cbtn.active{color:var(--gold-bright)}
+.time{font-size:13px;color:#eee;font-variant-numeric:tabular-nums}
+.vol{display:flex;align-items:center;gap:6px}
+.vol input{width:0;opacity:0;transition:.3s;accent-color:var(--gold);cursor:pointer}
+.vol:hover input{width:70px;opacity:1}
+.menu{position:relative}
+.menu-pop{position:absolute;bottom:46px;right:0;background:rgba(28,28,28,.98);border:1px solid var(--line);
+  border-radius:12px;padding:6px;min-width:150px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.menu-pop.open{display:block}
+.menu-pop .mt{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);padding:6px 12px}
+.menu-pop button{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px 12px;
+  border-radius:8px;font-size:14px;color:var(--text);transition:.15s}
+.menu-pop button:hover{background:var(--hover)}
+.menu-pop button.sel{color:var(--gold-bright)}
+.menu-pop button.sel::after{content:"✓"}
+
+/* watch info */
+.w-title{font-size:20px;font-weight:700;line-height:1.35;margin:16px 0 4px}
+.w-en{font-size:14px;color:var(--muted);letter-spacing:.06em;margin-bottom:14px}
+.channel-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ch-block{display:flex;align-items:center;gap:12px;margin-right:auto}
+.ch-av{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-family:'Playfair Display',serif;font-weight:700;font-size:18px;color:#fff;border:1px solid var(--line)}
+.ch-name{font-size:15px;font-weight:500;display:flex;align-items:center;gap:5px}
+.ch-subs{font-size:12px;color:var(--muted)}
+.subscribe{padding:9px 18px;border-radius:40px;background:linear-gradient(135deg,var(--gold-bright),var(--gold));
+  color:#1a1407;font-weight:700;font-size:14px;transition:.2s}
+.subscribe:hover{filter:brightness(1.08)}
+.subscribe.subbed{background:var(--bg-3);color:var(--text)}
+.subscribe.subbed:hover{background:var(--hover)}
+
+.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:40px;background:var(--bg-3);
+  font-size:14px;font-weight:500;transition:.2s;white-space:nowrap}
+.pill:hover{background:var(--hover)}
+.pill svg{flex:none}
+.like-pill{display:inline-flex;align-items:center;background:var(--bg-3);border-radius:40px;overflow:hidden}
+.like-pill button{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;font-size:14px;font-weight:500;transition:.2s}
+.like-pill button:hover{background:var(--hover)}
+.like-pill .lk.on{color:var(--gold-bright)}
+.like-pill .lk.on svg{fill:var(--gold-bright)}
+.like-pill .dk.on{color:var(--red)}
+.like-pill .sep{width:1px;height:22px;background:var(--line)}
+.pill.saved{color:var(--gold-bright)}
+.pill.saved svg{fill:var(--gold-bright)}
+
+/* description box */
+.descbox{background:var(--bg-2);border-radius:12px;padding:14px 16px;margin-top:16px;font-size:14px;cursor:pointer;
+  transition:background .2s}
+.descbox:hover{background:#222}
+.desc-stats{font-weight:500;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.live-pill{display:inline-flex;align-items:center;gap:6px;color:var(--red);font-weight:700;font-size:13px}
+.live-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--red);
+  box-shadow:0 0 0 0 rgba(255,77,77,.6);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,77,.6)}70%{box-shadow:0 0 0 8px rgba(255,77,77,0)}100%{box-shadow:0 0 0 0 rgba(255,77,77,0)}}
+.desc-body{line-height:1.6;color:#e4e4e4;white-space:pre-line;overflow:hidden}
+.desc-body:not(.open){display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.desc-tags{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.tag{color:var(--gold-bright);font-size:14px;font-weight:500}
+.desc-more{color:var(--text);font-weight:600;margin-top:8px;font-size:14px}
+
+/* comments */
+.comments{margin-top:28px}
+.cmt-head{display:flex;align-items:center;gap:16px;font-size:18px;font-weight:700;margin-bottom:22px}
+.cmt-input-row{display:flex;gap:14px;margin-bottom:30px}
+.cmt-av{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;
+  font-size:15px;color:#fff}
+.cmt-input{flex:1}
+.cmt-input input{width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:6px 2px;
+  color:var(--text);font-size:14px;outline:none}
+.cmt-input input:focus{border-color:var(--gold)}
+.cmt-btns{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}
+.cmt-btns button{padding:9px 16px;border-radius:40px;font-size:14px;font-weight:500}
+.cmt-cancel{color:var(--muted)}
+.cmt-send{background:linear-gradient(135deg,var(--gold-bright),var(--gold));color:#1a1407;font-weight:700}
+.cmt{display:flex;gap:14px;margin-bottom:20px}
+.cmt-body .cmt-top{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.cmt-name{font-size:13px;font-weight:500}
+.cmt-time{font-size:12px;color:var(--muted)}
+.cmt-text{font-size:14px;line-height:1.5;color:#e8e8e8}
+.cmt-acts{display:flex;align-items:center;gap:16px;margin-top:7px;color:var(--muted);font-size:12px}
+.cmt-acts span{display:flex;align-items:center;gap:5px;cursor:pointer;transition:color .2s}
+.cmt-acts span:hover{color:var(--text)}
+
+/* right rail */
+.rail{display:flex;flex-direction:column;gap:8px}
+.rail-head{font-size:15px;font-weight:500;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.rail-head .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.rrow{display:flex;gap:8px;cursor:pointer;padding:6px;border-radius:10px;transition:background .2s}
+.rrow:hover{background:var(--bg-2)}
+.rthumb{position:relative;width:168px;aspect-ratio:16/9;border-radius:9px;overflow:hidden;flex:none}
+.rthumb .grad{position:absolute;inset:0}
+.rthumb .badge-dur{position:absolute;right:5px;bottom:5px;background:rgba(0,0,0,.82);color:#fff;font-size:11px;
+  padding:1px 4px;border-radius:4px}
+.rinfo{min-width:0;padding-top:2px}
+.rttl{font-size:14px;font-weight:500;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
+.rchan{font-size:12px;color:var(--muted)}
+.rstat{font-size:12px;color:var(--muted)}
+
+/* mobile bottom nav */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;height:54px;z-index:200;
+  background:var(--bg);border-top:1px solid var(--line);justify-content:space-around;align-items:center}
+.bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--muted);padding:4px 10px}
+.bn-item.active{color:var(--text)}
+.bn-item.active svg{color:var(--gold-bright)}
+
+/* toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(40px);z-index:300;
+  background:rgba(28,28,28,.98);border:1px solid var(--gold);padding:13px 22px;border-radius:40px;font-size:14px;
+  font-weight:500;display:flex;align-items:center;gap:9px;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  opacity:0;transition:.35s var(--ease);color:var(--gold-bright)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* mobile drawer overlay */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:140;opacity:0;visibility:hidden;transition:.25s}
+.scrim.show{opacity:1;visibility:visible}
+
+/* ============ RESPONSIVE ============ */
+@media(max-width:1280px){
+  .watch{grid-template-columns:1fr;max-width:1000px}
+  .rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .rrow{flex-direction:column;padding:0}
+  .rthumb{width:100%}
+}
+@media(max-width:1000px){
+  body:not(.side-collapsed) .sidebar{transform:translateX(-100%);box-shadow:0 0 40px rgba(0,0,0,.6)}
+  body:not(.side-collapsed) .main{margin-left:0}
+  /* on tablet, sidebar floats over content; default collapsed */
+}
+@media(min-width:1001px){.scrim{display:none}}
+@media(max-width:768px){
+  :root{--topbar-h:54px}
+  .tb-center{display:none}
+  .search-icon-mobile{display:grid}
+  .tb-left{min-width:auto}
+  .tb-right{min-width:auto;gap:4px}
+  .menu-burger{display:grid}
+  .logo{font-size:19px}
+  .sidebar{width:260px}
+  .main{margin-left:0!important}
+  .sidebar{transform:translateX(-100%)}
+  body.mside-open .sidebar{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.7)}
+  .grid{grid-template-columns:1fr;padding:6px 0 70px;gap:18px 0}
+  .vthumb{border-radius:0}
+  .vmeta{padding:0 12px}
+  .chipbar{padding:10px 12px}
+  .watch{padding:0 0 80px;gap:16px}
+  .video-stage{border-radius:0;position:sticky;top:var(--topbar-h);z-index:90}
+  .video-stage.theater{margin-left:0;width:100%}
+  .w-title,.w-en,.channel-row,.descbox,.comments,.rail,.rail-head{padding-left:12px;padding-right:12px}
+  .w-title{margin-top:14px}
+  .actions{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap;padding-bottom:4px}
+  .actions::-webkit-scrollbar{display:none}
+  .channel-row{padding-top:0}
+  .rail{grid-template-columns:1fr}
+  .rrow{flex-direction:row;padding:6px 12px}
+  .rthumb{width:160px}
+  .bottom-nav{display:flex}
+  .toast{bottom:68px}
+  body.view-watch .bottom-nav{display:none}
+}
+@media(max-width:480px){
+  .rthumb{width:140px}
+  .big-play{width:64px;height:64px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
+</style>
+</head>
+<body class="view-home">
+
+<!-- ============ TOP BAR ============ -->
+<header class="topbar">
+  <div class="tb-left">
+    <button class="icon-btn menu-burger" onclick="toggleSidebar()" aria-label="เมนู">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <a class="logo" href="#" onclick="goHome(event)">
+      <span class="mark"><span>A</span></span><span class="word">AURUM</span>
+    </a>
+  </div>
+  <div class="tb-center">
+    <div class="searchbar">
+      <input id="searchInput" type="text" placeholder="ค้นหาหนัง, ช่อง หรือหมวดหมู่" aria-label="ค้นหา" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="go" onclick="doSearch()" aria-label="ค้นหา">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+    </div>
+    <button class="mic" aria-label="ค้นหาด้วยเสียง">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+  </div>
+  <div class="tb-right">
+    <button class="icon-btn search-icon-mobile" onclick="doSearch()" aria-label="ค้นหา">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </button>
+    <button class="icon-btn" aria-label="อัปโหลด" title="อัปโหลด">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+    </button>
+    <button class="icon-btn" aria-label="การแจ้งเตือน" title="การแจ้งเตือน">
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    </button>
+    <div class="avatar" title="โปรไฟล์">ก</div>
+  </div>
+</header>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+  <div class="side-sec">
+    <div class="side-link active" data-side="home" onclick="goHome();filterChip(0)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10"/></svg>หน้าแรก
+    </div>
+    <div class="side-link" onclick="toast('คลิปสั้น — เร็วๆ นี้')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="4"/><path d="M10 8.5v7l5-3.5z" fill="currentColor"/></svg>คลิปสั้น
+    </div>
+    <div class="side-link" onclick="toast('การติดตามของคุณ')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M6 11h12M9 15h6M3 19h18"/></svg>การติดตาม
+    </div>
+  </div>
+  <div class="side-sec">
+    <div class="side-head">คุณ <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div>
+    <div class="side-link" onclick="toast('ประวัติการดู')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 4v4h4M12 8v4l3 2"/></svg>ประวัติการดู</div>
+    <div class="side-link" onclick="goLibrary('saved')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h12M18 14v7m-3.5-3.5h7" /></svg>ดูภายหลัง</div>
+    <div class="side-link" onclick="goLibrary('liked')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v11M2 13v6a2 2 0 0 0 2 2h12.3a2 2 0 0 0 2-1.6l1.4-7A2 2 0 0 0 17.7 10H13l1-4.5A2 2 0 0 0 12 3l-5 7"/></svg>วิดีโอที่ถูกใจ</div>
+  </div>
+  <div class="side-sec">
+    <div class="side-cat">สำรวจตามหมวดหมู่</div>
+    <div class="side-link" onclick="filterGenre('แอ็คชั่น')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m13 2-3 7h5l-3 9 8-11h-5l3-5z"/></svg>แอ็คชั่น</div>
+    <div class="side-link" onclick="filterGenre('ไซไฟ')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/></svg>ไซไฟ</div>
+    <div class="side-link" onclick="filterGenre('โรแมนติก')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-8-5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6-8 11-8 11z"/></svg>โรแมนติก</div>
+    <div class="side-link" onclick="filterGenre('ดราม่า')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18v11H3z"/><path d="M8 21h8M9 16v5M15 16v5"/></svg>ดราม่า</div>
+    <div class="side-link" onclick="filterGenre('ระทึกขวัญ')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg>ระทึกขวัญ</div>
+  </div>
+  <div class="side-sec">
+    <div class="side-link" onclick="toast('การตั้งค่า')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L16.5 3h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5L5 11a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z"/></svg>การตั้งค่า</div>
+    <div class="side-link" onclick="toast('AURUM Premium ✦')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z"/></svg>AURUM Premium</div>
+  </div>
+</aside>
+<div class="scrim" id="scrim" onclick="toggleSidebar()"></div>
+
+<!-- ============ MAIN ============ -->
+<div class="main">
+
+  <!-- HOME -->
+  <div class="home">
+    <div class="chipbar-wrap">
+      <div class="chipbar" id="chipbar"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <!-- WATCH -->
+  <div class="watch">
+    <div class="player-col">
+      <!-- VIDEO -->
+      <div class="video-stage" id="stage">
+        <video id="video" preload="metadata" playsinline
+          src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"></video>
+        <div class="poster-fb" id="posterFb">
+          <div class="pg" id="posterGrad"></div>
+          <button class="big-play" onclick="togglePlay()" aria-label="เล่น">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <div class="cap-box" id="capBox"><span>[ ตัวอย่างซับไตเติลภาษาไทย ]</span></div>
+        <div class="controls" id="controls">
+          <div class="progress" id="progress" onclick="seek(event)"><div class="filled" id="filled"></div><div class="knob" id="knob"></div></div>
+          <div class="ctrl-row">
+            <button class="cbtn" id="playBtn" onclick="togglePlay()" aria-label="เล่น/หยุด"><svg id="playIcon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+            <button class="cbtn" onclick="skip(-10)" aria-label="ถอย 10 วิ"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/></svg></button>
+            <button class="cbtn" onclick="skip(10)" aria-label="ไป 10 วิ"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 17l5-5-5-5M6 17l5-5-5-5"/></svg></button>
+            <div class="vol">
+              <button class="cbtn" onclick="toggleMute()" aria-label="เสียง"><svg id="volIcon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+              <input type="range" id="volume" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)" aria-label="ระดับเสียง">
+            </div>
+            <span class="time"><span id="cur">0:00</span> / <span id="dur">0:00</span></span>
+            <span class="spacer"></span>
+            <button class="cbtn" id="ccBtn" onclick="toggleCC()" aria-label="ซับไตเติล" title="ซับไตเติล"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M7 11h2M7 14h4M14 11h3M14 14h3"/></svg></button>
+            <div class="menu">
+              <button class="cbtn" onclick="toggleMenu('qMenu')" aria-label="ความคมชัด" title="ความคมชัด"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+              <div class="menu-pop" id="qMenu"><div class="mt">ความคมชัด</div>
+                <button onclick="setQuality(this,'อัตโนมัติ (1080p)')" class="sel">อัตโนมัติ</button>
+                <button onclick="setQuality(this,'1080p HD')">1080p</button>
+                <button onclick="setQuality(this,'720p')">720p</button>
+                <button onclick="setQuality(this,'480p')">480p</button></div>
+            </div>
+            <div class="menu">
+              <button class="cbtn" onclick="toggleMenu('sMenu')" aria-label="ความเร็ว" title="ความเร็ว"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22a9 9 0 1 0-9-9"/><path d="M12 7v5l3 2"/><path d="M3 13H1"/></svg></button>
+              <div class="menu-pop" id="sMenu"><div class="mt">ความเร็ว</div>
+                <button onclick="setSpeed(this,0.5)">0.5x</button>
+                <button onclick="setSpeed(this,0.75)">0.75x</button>
+                <button onclick="setSpeed(this,1)" class="sel">ปกติ</button>
+                <button onclick="setSpeed(this,1.25)">1.25x</button>
+                <button onclick="setSpeed(this,1.5)">1.5x</button>
+                <button onclick="setSpeed(this,2)">2x</button></div>
+            </div>
+            <button class="cbtn" id="theaterBtn" onclick="toggleTheater()" aria-label="โหมดโรงภาพยนตร์" title="โหมดโรงภาพยนตร์"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/></svg></button>
+            <button class="cbtn" onclick="toggleFullscreen()" aria-label="เต็มจอ" title="เต็มจอ"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TITLE -->
+      <h1 class="w-title" id="wTitle"></h1>
+      <div class="w-en" id="wEn"></div>
+
+      <!-- CHANNEL + ACTIONS -->
+      <div class="channel-row">
+        <div class="ch-block">
+          <div class="ch-av" id="chAv"></div>
+          <div>
+            <div class="ch-name" id="chName"></div>
+            <div class="ch-subs" id="chSubs"></div>
+          </div>
+          <button class="subscribe" id="subBtn" onclick="toggleSub()">ติดตาม</button>
+        </div>
+        <div class="actions">
+          <div class="like-pill">
+            <button class="lk" id="likeBtn" onclick="toggleLike()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v11M2 13v6a2 2 0 0 0 2 2h12.3a2 2 0 0 0 2-1.6l1.4-7A2 2 0 0 0 17.7 10H13l1-4.5A2 2 0 0 0 12 3l-5 7"/></svg><span id="likeCount"></span></button>
+            <span class="sep"></span>
+            <button class="dk" id="dislikeBtn" onclick="toggleDislike()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 14V3M22 11V5a2 2 0 0 0-2-2H7.7a2 2 0 0 0-2 1.6l-1.4 7A2 2 0 0 0 6.3 14H11l-1 4.5A2 2 0 0 0 12 21l5-7"/></svg></button>
+          </div>
+          <button class="pill" onclick="toggleShare(event)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v14"/></svg>แชร์</button>
+          <div class="menu" style="position:relative">
+            <button class="pill" onclick="toggleShare(event)" style="display:none"></button>
+            <div class="menu-pop" id="sharePop" style="bottom:auto;top:48px;right:0;min-width:auto;display:none">
+              <div class="mt">แชร์ไปยัง</div>
+              <button onclick="share('fb')"><span style="display:flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="#1877f2"><path d="M14 9h3V6h-3c-2.2 0-4 1.8-4 4v2H7v3h3v6h3v-6h3l1-3h-4v-2c0-.6.4-1 1-1z"/></svg>Facebook</span></button>
+              <button onclick="share('line')"><span style="display:flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="#06c755"><path d="M12 3C6.5 3 2 6.6 2 11c0 4 3.6 7.3 8.4 7.9.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.6 1.1-.5 6-3.5 8.2-6C21.5 14.3 22 12.7 22 11c0-4.4-4.5-8-10-8z"/></svg>LINE</span></button>
+              <button onclick="share('x')"><span style="display:flex;align-items:center;gap:10px"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M18.2 2h3.3l-7.2 8.3L23 22h-6.6l-5.2-6.8L5.3 22H2l7.7-8.8L1.5 2h6.8l4.7 6.2zm-1.2 18h1.8L7.1 3.9H5.2z"/></svg>X (Twitter)</span></button>
+              <button onclick="share('copy')"><span style="display:flex;align-items:center;gap:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>คัดลอกลิงก์</span></button>
+            </div>
+          </div>
+          <button class="pill" id="saveBtn" onclick="toggleSave()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h12a1 1 0 0 1 1 1v16l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg><span id="saveText">บันทึก</span></button>
+          <button class="pill" onclick="toast('เริ่มดาวน์โหลด — ฟีเจอร์ Premium')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>ดาวน์โหลด</button>
+        </div>
+      </div>
+
+      <!-- DESCRIPTION -->
+      <div class="descbox" id="descbox" onclick="toggleDesc()">
+        <div class="desc-stats">
+          <span id="descViews"></span>
+          <span id="descTime"></span>
+          <span class="live-pill"><span class="dot"></span><span id="liveCount"></span> กำลังดูอยู่</span>
+        </div>
+        <div class="desc-tags" id="descTags"></div>
+        <div class="desc-body" id="descBody"></div>
+        <div class="desc-more" id="descMore">...เพิ่มเติม</div>
+      </div>
+
+      <!-- COMMENTS -->
+      <div class="comments">
+        <div class="cmt-head"><span id="cmtCount">0 ความคิดเห็น</span></div>
+        <div class="cmt-input-row">
+          <div class="cmt-av" style="background:linear-gradient(135deg,#3a3a44,#1a1a20);color:var(--gold-bright)">ก</div>
+          <div class="cmt-input">
+            <input id="cmtInput" type="text" placeholder="เพิ่มความคิดเห็น..." onfocus="document.getElementById('cmtBtns').style.display='flex'">
+            <div class="cmt-btns" id="cmtBtns" style="display:none">
+              <button class="cmt-cancel" onclick="cancelCmt()">ยกเลิก</button>
+              <button class="cmt-send" onclick="sendCmt()">แสดงความคิดเห็น</button>
+            </div>
+          </div>
+        </div>
+        <div id="cmtList"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT RAIL -->
+    <aside class="rail">
+      <div class="rail-head"><span class="dot"></span>วิดีโอแนะนำ</div>
+      <div id="railList"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="bn-item active" onclick="goHome()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10"/></svg>หน้าแรก</button>
+  <button class="bn-item" onclick="toast('คลิปสั้น — เร็วๆ นี้')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="4"/><path d="M10 8.5v7l5-3.5z" fill="currentColor"/></svg>คลิปสั้น</button>
+  <button class="bn-item" onclick="toast('การติดตาม')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M6 11h12M9 15h6M3 19h18"/></svg>ติดตาม</button>
+  <button class="bn-item" onclick="goLibrary('saved')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h12"/></svg>คลัง</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ DATA ============ */
+const G=(a,b)=>`linear-gradient(150deg,${a},${b})`;
+const studios=["ออรัม สตูดิโอ","นีออน พิคเจอร์ส","มิดไนท์ฟิล์ม","สตาร์ไลท์ โปรดักชั่น","โกลด์เด้น เกท","อีเทอร์นัล มีเดีย"];
+const movies=[
+  {th:"ราตรีสีทอง",en:"Golden Hour",year:2025,genre:"ดราม่า",rating:9.2,views:1284500,likes:84000,dur:"2:14:30",up:"3 วันที่ผ่านมา",grad:["#1a2440","#3a1f38"],ch:0,subs:"2.1 ล้าน",
+    syn:"เรื่องราวของหญิงสาวผู้ไล่ตามความฝันท่ามกลางแสงสุดท้ายของวัน บทเพลงแห่งความหวังที่ถักทอด้วยภาพอันงดงามตระการตา และการแสดงที่ตราตรึงใจผู้ชมไปอีกนาน\n\nกำกับโดยผู้กำกับรางวัล ถ่ายทอดทุกอารมณ์ผ่านแสงทองยามเย็นที่สวยที่สุดในรอบปี",
+    tags:["#ดราม่า","#หนังใหม่2025","#AURUMOriginal","#แสงสุดท้าย","#รางวัลภาพยนตร์"]},
+  {th:"เงาแห่งราตรี",en:"Shadow of Night",year:2024,genre:"ระทึกขวัญ",rating:8.7,views:982300,likes:61000,dur:"1:58:12",up:"1 สัปดาห์ที่ผ่านมา",grad:["#0f1420","#2a1a2e"],ch:2,subs:"1.4 ล้าน",
+    syn:"นักสืบผู้ตามล่าฆาตกรปริศนาในมหานครยามค่ำคืน ทุกเงาซ่อนความลับ ทุกแสงไฟนำไปสู่ความจริงที่ไม่มีใครคาดคิด\n\nหนังระทึกขวัญที่จะทำให้คุณลุ้นจนวินาทีสุดท้าย",
+    tags:["#ระทึกขวัญ","#ทริลเลอร์","#นักสืบ","#AURUMOriginal","#ปริศนา"]},
+  {th:"จักรวาลนิรันดร์",en:"Eternal Cosmos",year:2025,genre:"ไซไฟ",rating:9.0,views:1567800,likes:112000,dur:"2:32:08",up:"5 วันที่ผ่านมา",grad:["#0a1a3a","#1a0a3a"],ch:3,subs:"3.8 ล้าน",
+    syn:"การเดินทางข้ามกาแล็กซีเพื่อค้นหาบ้านหลังใหม่ของมวลมนุษยชาติ มหากาพย์อวกาศที่ยิ่งใหญ่ระดับตำนาน เต็มไปด้วยภาพสุดอลังการ\n\nงานสร้างระดับฮอลลีวูด พร้อมเอฟเฟกต์ภาพที่ตื่นตาตื่นใจ",
+    tags:["#ไซไฟ","#อวกาศ","#มหากาพย์","#4K","#AURUMOriginal"]},
+  {th:"รักในม่านหมอก",en:"Love in the Mist",year:2024,genre:"โรแมนติก",rating:8.4,views:743200,likes:52000,dur:"1:46:55",up:"2 สัปดาห์ที่ผ่านมา",grad:["#2e1a2a","#3a2418"],ch:4,subs:"980 พัน",
+    syn:"ความรักที่เบ่งบานบนยอดเขาท่ามกลางสายหมอก สองหัวใจที่โคจรมาพบกันในช่วงเวลาที่งดงามที่สุดของชีวิต\n\nหนังรักอบอุ่นหัวใจที่จะทำให้คุณยิ้มและน้ำตาซึม",
+    tags:["#โรแมนติก","#หนังรัก","#ฟีลกู๊ด","#AURUMOriginal"]},
+  {th:"นักล่าเงา",en:"The Shadow Hunter",year:2025,genre:"แอ็คชั่น",rating:8.9,views:1342900,likes:96000,dur:"2:08:41",up:"4 วันที่ผ่านมา",grad:["#2a0f0f","#1a1a1a"],ch:1,subs:"2.6 ล้าน",
+    syn:"อดีตทหารหน่วยรบพิเศษกลับมาเพื่อล้างแค้น การต่อสู้ระห่ำสุดมันส์ที่จะทำให้คุณกลั้นหายใจตลอดทั้งเรื่อง\n\nฉากแอ็คชั่นออกแบบโดยทีมระดับโลก",
+    tags:["#แอ็คชั่น","#บู๊","#ล้างแค้น","#AURUMOriginal","#มันส์"]},
+  {th:"เมืองใต้ดิน",en:"Underground City",year:2024,genre:"แอ็คชั่น",rating:8.5,views:890100,likes:58000,dur:"1:52:30",up:"3 สัปดาห์ที่ผ่านมา",grad:["#10221f","#1a1a2e"],ch:5,subs:"1.1 ล้าน",
+    syn:"ในโลกอนาคตที่มนุษย์ต้องหลบลงใต้ดิน กลุ่มกบฏลุกขึ้นสู้เพื่ออิสรภาพ ผจญภัยตื่นเต้นในเมืองลึกลับ",
+    tags:["#แอ็คชั่น","#ดิสโทเปีย","#ผจญภัย","#AURUMOriginal"]},
+  {th:"ดวงดาวที่หายไป",en:"The Lost Star",year:2025,genre:"ไซไฟ",rating:8.8,views:1102400,likes:78000,dur:"2:19:17",up:"6 วันที่ผ่านมา",grad:["#1a1042","#0a2a3a"],ch:3,subs:"3.8 ล้าน",
+    syn:"นักดาราศาสตร์ค้นพบสัญญาณจากดาวที่หายไปนับล้านปี การไขปริศนาที่อาจเปลี่ยนความเข้าใจในจักรวาลไปตลอดกาล",
+    tags:["#ไซไฟ","#จักรวาล","#ปริศนา","#4K","#AURUMOriginal"]},
+  {th:"บัลลังก์เลือด",en:"Throne of Blood",year:2024,genre:"ดราม่า",rating:9.1,views:1289600,likes:91000,dur:"2:41:09",up:"1 สัปดาห์ที่ผ่านมา",grad:["#2a0a14","#1a0f0a"],ch:0,subs:"2.1 ล้าน",
+    syn:"มหากาพย์ราชสำนักที่เต็มไปด้วยการช่วงชิงอำนาจ ความทรยศ และความรัก บทละครชีวิตที่ตราตรึงสะเทือนใจ",
+    tags:["#ดราม่า","#มหากาพย์","#ราชสำนัก","#AURUMOriginal"]},
+  {th:"รหัสลับมรณะ",en:"Cipher",year:2025,genre:"ระทึกขวัญ",rating:8.6,views:967800,likes:64000,dur:"1:54:22",up:"5 วันที่ผ่านมา",grad:["#0f1f2a","#1a1a24"],ch:2,subs:"1.4 ล้าน",
+    syn:"แฮกเกอร์อัจฉริยะถูกดึงเข้าสู่เกมแห่งความตาย ทุกการตัดสินใจมีเดิมพันคือชีวิต ระทึกจนวินาทีสุดท้าย",
+    tags:["#ระทึกขวัญ","#แฮกเกอร์","#ทริลเลอร์","#AURUMOriginal"]},
+  {th:"ฤดูใบไม้ผลิ",en:"Spring Awakening",year:2024,genre:"โรแมนติก",rating:8.3,views:678400,likes:47000,dur:"1:42:18",up:"2 สัปดาห์ที่ผ่านมา",grad:["#1f2a14","#2e1a24"],ch:4,subs:"980 พัน",
+    syn:"เรื่องราวการเติบโตของวัยรุ่นในฤดูใบไม้ผลิ ความรักครั้งแรกที่งดงามและบริสุทธิ์ที่สุด",
+    tags:["#โรแมนติก","#วัยรุ่น","#ฟีลกู๊ด","#AURUMOriginal"]},
+  {th:"นักรบสุดท้าย",en:"The Last Warrior",year:2025,genre:"แอ็คชั่น",rating:9.0,views:1456200,likes:104000,dur:"2:22:50",up:"3 วันที่ผ่านมา",grad:["#2a1a0a","#1a1414"],ch:1,subs:"2.6 ล้าน",
+    syn:"นักรบคนสุดท้ายของอาณาจักรลุกขึ้นปกป้องบ้านเกิด ฉากต่อสู้สุดยิ่งใหญ่ที่จะจารึกไว้ในความทรงจำ",
+    tags:["#แอ็คชั่น","#สงคราม","#มหากาพย์","#AURUMOriginal","#บู๊"]},
+  {th:"ปริศนาแห่งกาลเวลา",en:"Time Enigma",year:2024,genre:"ไซไฟ",rating:8.7,views:1034500,likes:72000,dur:"2:05:33",up:"1 สัปดาห์ที่ผ่านมา",grad:["#14142e","#2a1a3a"],ch:5,subs:"1.1 ล้าน",
+    syn:"เมื่อนักวิทยาศาสตร์ค้นพบวิธีเดินทางข้ามเวลา อดีตและอนาคตเริ่มพังทลาย ปริศนาที่ท้าทายตรรกะทุกข้อ",
+    tags:["#ไซไฟ","#เดินทางข้ามเวลา","#ปริศนา","#AURUMOriginal"]}
+];
+
+const sampleComments=[
+  {n:"ธนพล ก.",t:"2 วันที่ผ่านมา",x:"ภาพสวยมากครับ งานโปรดักชั่นระดับโรงหนังจริงๆ ดูจบแล้วยังประทับใจไม่หาย 🔥",l:"1.2K"},
+  {n:"Nicha W.",t:"1 วันที่ผ่านมา",x:"นักแสดงเล่นดีทุกคนเลย โดยเฉพาะฉากไคลแม็กซ์ น้ำตาไหลเลย ขอบคุณ AURUM ที่ทำหนังดีๆ ออกมา",l:"864"},
+  {n:"พีรพัฒน์ ส.",t:"3 วันที่ผ่านมา",x:"ซาวด์แทร็กเพราะมาก ใครรู้ชื่อเพลงตอนท้ายบ้างครับ",l:"432"},
+  {n:"มินตรา ด.",t:"5 วันที่ผ่านมา",x:"ดูในโหมดโรงภาพยนตร์แล้วฟินมาก คุ้มค่าสมาชิก Premium สุดๆ ✨",l:"301"},
+  {n:"Krit T.",t:"6 วันที่ผ่านมา",x:"รอภาคต่อแบบใจจดใจจ่อ พล็อตแน่นมาก ไม่มีช่วงไหนน่าเบื่อเลย",l:"189"}
+];
+
+/* ============ HELPERS ============ */
+let currentIdx=0,viewInterval=null,liveInterval=null;
+const liked={},disliked={},saved={},subbed={};
+let activeChip=0,activeGenreFilter=null;
+
+function vfmt(n){if(n>=1e6)return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M';if(n>=1e3)return (n/1e3).toFixed(0)+'K';return n;}
+function avGrad(seed){const a=movies[seed%movies.length].grad[0],b=movies[(seed+2)%movies.length].grad[1];return G(a,b);}
+
+/* ============ HOME GRID ============ */
+const chips=["ทั้งหมด","มาใหม่","ยอดนิยม","แอ็คชั่น","ไซไฟ","โรแมนติก","ดราม่า","ระทึกขวัญ","4K HDR","AURUM Original"];
+function buildChips(){
+  document.getElementById('chipbar').innerHTML=chips.map((c,i)=>
+    `<button class="chip ${i===0?'active':''}" onclick="filterChip(${i})">${c}</button>`).join('');
+}
+function filterChip(i){
+  activeChip=i;activeGenreFilter=null;
+  document.querySelectorAll('.chip').forEach((c,ci)=>c.classList.toggle('active',ci===i));
+  renderGrid();
+  document.querySelector('.main').scrollTo?.(0,0);window.scrollTo(0,0);
+}
+function filterGenre(g){
+  goHome();
+  const i=chips.indexOf(g);
+  if(i>=0)filterChip(i);
+}
+function getFiltered(){
+  const c=chips[activeChip];
+  let list=movies.map((m,i)=>({m,i}));
+  if(c==="มาใหม่")list=[...list].sort((a,b)=>parseInt(a.m.up)-parseInt(b.m.up));
+  else if(c==="ยอดนิยม")list=[...list].sort((a,b)=>b.m.views-a.m.views);
+  else if(c==="4K HDR"||c==="AURUM Original"){/* all qualify */}
+  else if(c!=="ทั้งหมด")list=list.filter(o=>o.m.genre===c);
+  return list;
+}
+function vcardHTML(m,i){return `
+  <div class="vcard" onclick="openWatch(${i})">
+    <div class="vthumb">
+      <div class="grad" style="background:${G(m.grad[0],m.grad[1])}"></div>
+      <div class="badge-q">4K</div>
+      <div class="badge-dur">${m.dur}</div>
+      <div class="hover-play"><span class="pp"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span></div>
+    </div>
+    <div class="vmeta">
+      <div class="chan-av" style="background:${avGrad(m.ch)}">${studios[m.ch].charAt(0)}</div>
+      <div class="vinfo">
+        <div class="vtitle">${m.th} · ${m.en}</div>
+        <div class="vchannel">${studios[m.ch]} <span class="vc-check">✓</span></div>
+        <div class="vstats">${vfmt(m.views)} ครั้ง · ${m.up}</div>
+      </div>
+    </div>
+  </div>`;}
+function renderGrid(){
+  const list=getFiltered();
+  document.getElementById('grid').innerHTML=list.map(o=>vcardHTML(o.m,o.i)).join('')
+    || '<p style="color:var(--muted);padding:40px">ไม่พบวิดีโอในหมวดนี้</p>';
+}
+
+/* ============ NAVIGATION ============ */
+function goHome(e){if(e&&e.preventDefault)e.preventDefault();
+  stopPlayer();document.body.classList.remove('view-watch');document.body.classList.add('view-home');
+  document.querySelectorAll('.bn-item').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.querySelector('[data-side="home"]').classList.add('active');
+  window.scrollTo(0,0);closeMobileSidebar();
+}
+function goLibrary(type){
+  goHome();
+  activeChip=-1;activeGenreFilter=null;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  const ids=Object.keys(type==='saved'?saved:liked).filter(k=>(type==='saved'?saved:liked)[k]).map(Number);
+  const list=ids.map(i=>({m:movies[i],i}));
+  document.getElementById('grid').innerHTML=list.length?list.map(o=>vcardHTML(o.m,o.i)).join('')
+    :`<p style="color:var(--muted);padding:40px">ยังไม่มีรายการ${type==='saved'?'ที่บันทึกไว้':'ที่ถูกใจ'} — กดปุ่ม${type==='saved'?'บันทึก':'ถูกใจ'}ในหน้าดูหนังเพื่อเพิ่ม</p>`;
+  toast(type==='saved'?'รายการดูภายหลัง':'วิดีโอที่ถูกใจ');
+}
+
+function openWatch(idx){
+  currentIdx=idx;const m=movies[idx];
+  document.getElementById('wTitle').textContent=`${m.th} (${m.en})`;
+  document.getElementById('wEn').textContent=`${m.genre} · ${m.year} · ${m.dur} · ความคมชัด 4K HDR`;
+  document.getElementById('posterGrad').style.background=G(m.grad[0],m.grad[1]);
+  document.getElementById('chAv').style.background=avGrad(m.ch);
+  document.getElementById('chAv').textContent=studios[m.ch].charAt(0);
+  document.getElementById('chName').innerHTML=`${studios[m.ch]} <span style="color:var(--muted-2)">✓</span>`;
+  document.getElementById('chSubs').textContent=`ผู้ติดตาม ${m.subs} คน`;
+  document.getElementById('likeCount').textContent=vfmt(m.likes);
+  document.getElementById('descTime').textContent=m.up;
+  document.getElementById('descBody').textContent=m.syn;
+  document.getElementById('descBody').classList.remove('open');
+  document.getElementById('descMore').textContent='...เพิ่มเติม';
+  document.getElementById('descMore').style.display='block';
+  document.getElementById('descTags').innerHTML=m.tags.map(t=>`<span class="tag">${t}</span>`).join('');
+
+  // subscribe / like / save state
+  updateSubUI();updateLikeUI();updateSaveUI();
+
+  // comments
+  document.getElementById('cmtCount').textContent=`${(Math.floor(m.views/420)).toLocaleString('th-TH')} ความคิดเห็น`;
+  renderComments();
+
+  // right rail (recommended: popular others)
+  const recos=movies.map((_,i)=>i).filter(i=>i!==idx)
+    .sort((a,b)=>movies[b].views-movies[a].views).slice(0,8);
+  document.getElementById('railList').innerHTML=recos.map(i=>{const r=movies[i];return `
+    <div class="rrow" onclick="openWatch(${i})">
+      <div class="rthumb"><div class="grad" style="background:${G(r.grad[0],r.grad[1])}"></div><div class="badge-dur">${r.dur}</div></div>
+      <div class="rinfo"><div class="rttl">${r.th} · ${r.en}</div><div class="rchan">${studios[r.ch]} ✓</div><div class="rstat">${vfmt(r.views)} ครั้ง · ${r.up}</div></div>
+    </div>`;}).join('');
+
+  startCounters(m.views);
+  resetPlayerUI();
+  document.body.classList.remove('view-home');document.body.classList.add('view-watch');
+  window.scrollTo(0,0);closeMobileSidebar();
+}
+
+/* ============ COUNTERS ============ */
+function startCounters(base){
+  stopCounters();
+  let v=base;document.getElementById('descViews').textContent=v.toLocaleString('th-TH')+' ครั้ง';
+  viewInterval=setInterval(()=>{v+=Math.floor(Math.random()*30)+4;
+    document.getElementById('descViews').textContent=v.toLocaleString('th-TH')+' ครั้ง';},1500);
+  let live=Math.floor(base/900)+Math.floor(Math.random()*500);
+  document.getElementById('liveCount').textContent=live.toLocaleString('th-TH');
+  liveInterval=setInterval(()=>{live+=Math.floor(Math.random()*21)-8;if(live<10)live=10;
+    document.getElementById('liveCount').textContent=live.toLocaleString('th-TH');},2200);
+}
+function stopCounters(){if(viewInterval)clearInterval(viewInterval);if(liveInterval)clearInterval(liveInterval);viewInterval=liveInterval=null;}
+
+/* ============ ENGAGEMENT ============ */
+function toggleSub(){subbed[movies[currentIdx].ch]=!subbed[movies[currentIdx].ch];updateSubUI();
+  toast(subbed[movies[currentIdx].ch]?'ติดตามช่องแล้ว ✓':'เลิกติดตามแล้ว');}
+function updateSubUI(){const b=document.getElementById('subBtn'),on=subbed[movies[currentIdx].ch];
+  b.classList.toggle('subbed',on);b.textContent=on?'ติดตามแล้ว ✓':'ติดตาม';}
+function toggleLike(){liked[currentIdx]=!liked[currentIdx];if(liked[currentIdx])disliked[currentIdx]=false;updateLikeUI();
+  toast(liked[currentIdx]?'ถูกใจวิดีโอนี้ 👍':'นำการถูกใจออกแล้ว');}
+function toggleDislike(){disliked[currentIdx]=!disliked[currentIdx];if(disliked[currentIdx])liked[currentIdx]=false;updateLikeUI();}
+function updateLikeUI(){
+  document.getElementById('likeBtn').classList.toggle('on',!!liked[currentIdx]);
+  document.getElementById('dislikeBtn').classList.toggle('on',!!disliked[currentIdx]);
+  const m=movies[currentIdx];document.getElementById('likeCount').textContent=vfmt(m.likes+(liked[currentIdx]?1:0));
+}
+function toggleSave(){saved[currentIdx]=!saved[currentIdx];updateSaveUI();
+  toast(saved[currentIdx]?'บันทึกไว้ดูภายหลัง ✓':'นำออกจากรายการแล้ว');}
+function updateSaveUI(){const b=document.getElementById('saveBtn');b.classList.toggle('saved',!!saved[currentIdx]);
+  document.getElementById('saveText').textContent=saved[currentIdx]?'บันทึกแล้ว':'บันทึก';}
+
+/* ============ SHARE ============ */
+function toggleShare(e){e.stopPropagation();const p=document.getElementById('sharePop');
+  p.style.display=p.style.display==='block'?'none':'block';}
+function share(p){const m=movies[currentIdx];
+  const url=location.href.split('#')[0]+'#movie='+currentIdx;
+  const text=`ดู "${m.th}" (${m.en}) บน AURUM`;let link='';
+  if(p==='fb')link='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url);
+  else if(p==='line')link='https://social-plugins.line.me/lineit/share?url='+encodeURIComponent(url);
+  else if(p==='x')link='https://twitter.com/intent/tweet?text='+encodeURIComponent(text)+'&url='+encodeURIComponent(url);
+  if(p==='copy'){copyText(url);}else{window.open(link,'_blank','width=600,height=520');}
+  document.getElementById('sharePop').style.display='none';
+}
+function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(()=>toast('คัดลอกลิงก์แล้ว ✓')).catch(()=>fb());}else fb();
+  function fb(){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');toast('คัดลอกลิงก์แล้ว ✓');}catch(e){toast('ไม่สามารถคัดลอกได้');}document.body.removeChild(ta);}}
+
+/* ============ DESCRIPTION ============ */
+function toggleDesc(){const b=document.getElementById('descBody');b.classList.toggle('open');
+  document.getElementById('descMore').textContent=b.classList.contains('open')?'แสดงน้อยลง':'...เพิ่มเติม';}
+
+/* ============ COMMENTS ============ */
+function renderComments(){
+  document.getElementById('cmtList').innerHTML=sampleComments.map((c,i)=>cmtHTML(c,i)).join('');
+}
+function cmtHTML(c,i){return `
+  <div class="cmt">
+    <div class="cmt-av" style="background:${avGrad(i+currentIdx)}">${c.n.charAt(0)}</div>
+    <div class="cmt-body">
+      <div class="cmt-top"><span class="cmt-name">@${c.n}</span><span class="cmt-time">${c.t}</span></div>
+      <div class="cmt-text">${c.x}</div>
+      <div class="cmt-acts">
+        <span onclick="toast('ขอบคุณสำหรับการโหวต 👍')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v11M2 13v6a2 2 0 0 0 2 2h12.3a2 2 0 0 0 2-1.6l1.4-7A2 2 0 0 0 17.7 10H13l1-4.5A2 2 0 0 0 12 3l-5 7"/></svg>${c.l}</span>
+        <span onclick="toast('โหวตแล้ว')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 14V3M22 11V5a2 2 0 0 0-2-2H7.7a2 2 0 0 0-2 1.6l-1.4 7A2 2 0 0 0 6.3 14H11l-1 4.5A2 2 0 0 0 12 21l5-7"/></svg></span>
+        <span onclick="document.getElementById('cmtInput').focus()">ตอบกลับ</span>
+      </div>
+    </div>
+  </div>`;}
+function sendCmt(){const inp=document.getElementById('cmtInput');const v=inp.value.trim();if(!v)return;
+  sampleComments.unshift({n:"ก. คุณ",t:"เมื่อสักครู่",x:v,l:"0"});
+  renderComments();inp.value='';document.getElementById('cmtBtns').style.display='none';
+  document.getElementById('cmtCount').textContent=`${(sampleComments.length).toLocaleString('th-TH')} ความคิดเห็น`;
+  toast('แสดงความคิดเห็นแล้ว ✓');}
+function cancelCmt(){document.getElementById('cmtInput').value='';document.getElementById('cmtBtns').style.display='none';}
+
+/* ============ TOAST ============ */
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2300);}
+
+/* ============ SEARCH ============ */
+function doSearch(){const q=(document.getElementById('searchInput').value||'').trim();
+  goHome();if(!q){renderGrid();return;}
+  const list=movies.map((m,i)=>({m,i})).filter(o=>
+    (o.m.th+o.m.en+o.m.genre+studios[o.m.ch]).toLowerCase().includes(q.toLowerCase()));
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  document.getElementById('grid').innerHTML=list.length?list.map(o=>vcardHTML(o.m,o.i)).join('')
+    :`<p style="color:var(--muted);padding:40px">ไม่พบผลลัพธ์สำหรับ "${q}"</p>`;
+  toast(`ผลการค้นหา: ${list.length} รายการ`);}
+
+/* ============ VIDEO PLAYER ============ */
+const video=document.getElementById('video');
+function resetPlayerUI(){try{video.pause();video.currentTime=0;}catch(e){}
+  document.getElementById('posterFb').classList.remove('hidden');setPlayIcon(false);
+  document.getElementById('filled').style.width='0%';document.getElementById('knob').style.left='0%';
+  document.getElementById('cur').textContent='0:00';document.getElementById('stage').classList.remove('theater');}
+function stopPlayer(){try{video.pause();}catch(e){}stopCounters();}
+function togglePlay(){if(video.paused){video.play().then(()=>document.getElementById('posterFb').classList.add('hidden'))
+    .catch(()=>{toast('ไม่สามารถเล่นวิดีโอตัวอย่างในสภาพแวดล้อมนี้');document.getElementById('posterFb').classList.add('hidden');});}
+  else video.pause();}
+function setPlayIcon(p){document.getElementById('playIcon').innerHTML=p?'<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>':'<path d="M8 5v14l11-7z"/>';}
+video.addEventListener('play',()=>{setPlayIcon(true);document.getElementById('posterFb').classList.add('hidden');});
+video.addEventListener('pause',()=>setPlayIcon(false));
+video.addEventListener('timeupdate',()=>{if(!video.duration)return;const p=video.currentTime/video.duration*100;
+  document.getElementById('filled').style.width=p+'%';document.getElementById('knob').style.left=p+'%';
+  document.getElementById('cur').textContent=tf(video.currentTime);});
+video.addEventListener('loadedmetadata',()=>document.getElementById('dur').textContent=tf(video.duration));
+video.addEventListener('ended',()=>{setPlayIcon(false);document.getElementById('posterFb').classList.remove('hidden');});
+function tf(s){s=Math.floor(s||0);const m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x;}
+function seek(e){const r=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-r.left)/r.width;
+  if(video.duration)video.currentTime=pct*video.duration;}
+function skip(s){video.currentTime=Math.max(0,Math.min(video.duration||0,video.currentTime+s));}
+function setVol(v){video.volume=v;video.muted=v==0;updateVolIcon();}
+function toggleMute(){video.muted=!video.muted;document.getElementById('volume').value=video.muted?0:video.volume;updateVolIcon();}
+function updateVolIcon(){document.getElementById('volIcon').innerHTML=(video.muted||video.volume==0)
+    ?'<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6" fill="none" stroke="currentColor" stroke-width="2"/>'
+    :'<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2"/>';}
+function toggleMenu(id){document.querySelectorAll('.menu-pop').forEach(m=>{if(m.id!==id)m.classList.remove('open');if(m.id!=='sharePop'&&m.id!==id)m.style.display='';});
+  const el=document.getElementById(id);el.classList.toggle('open');}
+function setQuality(b,l){b.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+  document.getElementById('qMenu').classList.remove('open');toast('ความคมชัด: '+l);}
+function setSpeed(b,r){b.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+  video.playbackRate=r;document.getElementById('sMenu').classList.remove('open');toast('ความเร็ว: '+(r===1?'ปกติ':r+'x'));}
+let ccOn=false;
+function toggleCC(){ccOn=!ccOn;document.getElementById('ccBtn').classList.toggle('active',ccOn);
+  document.getElementById('capBox').classList.toggle('show',ccOn);toast(ccOn?'เปิดซับไตเติล (ไทย)':'ปิดซับไตเติล');}
+function toggleTheater(){const s=document.getElementById('stage');s.classList.toggle('theater');
+  document.getElementById('theaterBtn').classList.toggle('active',s.classList.contains('theater'));}
+function toggleFullscreen(){const s=document.getElementById('stage');
+  if(!document.fullscreenElement){(s.requestFullscreen||s.webkitRequestFullscreen).call(s).catch(()=>toast('ไม่รองรับเต็มจอ'));}
+  else document.exitFullscreen();}
+
+/* ============ SIDEBAR / MOBILE ============ */
+function isMobile(){return window.matchMedia('(max-width:768px)').matches;}
+function isTablet(){return window.matchMedia('(max-width:1000px)').matches;}
+function toggleSidebar(){
+  if(isMobile()||isTablet()){
+    document.body.classList.toggle('mside-open');
+    document.getElementById('scrim').classList.toggle('show',document.body.classList.contains('mside-open'));
+    document.body.classList.toggle('no-scroll',document.body.classList.contains('mside-open'));
+  }else{
+    document.body.classList.toggle('side-collapsed');
+  }
+}
+function closeMobileSidebar(){document.body.classList.remove('mside-open');
+  document.getElementById('scrim').classList.remove('show');document.body.classList.remove('no-scroll');}
+
+/* close popups on outside click */
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.menu'))document.querySelectorAll('.menu-pop').forEach(m=>{m.classList.remove('open');});
+  if(!e.target.closest('.menu')&&!e.target.closest('.pill'))document.getElementById('sharePop').style.display='none';
+});
+
+/* keyboard shortcuts */
+document.addEventListener('keydown',e=>{
+  if(!document.body.classList.contains('view-watch'))return;
+  if(e.target.tagName==='INPUT')return;
+  if(e.code==='Space'){e.preventDefault();togglePlay();}
+  else if(e.code==='ArrowRight')skip(5);
+  else if(e.code==='ArrowLeft')skip(-5);
+  else if(e.key==='f')toggleFullscreen();
+  else if(e.key==='t')toggleTheater();
+});
+
+window.addEventListener('resize',()=>{if(!isMobile()&&!isTablet())closeMobileSidebar();});
+
+/* ============ INIT ============ */
+buildChips();
+renderGrid();
+updateVolIcon();
+if(isTablet())document.body.classList.add('side-collapsed');
+</script>
+</body>
+</html>

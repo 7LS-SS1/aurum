@@ -3,7 +3,7 @@ import { presignSchema, assertUploadAllowed } from "@/lib/validation";
 import { presignR2Upload } from "@/lib/storage/r2";
 import { presignBunnyUpload } from "@/lib/storage/bunny";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
-import { requireRole } from "@/lib/authz";
+import { requireMinRole } from "@/lib/authz";
 import { rateLimit } from "@/lib/rate-limit";
 
 /**
@@ -17,9 +17,9 @@ import { rateLimit } from "@/lib/rate-limit";
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireRole("ADMIN", "EDITOR");
+    const actor = await requireMinRole("STAFF");
 
-    const { success } = await rateLimit(`uploads:presign:${user.id}`, { limit: 20, windowMs: 60_000 });
+    const { success } = await rateLimit(`uploads:presign:${actor.id}`, { limit: 20, windowMs: 60_000 });
     if (!success) throw new ApiError("too_many_requests", 429);
 
     const input = presignSchema.parse(await req.json());

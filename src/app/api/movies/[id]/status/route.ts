@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { apiError, jsonOk } from "@/lib/api-response";
-import { requireRole } from "@/lib/authz";
+import { requireMinRole } from "@/lib/authz";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireRole("ADMIN", "EDITOR");
+    await requireMinRole("STAFF");
     const { id } = await params;
 
     const distributions = await prisma.distribution.findMany({

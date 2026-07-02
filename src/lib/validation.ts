@@ -21,8 +21,10 @@ export const createMovieSchema = z.object({
   tags: taxonomyList.default([]),
   thumbnailUrl: urlField.optional(),
   videoUrl: urlField.optional(),
-  videoProvider: z.enum(["external", "bunny", "s3", "r2"]).optional(),
+  videoProvider: z.enum(["external", "bunny", "s3", "r2", "jwplayer"]).optional(),
+  jwPlayerMediaId: z.string().trim().min(1).max(255).optional(),
   extraMeta: z.record(z.string(), z.unknown()).default({}),
+  targetSiteIds: z.array(z.string().min(1)).max(200).default([]),
 });
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 
@@ -81,6 +83,33 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avi
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm"]);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_VIDEO_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB
+
+export const reviewActionSchema = z.object({
+  action: z.enum(["start", "ready"]),
+});
+export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
+
+export const rejectSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+export type RejectInput = z.infer<typeof rejectSchema>;
+
+export const createPlayerConfigSchema = z.object({
+  provider: z.enum(["JWPLAYER"]).default("JWPLAYER"),
+  name: shortText,
+  playerId: z.string().trim().min(1).max(255),
+  libraryUrl: urlField.optional(),
+  apiKey: z.string().trim().min(8).max(2048),
+  apiSecret: z.string().trim().min(8).max(2048).optional(),
+  defaultPosterMode: z.enum(["auto", "custom"]).default("auto"),
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  extraConfig: z.record(z.string(), z.unknown()).default({}),
+});
+export type CreatePlayerConfigInput = z.infer<typeof createPlayerConfigSchema>;
+
+export const updatePlayerConfigSchema = createPlayerConfigSchema.partial();
+export type UpdatePlayerConfigInput = z.infer<typeof updatePlayerConfigSchema>;
 
 export function assertUploadAllowed(kind: "image" | "video", contentType: string, size?: number) {
   const allowed = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;

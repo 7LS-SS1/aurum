@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
 import { updateSiteSchema } from "@/lib/validation";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
-import { requireRole } from "@/lib/authz";
+import { requireMinRole, requireRole } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 const SITE_PUBLIC_SELECT = {
   id: true,
@@ -23,7 +24,7 @@ const SITE_PUBLIC_SELECT = {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireRole("ADMIN");
+    const actor = await requireMinRole("MANAGER");
     const { id } = await params;
     const input = updateSiteSchema.parse(await req.json());
 
@@ -49,6 +50,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       select: SITE_PUBLIC_SELECT,
     });
 
+    const action = input.isActive === false && existing.isActive ? "disable_site" : input.isActive === true && !existing.isActive ? "enable_site" : "update_site";
+    await logAudit({ actor, action, resourceType: "site", resourceId: site.id });
+
     return jsonOk(site);
   } catch (err) {
     return apiError(err);
@@ -57,9 +61,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireRole("ADMIN");
+    const actor = await requireRole("HEAD");
     const { id } = await params;
+    const existing = await prisma.targetSite.findUnique({ where: { id } });
+    if (!existing) throw new ApiError("site_not_found", 404);
+
     await prisma.targetSite.delete({ where: { id } });
+
+    await logAudit({ actor, action: "delete_site", resourceType: "site", resourceId: id, metadata: { name: existing.name } });
+
     return jsonOk({ ok: true });
   } catch (err) {
     return apiError(err);

@@ -8,8 +8,11 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
-  EDITOR
+  STAFF
+  SENIOR
+  MANAGER
+  HEAD
+  SYSTEM
 }
 
 enum SiteAuthType {
@@ -25,10 +28,16 @@ enum SiteHealth {
 
 enum MovieStatus {
   DRAFT
-  DISTRIBUTING
+  READY_FOR_REVIEW
+  IN_REVIEW
+  REJECTED
+  READY_FOR_APPROVAL
+  APPROVED
+  PUBLISHING
   DONE
   PARTIAL
   FAILED
+  ARCHIVED
 }
 
 enum DistributionStatus {
@@ -39,14 +48,20 @@ enum DistributionStatus {
 }
 
 /// Admin/editor accounts — every mutating API call is tied to one of these.
+/// SYSTEM is never used for interactive login; automation authenticates via
+/// the X-System-Key header instead (see src/lib/authz.ts).
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String   @map("password_hash")
   name         String?
-  role         Role     @default(EDITOR)
+  role         Role     @default(STAFF)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+
+  createdMovies  Movie[]    @relation("MovieCreatedBy")
+  reviewedMovies Movie[]    @relation("MovieReviewer")
+  auditLogs      AuditLog[]
 
   @@map("users")
 }
@@ -54,21 +69,29 @@ model User {
 /// Master content record — uploaded once, video_url is shared by every
 /// distribution. Per-site text/metadata overrides live in MovieSiteDraft.
 model Movie {
-  id            String      @id @default(cuid())
-  title         String
-  slug          String?     @unique
-  excerpt       String?
-  content       String?
-  mainCategory  String?     @map("main_category")
-  categories    Json        @default("[]")
-  tags          Json        @default("[]")
-  thumbnailUrl  String?     @map("thumbnail_url")
-  videoUrl      String?     @map("video_url")
-  videoProvider String?     @map("video_provider")
-  extraMeta     Json        @default("{}") @map("extra_meta")
-  status        MovieStatus @default(DRAFT)
-  createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  id              String      @id @default(cuid())
+  title           String
+  slug            String?     @unique
+  excerpt         String?
+  content         String?
+  mainCategory    String?     @map("main_category")
+  categories      Json        @default("[]")
+  tags            Json        @default("[]")
+  thumbnailUrl    String?     @map("thumbnail_url")
+  videoUrl        String?     @map("video_url")
+  videoProvider   String?     @map("video_provider")
+  jwPlayerMediaId String?     @map("jwplayer_media_id")
+  extraMeta       Json        @default("{}") @map("extra_meta")
+  targetSiteIds   Json        @default("[]") @map("target_site_ids")
+  status          MovieStatus @default(DRAFT)
+  rejectionReason String?     @map("rejection_reason")
+  createdById     String?     @map("created_by_id")
+  reviewerId      String?     @map("reviewer_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  createdBy User? @relation("MovieCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  reviewer  User? @relation("MovieReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 
   siteDrafts    MovieSiteDraft[]
   distributions Distribution[]
@@ -76,6 +99,7 @@ model Movie {
   @@index([status])
   @@index([mainCategory])
   @@index([createdAt])
+  @@index([createdById])
   @@map("movies")
 }
 
@@ -152,4 +176,50 @@ model Distribution {
   @@index([siteId])
   @@index([status])
   @@map("distributions")
+}
+
+/// Immutable trail of every sensitive admin action — who did what to which
+/// resource. actorId is nullable/SetNull because SYSTEM-role calls (internal
+/// automation via X-System-Key) have no backing User row.
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?  @map("actor_id")
+  actorRole    Role     @map("actor_role")
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
+/// Media player (JWPlayer) configuration. apiKey/apiSecret are always
+/// AES-256-GCM encrypted (see src/lib/crypto.ts) — same pattern as
+/// TargetSite credentials, plaintext never touches the database.
+model PlayerConfig {
+  id                String   @id @default(cuid())
+  provider          String   @default("JWPLAYER")
+  name              String
+  playerId          String   @map("player_id")
+  libraryUrl        String?  @map("library_url")
+  apiKeyEnc         String   @map("api_key_enc")
+  apiKeyIv          String   @map("api_key_iv")
+  apiKeyTag         String   @map("api_key_tag")
+  apiSecretEnc      String?  @map("api_secret_enc")
+  apiSecretIv       String?  @map("api_secret_iv")
+  apiSecretTag      String?  @map("api_secret_tag")
+  defaultPosterMode String   @default("auto") @map("default_poster_mode")
+  isDefault         Boolean  @default(false) @map("is_default")
+  isActive          Boolean  @default(true) @map("is_active")
+  extraConfig       Json     @default("{}") @map("extra_config")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("player_configs")
 }

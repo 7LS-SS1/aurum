@@ -3,12 +3,12 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { movieSiteDraftSchema } from "@/lib/validation";
 import { apiError, jsonOk } from "@/lib/api-response";
-import { requireRole } from "@/lib/authz";
+import { requireMinRole } from "@/lib/authz";
 
 /** Per-(movie, site) content override — same video, different title/copy per destination. */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string; siteId: string }> }) {
   try {
-    await requireRole("ADMIN", "EDITOR");
+    await requireMinRole("STAFF");
     const { id, siteId } = await params;
     const draft = await prisma.movieSiteDraft.findUnique({
       where: { movieId_siteId: { movieId: id, siteId } },
@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string; siteId: string }> }) {
   try {
-    await requireRole("ADMIN", "EDITOR");
+    await requireMinRole("STAFF");
     const { id, siteId } = await params;
     const parsed = movieSiteDraftSchema.parse(await req.json());
     const input = { ...parsed, extraMeta: parsed.extraMeta as Prisma.InputJsonValue | undefined };

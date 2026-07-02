@@ -156,7 +156,7 @@ export async function distributeMovie(movieId: string, siteIds: string[]): Promi
 
   const draftBySite = new Map(drafts.map((d) => [d.siteId, d]));
 
-  await prisma.movie.update({ where: { id: movieId }, data: { status: "DISTRIBUTING" } });
+  await prisma.movie.update({ where: { id: movieId }, data: { status: "PUBLISHING" } });
 
   const settled = await Promise.allSettled(sites.map((site) => distributeToSite(movie, site, draftBySite.get(site.id))));
   const results = settled.map((r) =>

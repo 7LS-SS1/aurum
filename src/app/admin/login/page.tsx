@@ -6,7 +6,7 @@ async function loginAction(formData: FormData) {
   "use server";
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
-  const callbackUrl = String(formData.get("callbackUrl") || "/admin/upload");
+  const callbackUrl = String(formData.get("callbackUrl") || "/admin");
 
   try {
     await signIn("credentials", { email, password, redirectTo: callbackUrl });
@@ -39,7 +39,7 @@ export default async function LoginPage({
         <p>สำหรับผู้ดูแลระบบ/บรรณาธิการเท่านั้น</p>
 
         <form action={loginAction}>
-          <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/admin/upload"} />
+          <input type="hidden" name="callbackUrl" value={callbackUrl ?? "/admin"} />
           <div className="field">
             <label>อีเมล</label>
             <input type="email" name="email" required autoComplete="username" />

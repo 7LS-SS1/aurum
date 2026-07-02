@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { encrypt } from "@/lib/crypto";
 import { createSiteSchema } from "@/lib/validation";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
-import { requireRole } from "@/lib/authz";
+import { requireMinRole } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 
 // Fields intentionally excluded: credentialEnc / credentialIv / credentialTag.
@@ -25,7 +26,7 @@ const SITE_PUBLIC_SELECT = {
 
 export async function GET() {
   try {
-    await requireRole("ADMIN", "EDITOR");
+    await requireMinRole("STAFF");
     const sites = await prisma.targetSite.findMany({ select: SITE_PUBLIC_SELECT, orderBy: { createdAt: "asc" } });
     return jsonOk(sites);
   } catch (err) {
@@ -35,9 +36,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireRole("ADMIN"); // only admins may register a site + its credential
+    const actor = await requireMinRole("MANAGER"); // manager+ may register a site + its credential
 
-    const { success } = await rateLimit(`sites:create:${user.id}`, { limit: 10, windowMs: 60_000 });
+    const { success } = await rateLimit(`sites:create:${actor.id}`, { limit: 10, windowMs: 60_000 });
     if (!success) throw new ApiError("too_many_requests", 429);
 
     const input = createSiteSchema.parse(await req.json());
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
       },
       select: SITE_PUBLIC_SELECT,
     });
+
+    await logAudit({ actor, action: "create_site", resourceType: "site", resourceId: site.id, metadata: { name: site.name, baseUrl: site.baseUrl } });
 
     return jsonOk(site, 201);
   } catch (err) {

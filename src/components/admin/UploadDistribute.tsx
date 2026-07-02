@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
+import { presignAndUpload } from "@/lib/upload-client";
+import { DEFAULT_TAXO } from "@/lib/taxonomy";
 
 interface SiteRow {
   id: string;
@@ -18,55 +20,6 @@ interface DistributionResult {
   postId?: number;
   url?: string;
   error?: string;
-}
-
-const DEFAULT_TAXO: Record<string, string[]> = {
-  หนัง: ["ดราม่า", "แอ็คชั่น", "ระทึกขวัญ", "โรแมนติก"],
-  ซีรีส์: ["ซีรีส์ไทย", "ซีรีส์เกาหลี"],
-  สารคดี: ["ธรรมชาติ", "ประวัติศาสตร์"],
-};
-
-async function presignAndUpload(
-  file: File,
-  provider: "r2" | "bunny",
-  onProgress: (pct: number) => void,
-): Promise<string> {
-  const presign = await apiFetch<Record<string, unknown>>("/api/uploads/presign", {
-    method: "POST",
-    body: JSON.stringify({ provider, filename: file.name, contentType: file.type, size: file.size }),
-  });
-
-  if (presign.strategy === "put") {
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open(presign.method as string, presign.uploadUrl as string);
-      const headers = (presign.headers as Record<string, string>) ?? {};
-      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
-      };
-      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
-      xhr.onerror = () => reject(new Error("network error"));
-      xhr.send(file);
-    });
-    return presign.publicUrl as string;
-  }
-
-  // strategy === 'tus' (Bunny Stream)
-  const { Upload } = await import("tus-js-client");
-  const tus = presign.tus as Record<string, string>;
-  return new Promise<string>((resolve, reject) => {
-    const upload = new Upload(file, {
-      endpoint: presign.uploadUrl as string,
-      retryDelays: [0, 1000, 3000, 5000],
-      headers: tus,
-      metadata: { filetype: file.type, title: file.name },
-      onProgress: (loaded, total) => onProgress((loaded / total) * 100),
-      onSuccess: () => resolve(presign.publicUrl as string),
-      onError: (err) => reject(err),
-    });
-    upload.start();
-  });
 }
 
 export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
@@ -150,6 +103,7 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
     if (!mainCategory) return notify("กรุณาเลือกหมวดหมู่หลัก");
     if (!videoUrl) return notify(videoMode === "upload" ? "กรุณาอัปโหลดวิดีโอให้เสร็จก่อน" : "กรุณาใส่ลิงก์วิดีโอ");
     if (!selectedSites.size) return notify("เลือกเว็บปลายทางอย่างน้อย 1 เว็บ");
+    if (!window.confirm(`เผยแพร่ "${title.trim()}" ไปยัง ${selectedSites.size} เว็บทันที โดยไม่ผ่านการตรวจสอบ — ยืนยัน?`)) return;
 
     setSubmitting(true);
     setResults(null);
@@ -184,6 +138,14 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
 
   return (
     <div>
+      <div className="warn-banner">
+        <span className="wb-icon">⚡</span>
+        <div>
+          <strong>โหมดอัปโหลดด่วน — เผยแพร่ทันที</strong>
+          <span>บันทึกแล้วจะกระจายไปเว็บปลายทางที่เลือกทันที โดยข้ามขั้นตอนตรวจสอบ/อนุมัติทั้งหมด ใช้เมื่อมั่นใจในเนื้อหาแล้วเท่านั้น — ถ้าต้องการให้ทีมตรวจสอบก่อน ใช้หน้า &quot;เพิ่มวิดีโอใหม่&quot; แทน</span>
+        </div>
+      </div>
+
       <div className="ad-grid">
         <div>
           <div className="panel">
@@ -254,9 +216,31 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
             </div>
             <div className="field">
               <label>รูปหน้าปก (อัปขึ้น Cloudflare R2)</label>
-              <input ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} />
-              {thumbProgress !== null && <div className="hint">กำลังอัปโหลด… {Math.round(thumbProgress)}%</div>}
-              {thumbnailUrl && <div className="hint">อัปโหลดแล้ว: {thumbnailUrl}</div>}
+              {thumbnailUrl ? (
+                <div className="upload-preview">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
+                  <div className="up-info">
+                    <b>อัปโหลดแล้ว ✓</b>
+                    {thumbnailUrl}
+                  </div>
+                  <button type="button" className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, flex: "none" }} onClick={() => setThumbnailUrl("")}>
+                    เปลี่ยนรูป
+                  </button>
+                </div>
+              ) : (
+                <label className="upload-zone">
+                  <input ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} />
+                  <div className="uz-icon">🖼️</div>
+                  <div className="uz-text">คลิกหรือลากไฟล์รูปมาวาง</div>
+                  <div className="uz-hint">JPG · PNG · WEBP · AVIF, สูงสุด 15MB</div>
+                </label>
+              )}
+              {thumbProgress !== null && (
+                <div className="upload-progress-track">
+                  <div className="upload-progress-fill" style={{ width: `${Math.round(thumbProgress)}%` }} />
+                </div>
+              )}
             </div>
 
             <div className="field">
@@ -271,12 +255,29 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
               </div>
               {videoMode === "link" ? (
                 <input type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://stream.bunny.net/.../play.m3u8" />
+              ) : videoUrl ? (
+                <div className="upload-preview">
+                  <div style={{ width: 56, height: 56, borderRadius: 8, background: "var(--bg)", display: "grid", placeItems: "center", fontSize: 22, flex: "none" }}>🎬</div>
+                  <div className="up-info">
+                    <b>อัปโหลดแล้ว ✓</b>
+                    {videoUrl}
+                  </div>
+                  <button type="button" className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, flex: "none" }} onClick={() => setVideoUrl("")}>
+                    เปลี่ยนไฟล์
+                  </button>
+                </div>
               ) : (
-                <>
+                <label className="upload-zone">
                   <input ref={videoInput} type="file" accept="video/*" onChange={onVideoPick} />
-                  {videoProgress !== null && <div className="hint">กำลังอัปโหลด… {Math.round(videoProgress)}%</div>}
-                  {videoUrl && videoMode === "upload" && <div className="hint">อัปโหลดแล้ว: {videoUrl}</div>}
-                </>
+                  <div className="uz-icon">🎬</div>
+                  <div className="uz-text">คลิกหรือลากไฟล์วิดีโอมาวาง</div>
+                  <div className="uz-hint">MP4 · MOV · MKV · WEBM, สูงสุด 8GB — เข้ารหัส HLS ผ่าน Bunny Stream</div>
+                </label>
+              )}
+              {videoMode === "upload" && videoProgress !== null && (
+                <div className="upload-progress-track">
+                  <div className="upload-progress-fill" style={{ width: `${Math.round(videoProgress)}%` }} />
+                </div>
               )}
             </div>
           </div>
@@ -315,7 +316,7 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
           </div>
 
           <button className="btn btn-gold btn-block" style={{ fontSize: 15, padding: 14 }} onClick={distribute} disabled={submitting}>
-            {submitting ? "กำลังกระจาย…" : "บันทึก & กระจาย"}
+            {submitting ? "กำลังกระจาย…" : "⚡ เผยแพร่ทันที"}
           </button>
         </div>
       </div>

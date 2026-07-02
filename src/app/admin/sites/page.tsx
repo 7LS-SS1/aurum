@@ -1,7 +1,9 @@
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { SitesManager } from "@/components/admin/SitesManager";
 
 export default async function SitesPage() {
+  const session = await auth();
   const sites = await prisma.targetSite.findMany({
     select: {
       id: true,
@@ -22,7 +24,7 @@ export default async function SitesPage() {
         </h1>
         <p>จัดการเว็บ WordPress ปลายทาง — กุญแจ (Application Password / JWT) ถูกเข้ารหัส AES-256-GCM ก่อนบันทึก ไม่มีการเก็บ plaintext</p>
       </div>
-      <SitesManager initialSites={sites} />
+      <SitesManager initialSites={sites} role={session!.user.role} />
     </section>
   );
 }

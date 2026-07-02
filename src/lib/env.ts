@@ -1,34 +1,48 @@
 import { z } from "zod";
 
 /**
+ * .env.example uses `""` as the "not configured" convention for every
+ * optional var (R2_*, BUNNY_*, UPSTASH_*, ...) — treat empty string the same
+ * as unset so a freshly-copied .env doesn't fail validation before any of
+ * those integrations are actually wired up.
+ */
+const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
+const optionalUrl = () => z.preprocess(emptyToUndefined, z.string().url().optional());
+const optionalString = () => z.preprocess(emptyToUndefined, z.string().optional());
+
+/**
  * Fail fast at boot if required secrets are missing/malformed, instead of
  * surfacing a confusing runtime error the first time a route touches them.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
-  DIRECT_URL: z.string().url().optional(),
+  DIRECT_URL: optionalUrl(),
 
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
-  AUTH_URL: z.string().url().optional(),
+  AUTH_URL: optionalUrl(),
 
   ENCRYPTION_KEY: z
     .string()
     .length(64, "ENCRYPTION_KEY must be 64 hex characters (32 bytes)")
     .regex(/^[0-9a-f]+$/i, "ENCRYPTION_KEY must be hex"),
 
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_BUCKET_NAME: z.string().optional(),
-  R2_PUBLIC_HOSTNAME: z.string().optional(),
+  R2_ACCOUNT_ID: optionalString(),
+  R2_ACCESS_KEY_ID: optionalString(),
+  R2_SECRET_ACCESS_KEY: optionalString(),
+  R2_BUCKET_NAME: optionalString(),
+  R2_PUBLIC_HOSTNAME: optionalString(),
 
-  BUNNY_LIBRARY_ID: z.string().optional(),
-  BUNNY_API_KEY: z.string().optional(),
-  BUNNY_CDN_HOST: z.string().optional(),
+  BUNNY_LIBRARY_ID: optionalString(),
+  BUNNY_API_KEY: optionalString(),
+  BUNNY_CDN_HOST: optionalString(),
 
-  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: optionalUrl(),
+  UPSTASH_REDIS_REST_TOKEN: optionalString(),
+
+  // Shared secret for the SYSTEM role — internal automation/API jobs send
+  // this in an X-System-Key header instead of ever logging in interactively.
+  SYSTEM_API_KEY: z.preprocess(emptyToUndefined, z.string().min(16).optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

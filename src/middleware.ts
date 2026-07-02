@@ -23,7 +23,14 @@ export default auth((req) => {
   const isAdminArea = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isProtectedApi = pathname.startsWith("/api") && !isPublicApi;
 
-  if ((isAdminArea || isProtectedApi) && !req.auth) {
+  // SYSTEM-role automation never logs in — it presents this header instead.
+  // The route handler still does the real check (requireRoleOrSystem); this
+  // only lets the request past the blanket "no session" gate below.
+  const systemKey = process.env.SYSTEM_API_KEY;
+  const hasValidSystemKey =
+    isProtectedApi && !!systemKey && req.headers.get("x-system-key") === systemKey;
+
+  if ((isAdminArea || isProtectedApi) && !req.auth && !hasValidSystemKey) {
     if (isProtectedApi) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }

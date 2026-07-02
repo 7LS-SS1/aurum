@@ -16,7 +16,7 @@ export default {
   callbacks: {
     jwt({ token, user }) {
       if (user) {
-        token.role = "role" in user ? user.role : "EDITOR";
+        token.role = "role" in user ? user.role : "STAFF";
         token.sub = user.id;
       }
       return token;
@@ -24,7 +24,7 @@ export default {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub as string;
-        session.user.role = token.role ?? "EDITOR";
+        session.user.role = token.role ?? "STAFF";
       }
       return session;
     },

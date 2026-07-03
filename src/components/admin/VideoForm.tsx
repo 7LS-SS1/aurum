@@ -70,6 +70,11 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
   const [jwPlayerMediaId, setJwPlayerMediaId] = useState(initialMovie?.jwPlayerMediaId ?? "");
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
 
+  const [jwR2Progress, setJwR2Progress] = useState<number | null>(null);
+  const [jwIngesting, setJwIngesting] = useState(false);
+  const [jwIngestStatus, setJwIngestStatus] = useState<string | null>((extraMeta.jwIngestStatus as string) ?? null);
+  const jwVideoInput = useRef<HTMLInputElement>(null);
+
   const [quality, setQuality] = useState((extraMeta.quality as string) ?? "");
   const [duration, setDuration] = useState((extraMeta.duration as string) ?? "");
 
@@ -130,6 +135,40 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
     }
   }
 
+  /**
+   * Automated JWPlayer ingest: upload the source file to R2 first (direct
+   * browser -> R2, bytes never touch this server), then hand the resulting
+   * R2 URL to JWX's fetch-upload ingest so JWPlayer downloads it server-side.
+   */
+  async function onJwVideoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setJwR2Progress(0);
+    setJwIngestStatus(null);
+    try {
+      const r2Url = await presignAndUpload(file, "r2", setJwR2Progress);
+      setVideoUrl(r2Url);
+      setJwR2Progress(null);
+      setJwIngesting(true);
+      const ingest = await apiFetch<{ jwPlayerMediaId: string; iframeUrl?: string; sourceUrl: string; status: string }>(
+        "/api/uploads/jwplayer-ingest",
+        {
+          method: "POST",
+          body: JSON.stringify({ sourceUrl: r2Url, filename: file.name, title: title.trim() || file.name, contentType: file.type }),
+        },
+      );
+      setJwPlayerMediaId(ingest.jwPlayerMediaId);
+      if (ingest.iframeUrl) setIframeUrl(ingest.iframeUrl);
+      setJwIngestStatus(ingest.status);
+      notify("ส่งวิดีโอเข้า JWPlayer แล้ว ✓");
+    } catch (err) {
+      notify(err instanceof ApiClientError ? err.message : err instanceof Error ? err.message : "อัปโหลด/ส่งเข้า JWPlayer ไม่สำเร็จ");
+    } finally {
+      setJwR2Progress(null);
+      setJwIngesting(false);
+    }
+  }
+
   function buildPayload() {
     return {
       title: title.trim(),
@@ -142,10 +181,13 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
       thumbnailUrl: thumbnailUrl || undefined,
       previewUrl: previewUrl || undefined,
       iframeUrl: iframeUrl || undefined,
-      videoUrl: videoMode === "jwplayer" ? undefined : videoUrl || undefined,
+      // videoUrl doubles as the R2 source URL when a file was uploaded via the
+      // JWPlayer auto-ingest flow — kept for reference/fallback even though
+      // playback uses the JWPlayer iframe, not this URL directly.
+      videoUrl: videoUrl || undefined,
       videoProvider: videoMode === "jwplayer" ? "jwplayer" : videoMode === "upload" ? "bunny" : "external",
       jwPlayerMediaId: videoMode === "jwplayer" ? jwPlayerMediaId.trim() || undefined : undefined,
-      extraMeta: { ...extraMeta, quality: quality || undefined, duration: duration || undefined },
+      extraMeta: { ...extraMeta, quality: quality || undefined, duration: duration || undefined, jwIngestStatus: jwIngestStatus || undefined },
       targetSiteIds: [...selectedSites],
     };
   }
@@ -389,8 +431,46 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
               )}
               {videoMode === "jwplayer" && (
                 <div style={{ display: "grid", gap: 10 }}>
-                  <input type="text" value={jwPlayerMediaId} onChange={(e) => setJwPlayerMediaId(e.target.value)} placeholder="เช่น AbCdEfGh" />
-                  <input type="url" value={iframeUrl} onChange={(e) => setIframeUrl(e.target.value)} placeholder="JWPlayer iframe URL (optional, auto-generated if empty)" />
+                  {!jwPlayerMediaId && (
+                    <label className="upload-zone">
+                      <input ref={jwVideoInput} type="file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,video/mp2t" onChange={onJwVideoPick} />
+                      <div className="uz-icon">📡</div>
+                      <div className="uz-text">คลิกหรือลากไฟล์วิดีโอมาวาง — อัปขึ้น R2 แล้วส่งเข้า JWPlayer อัตโนมัติ</div>
+                      <div className="uz-hint">MP4 · MOV · MKV · WEBM · TS, สูงสุด 8GB</div>
+                    </label>
+                  )}
+                  {jwR2Progress !== null && (
+                    <div className="upload-progress-track">
+                      <div className="upload-progress-fill" style={{ width: `${Math.round(jwR2Progress)}%` }} />
+                    </div>
+                  )}
+                  {jwIngesting && <div className="hint">กำลังส่งวิดีโอเข้า JWPlayer…</div>}
+                  <div className="row2">
+                    <div className="field">
+                      <label>JWPlayer Media ID</label>
+                      <input type="text" value={jwPlayerMediaId} onChange={(e) => setJwPlayerMediaId(e.target.value)} placeholder="เช่น AbCdEfGh (หรืออัปโหลดไฟล์ด้านบน)" />
+                    </div>
+                    <div className="field">
+                      <label>Iframe URL</label>
+                      <input type="url" value={iframeUrl} onChange={(e) => setIframeUrl(e.target.value)} placeholder="auto-generated เมื่อมี Media ID" />
+                    </div>
+                  </div>
+                  {jwPlayerMediaId && (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, justifySelf: "start" }}
+                      onClick={() => {
+                        setJwPlayerMediaId("");
+                        setIframeUrl("");
+                        setVideoUrl("");
+                        setJwIngestStatus(null);
+                      }}
+                    >
+                      เปลี่ยนวิดีโอ
+                    </button>
+                  )}
+                  {jwIngestStatus && <div className="hint">สถานะ JWPlayer: {jwIngestStatus}</div>}
                 </div>
               )}
               <div className="field" style={{ marginTop: 12 }}>

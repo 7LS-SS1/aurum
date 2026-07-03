@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { presignSchema, assertUploadAllowed } from "@/lib/validation";
+import { presignSchema, assertUploadAllowed, assertUploadAllowedAuto } from "@/lib/validation";
 import { presignR2Upload } from "@/lib/storage/r2";
 import { presignBunnyUpload } from "@/lib/storage/bunny";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
@@ -8,12 +8,14 @@ import { rateLimit } from "@/lib/rate-limit";
 
 /**
  * Issues a short-lived upload credential so the browser can PUT/TUS the file
- * straight to Cloudflare R2 (images) or Bunny Stream (video) — the actual
- * bytes never pass through this server, only the presigned URL does.
+ * straight to Cloudflare R2 or Bunny Stream — the actual bytes never pass
+ * through this server, only the presigned URL does.
  *
- * R2 is used for images/thumbnails only. Video always goes through Bunny
- * Stream, which transcodes to adaptive-bitrate HLS — R2 is plain object
- * storage and can't do that.
+ * R2 holds images/thumbnails/preview clips AND source video (kind inferred
+ * from contentType, stored under images/ or videos/) — source video uploaded
+ * here is what JWPlayer's fetch-upload ingest later downloads from
+ * (see /api/uploads/jwplayer-ingest). Bunny Stream remains available as an
+ * optional fallback that transcodes to adaptive-bitrate HLS itself.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -25,8 +27,9 @@ export async function POST(req: NextRequest) {
     const input = presignSchema.parse(await req.json());
 
     if (input.provider === "r2") {
-      assertUploadAllowed("image", input.contentType, input.size);
-      const result = await presignR2Upload({ filename: input.filename, contentType: input.contentType, folder: "images" });
+      const kind = assertUploadAllowedAuto(input.contentType, input.size);
+      const folder = kind === "video" ? "videos" : "images";
+      const result = await presignR2Upload({ filename: input.filename, contentType: input.contentType, folder });
       return jsonOk(result);
     }
 

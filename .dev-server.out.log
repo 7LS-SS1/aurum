@@ -1,0 +1,15 @@
+
+> aurum-project@2.0.0 dev
+> next dev --port 3000
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.103:3000
+   - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 4.2s
+ ✓ Compiled /middleware in 487ms (232 modules)
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 1273ms (309 modules)
+ GET /api/health 200 in 33ms

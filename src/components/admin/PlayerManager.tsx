@@ -14,6 +14,7 @@ interface PlayerConfigRow {
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
+  extraConfig?: Record<string, unknown>;
 }
 
 export function PlayerManager({ initialConfigs, role }: { initialConfigs: PlayerConfigRow[]; role: Role }) {
@@ -29,6 +30,7 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
   const [form, setForm] = useState({
     name: "",
     playerId: "",
+    siteId: "",
     libraryUrl: "",
     apiKey: "",
     apiSecret: "",
@@ -54,6 +56,7 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
           body: JSON.stringify({
             name: form.name,
             playerId: form.playerId,
+            siteId: form.siteId || undefined,
             libraryUrl: form.libraryUrl || undefined,
             apiKey: form.apiKey,
             apiSecret: form.apiSecret || undefined,
@@ -62,7 +65,7 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
           }),
         });
         setConfigs((prev) => [...prev, config]);
-        setForm({ name: "", playerId: "", libraryUrl: "", apiKey: "", apiSecret: "", defaultPosterMode: "auto", isDefault: false });
+        setForm({ name: "", playerId: "", siteId: "", libraryUrl: "", apiKey: "", apiSecret: "", defaultPosterMode: "auto", isDefault: false });
         notify("เพิ่ม config แล้ว — กุญแจถูกเข้ารหัสที่ฝั่ง server");
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "บันทึกไม่สำเร็จ");
@@ -126,6 +129,7 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
                 </div>
                 <div className="url">
                   {c.provider} · playerId: {c.playerId} · poster: {c.defaultPosterMode}
+                  {typeof c.extraConfig?.siteId === "string" && c.extraConfig.siteId ? ` · siteId: ${c.extraConfig.siteId}` : ""}
                 </div>
               </div>
               <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setPreviewFor(previewFor === c.id ? null : c.id)}>
@@ -188,6 +192,11 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
                 <input type="text" value={form.playerId} onChange={(e) => setForm({ ...form, playerId: e.target.value })} placeholder="AbCdEfGh" />
               </div>
               <div className="field">
+                <label>Site/Property ID (สำหรับ ingest อัตโนมัติ)</label>
+                <input type="text" value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} placeholder="เช่น AbCd1234" />
+                <div className="hint">ใช้เรียก JWX Management API เพื่ออัปโหลดวิดีโอเข้า JWPlayer อัตโนมัติ — เว้นว่างได้ถ้าจะกรอก Media ID เอง</div>
+              </div>
+              <div className="field">
                 <label>Library URL</label>
                 <input type="url" value={form.libraryUrl} onChange={(e) => setForm({ ...form, libraryUrl: e.target.value })} placeholder="https://cdn.jwplayer.com/libraries/xxx.js" />
               </div>
@@ -199,8 +208,9 @@ export function PlayerManager({ initialConfigs, role }: { initialConfigs: Player
                 <div className="hint">เข้ารหัสด้วย AES-256-GCM ก่อนบันทึกเสมอ</div>
               </div>
               <div className="field">
-                <label>API Secret (ถ้ามี)</label>
+                <label>API Secret (จำเป็นสำหรับ ingest อัตโนมัติ)</label>
                 <input type="password" value={form.apiSecret} onChange={(e) => setForm({ ...form, apiSecret: e.target.value })} placeholder="xxxxxxxx" />
+                <div className="hint">V2 API Secret ของ JWX — ใช้เป็น Bearer token เรียก Management API เพื่ออัปโหลดวิดีโอโดยอัตโนมัติ</div>
               </div>
               <div className="field">
                 <label>Default Poster Mode</label>

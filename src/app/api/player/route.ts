@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           defaultPosterMode: input.defaultPosterMode,
           isDefault: input.isDefault,
           isActive: input.isActive,
-          extraConfig: input.extraConfig as Prisma.InputJsonValue,
+          extraConfig: { ...input.extraConfig, ...(input.siteId ? { siteId: input.siteId } : {}) } as Prisma.InputJsonValue,
         },
         select: PLAYER_PUBLIC_SELECT,
       });

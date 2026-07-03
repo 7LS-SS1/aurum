@@ -82,7 +82,7 @@ export const presignSchema = z.object({
 });
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm"]);
+const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/mp2t"]);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_VIDEO_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB
 
@@ -100,6 +100,9 @@ export const createPlayerConfigSchema = z.object({
   provider: z.enum(["JWPLAYER"]).default("JWPLAYER"),
   name: shortText,
   playerId: z.string().trim().min(1).max(255),
+  // JWX/JWPlayer V2 Management API scopes every call under a site (property)
+  // ID — stored in PlayerConfig.extraConfig.siteId, no schema migration needed.
+  siteId: z.string().trim().min(1).max(255).optional(),
   libraryUrl: urlField.optional(),
   apiKey: z.string().trim().min(8).max(2048),
   apiSecret: z.string().trim().min(8).max(2048).optional(),
@@ -113,6 +116,14 @@ export type CreatePlayerConfigInput = z.infer<typeof createPlayerConfigSchema>;
 export const updatePlayerConfigSchema = createPlayerConfigSchema.partial();
 export type UpdatePlayerConfigInput = z.infer<typeof updatePlayerConfigSchema>;
 
+export const jwPlayerIngestSchema = z.object({
+  sourceUrl: urlField,
+  filename: z.string().trim().max(255).optional(),
+  title: shortText.optional(),
+  contentType: z.string().trim().max(255).optional(),
+});
+export type JwPlayerIngestInput = z.infer<typeof jwPlayerIngestSchema>;
+
 export function assertUploadAllowed(kind: "image" | "video", contentType: string, size?: number) {
   const allowed = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;
   if (!allowed.has(contentType)) {
@@ -122,6 +133,23 @@ export function assertUploadAllowed(kind: "image" | "video", contentType: string
   if (size !== undefined && size > max) {
     throw new ValidationError(`${kind} exceeds maximum allowed size of ${max} bytes`);
   }
+}
+
+/**
+ * R2 now stores both images (thumbnails) and source video (JWPlayer ingest
+ * fetch-uploads that source video), so the presign route needs to infer kind
+ * from contentType instead of assuming R2 == image.
+ */
+export function assertUploadAllowedAuto(contentType: string, size?: number): "image" | "video" {
+  if (IMAGE_TYPES.has(contentType)) {
+    assertUploadAllowed("image", contentType, size);
+    return "image";
+  }
+  if (VIDEO_TYPES.has(contentType)) {
+    assertUploadAllowed("video", contentType, size);
+    return "video";
+  }
+  throw new ValidationError(`Unsupported content-type: ${contentType}`);
 }
 
 export class ValidationError extends Error {}

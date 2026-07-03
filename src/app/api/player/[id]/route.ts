@@ -33,6 +33,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const keyEnc = input.apiKey ? encrypt(input.apiKey) : null;
     const secretEnc = input.apiSecret ? encrypt(input.apiSecret) : null;
 
+    const mergedExtraConfig =
+      input.extraConfig !== undefined || input.siteId !== undefined
+        ? {
+            ...((existing.extraConfig as Record<string, unknown>) ?? {}),
+            ...(input.extraConfig ?? {}),
+            ...(input.siteId ? { siteId: input.siteId } : {}),
+          }
+        : undefined;
+
     const config = await prisma.$transaction(async (tx) => {
       if (input.isDefault) {
         await tx.playerConfig.updateMany({ where: { isDefault: true, id: { not: id } }, data: { isDefault: false } });
@@ -47,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           defaultPosterMode: input.defaultPosterMode,
           isDefault: input.isDefault,
           isActive: input.isActive,
-          extraConfig: input.extraConfig as Prisma.InputJsonValue | undefined,
+          extraConfig: mergedExtraConfig as Prisma.InputJsonValue | undefined,
           ...(keyEnc ? { apiKeyEnc: keyEnc.ciphertext, apiKeyIv: keyEnc.iv, apiKeyTag: keyEnc.tag } : {}),
           ...(secretEnc ? { apiSecretEnc: secretEnc.ciphertext, apiSecretIv: secretEnc.iv, apiSecretTag: secretEnc.tag } : {}),
         },

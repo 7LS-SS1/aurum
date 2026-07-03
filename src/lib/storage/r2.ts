@@ -5,6 +5,15 @@ import { ApiError } from "@/lib/api-response";
 
 let client: S3Client | undefined;
 
+function publicBaseUrl(hostnameOrUrl: string): string {
+  try {
+    const url = new URL(hostnameOrUrl);
+    return url.origin;
+  } catch {
+    return `https://${hostnameOrUrl.replace(/^\/+|\/+$/g, "")}`;
+  }
+}
+
 /** Cloudflare R2 is S3-API-compatible — same SDK, just a different endpoint. */
 function r2Client(): S3Client {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } = env();
@@ -50,7 +59,7 @@ export async function presignR2Upload(opts: {
     strategy: "put",
     method: "PUT",
     uploadUrl,
-    publicUrl: `https://${R2_PUBLIC_HOSTNAME}/${key}`,
+    publicUrl: `${publicBaseUrl(R2_PUBLIC_HOSTNAME)}/${key}`,
     headers: { "Content-Type": opts.contentType },
   };
 }

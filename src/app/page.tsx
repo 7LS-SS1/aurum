@@ -46,6 +46,7 @@ export default async function HomePage({
         title: true,
         mainCategory: true,
         thumbnailUrl: true,
+        previewUrl: true,
         extraMeta: true,
         createdAt: true,
       },
@@ -137,6 +138,7 @@ export default async function HomePage({
                       // eslint-disable-next-line @next/next/no-img-element -- external CDN hosts vary per env
                       <img src={m.thumbnailUrl} alt={m.title} loading="lazy" />
                     )}
+                    {m.previewUrl && <video className="vpreview" src={m.previewUrl} muted loop playsInline autoPlay preload="metadata" />}
                     <span className="hover-play">
                       <span className="pp">
                         <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">

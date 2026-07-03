@@ -24,6 +24,8 @@ interface InitialMovie {
   categories: unknown;
   tags: unknown;
   thumbnailUrl: string | null;
+  previewUrl: string | null;
+  iframeUrl: string | null;
   videoUrl: string | null;
   videoProvider: string | null;
   jwPlayerMediaId: string | null;
@@ -52,13 +54,17 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
   const [tagInput, setTagInput] = useState("");
 
   const [thumbnailUrl, setThumbnailUrl] = useState(initialMovie?.thumbnailUrl ?? "");
+  const [previewUrl, setPreviewUrl] = useState(initialMovie?.previewUrl ?? "");
+  const [iframeUrl, setIframeUrl] = useState(initialMovie?.iframeUrl ?? "");
   const [thumbProgress, setThumbProgress] = useState<number | null>(null);
 
   const initialVideoMode: "link" | "upload" | "jwplayer" = initialMovie?.jwPlayerMediaId
     ? "jwplayer"
     : initialMovie?.videoProvider === "bunny"
       ? "upload"
-      : "link";
+      : initialMovie?.videoUrl
+        ? "link"
+        : "jwplayer";
   const [videoMode, setVideoMode] = useState<"link" | "upload" | "jwplayer">(initialVideoMode);
   const [videoUrl, setVideoUrl] = useState(initialMovie?.videoUrl ?? "");
   const [jwPlayerMediaId, setJwPlayerMediaId] = useState(initialMovie?.jwPlayerMediaId ?? "");
@@ -134,6 +140,8 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
       categories,
       tags,
       thumbnailUrl: thumbnailUrl || undefined,
+      previewUrl: previewUrl || undefined,
+      iframeUrl: iframeUrl || undefined,
       videoUrl: videoMode === "jwplayer" ? undefined : videoUrl || undefined,
       videoProvider: videoMode === "jwplayer" ? "jwplayer" : videoMode === "upload" ? "bunny" : "external",
       jwPlayerMediaId: videoMode === "jwplayer" ? jwPlayerMediaId.trim() || undefined : undefined,
@@ -380,8 +388,15 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
                 </div>
               )}
               {videoMode === "jwplayer" && (
-                <input type="text" value={jwPlayerMediaId} onChange={(e) => setJwPlayerMediaId(e.target.value)} placeholder="เช่น AbCdEfGh" />
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input type="text" value={jwPlayerMediaId} onChange={(e) => setJwPlayerMediaId(e.target.value)} placeholder="เช่น AbCdEfGh" />
+                  <input type="url" value={iframeUrl} onChange={(e) => setIframeUrl(e.target.value)} placeholder="JWPlayer iframe URL (optional, auto-generated if empty)" />
+                </div>
               )}
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Preview URL (hover clip)</label>
+                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://cdn.example.com/previews/video-preview.mp4" />
+              </div>
             </div>
           </div>
         </div>

@@ -33,8 +33,11 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [thumbProgress, setThumbProgress] = useState<number | null>(null);
 
-  const [videoMode, setVideoMode] = useState<"link" | "upload">("link");
+  const [videoMode, setVideoMode] = useState<"jwplayer" | "link" | "upload">("jwplayer");
   const [videoUrl, setVideoUrl] = useState("");
+  const [jwPlayerMediaId, setJwPlayerMediaId] = useState("");
+  const [iframeUrl, setIframeUrl] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
 
   const [selectedSites, setSelectedSites] = useState<Set<string>>(new Set());
@@ -101,7 +104,8 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
   async function distribute() {
     if (!title.trim()) return notify("กรุณากรอกชื่อเรื่อง");
     if (!mainCategory) return notify("กรุณาเลือกหมวดหมู่หลัก");
-    if (!videoUrl) return notify(videoMode === "upload" ? "กรุณาอัปโหลดวิดีโอให้เสร็จก่อน" : "กรุณาใส่ลิงก์วิดีโอ");
+    if (videoMode === "jwplayer" && !jwPlayerMediaId.trim()) return notify("กรุณาใส่ JWPlayer Media ID");
+    if (videoMode !== "jwplayer" && !videoUrl) return notify(videoMode === "upload" ? "กรุณาอัปโหลดวิดีโอให้เสร็จก่อน" : "กรุณาใส่ลิงก์วิดีโอ");
     if (!selectedSites.size) return notify("เลือกเว็บปลายทางอย่างน้อย 1 เว็บ");
     if (!window.confirm(`เผยแพร่ "${title.trim()}" ไปยัง ${selectedSites.size} เว็บทันที โดยไม่ผ่านการตรวจสอบ — ยืนยัน?`)) return;
 
@@ -117,8 +121,11 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
           categories: subCategory ? [subCategory] : [],
           tags,
           thumbnailUrl: thumbnailUrl || undefined,
-          videoUrl,
-          videoProvider: videoMode === "upload" ? "bunny" : "external",
+          previewUrl: previewUrl || undefined,
+          iframeUrl: iframeUrl || undefined,
+          videoUrl: videoMode === "jwplayer" ? undefined : videoUrl,
+          videoProvider: videoMode === "jwplayer" ? "jwplayer" : videoMode === "upload" ? "bunny" : "external",
+          jwPlayerMediaId: videoMode === "jwplayer" ? jwPlayerMediaId.trim() : undefined,
         }),
       });
 
@@ -246,6 +253,9 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
             <div className="field">
               <label>วิดีโอ</label>
               <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <button type="button" className={videoMode === "jwplayer" ? "btn btn-gold" : "btn btn-ghost"} onClick={() => setVideoMode("jwplayer")}>
+                  JWPlayer Media ID
+                </button>
                 <button type="button" className={videoMode === "link" ? "btn btn-gold" : "btn btn-ghost"} onClick={() => setVideoMode("link")}>
                   วางลิงก์
                 </button>
@@ -253,7 +263,12 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
                   อัปโหลดไฟล์ (Bunny Stream)
                 </button>
               </div>
-              {videoMode === "link" ? (
+              {videoMode === "jwplayer" ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  <input type="text" value={jwPlayerMediaId} onChange={(e) => setJwPlayerMediaId(e.target.value)} placeholder="เช่น AbCdEfGh" />
+                  <input type="url" value={iframeUrl} onChange={(e) => setIframeUrl(e.target.value)} placeholder="JWPlayer iframe URL (optional, auto-generated if empty)" />
+                </div>
+              ) : videoMode === "link" ? (
                 <input type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://stream.bunny.net/.../play.m3u8" />
               ) : videoUrl ? (
                 <div className="upload-preview">
@@ -279,6 +294,10 @@ export function UploadDistribute({ sites }: { sites: SiteRow[] }) {
                   <div className="upload-progress-fill" style={{ width: `${Math.round(videoProgress)}%` }} />
                 </div>
               )}
+              <div className="field" style={{ marginTop: 12 }}>
+                <label>Preview URL (hover clip)</label>
+                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://cdn.example.com/previews/video-preview.mp4" />
+              </div>
             </div>
           </div>
         </div>

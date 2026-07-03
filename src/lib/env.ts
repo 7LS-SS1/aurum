@@ -32,6 +32,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: optionalString(),
   R2_BUCKET_NAME: optionalString(),
   R2_PUBLIC_HOSTNAME: optionalString(),
+  NEXT_PUBLIC_R2_PUBLIC_URL: optionalUrl(),
 
   BUNNY_LIBRARY_ID: optionalString(),
   BUNNY_API_KEY: optionalString(),

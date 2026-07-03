@@ -5,6 +5,7 @@ import { updateMovieSchema } from "@/lib/validation";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 const LOCKED_FOR_STAFF: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
 const LOCKED_FOR_SENIOR: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
@@ -42,10 +43,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (LOCKED_FOR_SENIOR.includes(existing.status)) throw new ApiError("movie_locked", 409);
     }
 
+    const defaultPlayer = input.videoProvider === "jwplayer" ? await getDefaultJwPlayerConfig() : undefined;
+    const iframeUrl =
+      input.iframeUrl ?? (input.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(input.jwPlayerMediaId ?? existing.jwPlayerMediaId, defaultPlayer) : undefined);
+
     const movie = await prisma.movie.update({
       where: { id },
       data: {
         ...input,
+        ...(iframeUrl !== undefined ? { iframeUrl } : {}),
         extraMeta: input.extraMeta as Prisma.InputJsonValue | undefined,
         targetSiteIds: input.targetSiteIds as Prisma.InputJsonValue | undefined,
       },

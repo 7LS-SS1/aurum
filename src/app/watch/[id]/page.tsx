@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { VideoPlayer } from "@/components/public/VideoPlayer";
+import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 export const revalidate = 60;
 
@@ -14,7 +15,10 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       OR: [{ slug: id }, { id }],
     },
   });
-  if (!movie || !movie.videoUrl) notFound();
+  if (!movie || (!movie.videoUrl && !movie.jwPlayerMediaId && !movie.iframeUrl)) notFound();
+  const iframeUrl =
+    movie.iframeUrl ??
+    (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig()) : undefined);
 
   const tags = Array.isArray(movie.tags) ? (movie.tags as unknown[]).filter((t): t is string => typeof t === "string") : [];
 
@@ -23,7 +27,11 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       <PublicHeader />
       <main style={{ marginTop: "var(--topbar-h)", maxWidth: 1100, margin: "var(--topbar-h) auto 0", padding: "24px" }}>
         <div style={{ aspectRatio: "16/9", background: "#000", borderRadius: 12, overflow: "hidden" }}>
-          <VideoPlayer src={movie.videoUrl} poster={movie.thumbnailUrl ?? undefined} />
+          {iframeUrl ? (
+            <iframe src={iframeUrl} title={movie.title} allowFullScreen style={{ width: "100%", height: "100%", border: 0 }} />
+          ) : (
+            <VideoPlayer src={movie.videoUrl!} poster={movie.thumbnailUrl ?? undefined} />
+          )}
         </div>
         <h1 className="serif" style={{ fontSize: 22, marginTop: 18 }}>
           {movie.title}

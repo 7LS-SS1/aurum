@@ -20,6 +20,8 @@ export const createMovieSchema = z.object({
   categories: taxonomyList.default([]),
   tags: taxonomyList.default([]),
   thumbnailUrl: urlField.optional(),
+  previewUrl: urlField.optional(),
+  iframeUrl: urlField.optional(),
   videoUrl: urlField.optional(),
   videoProvider: z.enum(["external", "bunny", "s3", "r2", "jwplayer"]).optional(),
   jwPlayerMediaId: z.string().trim().min(1).max(255).optional(),

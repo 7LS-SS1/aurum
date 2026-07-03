@@ -1074,6 +1074,18 @@ select {
   object-fit: cover;
   display: block;
 }
+.vthumb .vpreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.vcard:hover .vpreview {
+  opacity: 1;
+}
 .hover-play {
   position: absolute;
   inset: 0;

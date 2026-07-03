@@ -2,6 +2,7 @@ import type { Movie, MovieSiteDraft, TargetSite } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { WordPressClient } from "@/lib/wordpress-client";
+import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 export interface DistributionResult {
   siteId: string;
@@ -23,21 +24,16 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
-/** Embeds the video link into post content as a fallback in case `meta.video_url`
- *  isn't registered with `show_in_rest` on the destination site. */
-function buildContent(text: string, videoUrl?: string | null): string {
+function buildContent(text: string, movie: Movie, iframeUrl?: string): string {
   let html = text;
-  if (videoUrl) {
-    html += `\n\n<!-- distributed-video -->\n<div class="movie-video"><a href="${videoUrl}" rel="nofollow">▶ ดูหนัง</a></div>`;
+  if (iframeUrl) {
+    html += `\n\n<!-- aurum-video -->\n<div class="aurum-video"><iframe src="${iframeUrl}" loading="lazy" allowfullscreen></iframe></div>`;
+  } else if (movie.videoUrl) {
+    html += `\n\n<!-- aurum-video -->\n<div class="aurum-video"><a href="${movie.videoUrl}" rel="nofollow">Watch video</a></div>`;
   }
   return html;
 }
 
-/**
- * Merges the master Movie with its per-site MovieSiteDraft override (if any).
- * The video itself is intentionally never overridable per-site — every
- * destination gets the same underlying file, only text/taxonomy differ.
- */
 function mergeContent(movie: Movie, draft: MovieSiteDraft | undefined) {
   const extraMeta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const draftExtraMeta = (draft?.extraMeta as Record<string, unknown> | null) ?? {};
@@ -52,32 +48,38 @@ function mergeContent(movie: Movie, draft: MovieSiteDraft | undefined) {
   };
 }
 
+async function resolveIframeUrl(movie: Movie): Promise<string | undefined> {
+  if (movie.iframeUrl) return movie.iframeUrl;
+  if (movie.videoProvider !== "jwplayer") return undefined;
+  return buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig());
+}
+
 async function buildPayload(client: WordPressClient, movie: Movie, site: TargetSite, draft: MovieSiteDraft | undefined) {
   const merged = mergeContent(movie, draft);
+  const iframeUrl = await resolveIframeUrl(movie);
 
   const payload: Record<string, unknown> = {
     title: merged.title,
-    content: buildContent(merged.content || merged.excerpt, movie.videoUrl),
+    content: buildContent(merged.content || merged.excerpt, movie, iframeUrl),
     excerpt: merged.excerpt,
     status: site.defaultStatus || "publish",
-    // WordPress only persists `meta` if the destination registered it with
-    // show_in_rest=true (or via ACF) — otherwise it's silently dropped, which
-    // is why the video link is also embedded in content above as a fallback.
     meta: {
+      aurum_provider: movie.videoProvider ?? "",
+      aurum_video_url: movie.videoUrl ?? "",
+      aurum_iframe_url: iframeUrl ?? "",
+      aurum_thumbnail_url: movie.thumbnailUrl ?? "",
+      aurum_preview_url: movie.previewUrl ?? "",
+      aurum_jwplayer_media_id: movie.jwPlayerMediaId ?? "",
       video_url: movie.videoUrl ?? "",
       video_provider: movie.videoProvider ?? "",
+      jwplayer_media_id: movie.jwPlayerMediaId ?? "",
+      iframe_url: iframeUrl ?? "",
+      thumbnail_url: movie.thumbnailUrl ?? "",
+      preview_url: movie.previewUrl ?? "",
       ...merged.extraMeta,
     },
   };
   if (merged.slug) payload.slug = merged.slug;
-
-  if (movie.thumbnailUrl) {
-    try {
-      payload.featured_media = await client.uploadMediaFromUrl(movie.thumbnailUrl);
-    } catch {
-      // A broken thumbnail shouldn't block the whole post from publishing.
-    }
-  }
 
   const mainCategory = movie.mainCategory ?? "";
   if (mainCategory || merged.categories.length) {
@@ -143,7 +145,6 @@ async function distributeToSite(
   }
 }
 
-/** Distributes one movie to many sites concurrently — one site failing never blocks the others. */
 export async function distributeMovie(movieId: string, siteIds: string[]): Promise<DistributeSummary> {
   const movie = await prisma.movie.findUnique({ where: { id: movieId } });
   if (!movie) throw new Error("Movie not found");

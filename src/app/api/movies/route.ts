@@ -6,6 +6,7 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
+import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 const MOVIE_STATUSES = [
   "DRAFT",
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest) {
     if (!success) throw new ApiError("too_many_requests", 429);
 
     const input = createMovieSchema.parse(await req.json());
+    const defaultPlayer = input.videoProvider === "jwplayer" ? await getDefaultJwPlayerConfig() : undefined;
+    const iframeUrl = input.iframeUrl ?? buildJwPlayerIframeUrl(input.jwPlayerMediaId, defaultPlayer);
 
     const movie = await prisma.movie.create({
       data: {
@@ -86,6 +89,8 @@ export async function POST(req: NextRequest) {
         categories: input.categories,
         tags: input.tags,
         thumbnailUrl: input.thumbnailUrl,
+        previewUrl: input.previewUrl,
+        iframeUrl,
         videoUrl: input.videoUrl,
         videoProvider: input.videoProvider,
         jwPlayerMediaId: input.jwPlayerMediaId,

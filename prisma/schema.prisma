@@ -78,6 +78,8 @@ model Movie {
   categories      Json        @default("[]")
   tags            Json        @default("[]")
   thumbnailUrl    String?     @map("thumbnail_url")
+  previewUrl      String?     @map("preview_url")
+  iframeUrl       String?     @map("iframe_url")
   videoUrl        String?     @map("video_url")
   videoProvider   String?     @map("video_provider")
   jwPlayerMediaId String?     @map("jwplayer_media_id")

@@ -32,6 +32,7 @@ export type Action =
   | "movie:approve"
   | "movie:publish"
   | "movie:archive"
+  | "movie:delete"
   | "site:view"
   | "site:manage"
   | "site:delete"
@@ -51,6 +52,7 @@ const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "movie:approve": "MANAGER",
   "movie:publish": "MANAGER",
   "movie:archive": "MANAGER",
+  "movie:delete": "HEAD",
   "site:view": "STAFF",
   "site:manage": "MANAGER",
   "site:delete": "HEAD",

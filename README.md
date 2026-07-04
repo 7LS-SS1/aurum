@@ -57,6 +57,36 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"       #
 - Configure `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` in any multi-instance deployment —
   without it, rate limiting falls back to a per-instance in-memory limiter (fine for local dev only).
 
+## Deploying to Coolify (or any Docker host)
+
+The repo ships a multi-stage `Dockerfile` (Next.js `output: "standalone"` + the Prisma CLI needed to
+run migrations on boot) and a `docker-entrypoint.sh` that runs `prisma migrate deploy` before starting
+the server — so schema changes ship automatically on every deploy, no manual migration step needed.
+
+1. In Coolify, create a new **Dockerfile**-based application pointing at this repo.
+2. Set the port to `3000` and point the healthcheck at `GET /api/health` (already implemented,
+   returns `{ ok: true }`).
+3. Set these environment variables (see `.env.example` for the full list/format):
+   - `DATABASE_URL` (and `DIRECT_URL` if your Postgres needs a separate non-pooled connection for
+     migrations, e.g. Neon)
+   - `AUTH_SECRET`, `AUTH_URL` (your production origin, e.g. `https://aurum.example.com`)
+   - `ENCRYPTION_KEY`
+   - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`,
+     `R2_PUBLIC_HOSTNAME`, `NEXT_PUBLIC_R2_PUBLIC_URL`
+   - `BUNNY_LIBRARY_ID`, `BUNNY_API_KEY`, `BUNNY_CDN_HOST` (optional fallback video path)
+   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (shared rate limiting across instances —
+     required once you run more than one container)
+   - `SYSTEM_API_KEY` (internal automation / the publish cron, see below)
+   - `NODE_ENV=production`
+4. **Never commit real values** — `.dockerignore` already excludes `.env*` so secrets are only ever
+   injected by Coolify at runtime, never baked into the image.
+5. Point an external scheduler (Coolify's own cron jobs, or any hourly job) at
+   `POST /api/cron/publish-approved` with header `X-System-Key: <SYSTEM_API_KEY>` — this is what
+   actually pushes `APPROVED` movies out to WordPress; nothing publishes automatically without it.
+
+Local sanity check before pushing: `docker build -t aurum . && docker run --env-file .env -p 3000:3000 aurum`,
+then hit `http://localhost:3000/api/health`.
+
 ## Scripts
 
 | Command | Purpose |

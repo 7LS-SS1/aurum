@@ -36,7 +36,12 @@ function inMemoryLimit(key: string, limit: number, windowMs: number): RateLimitR
   };
 }
 
-let upstash: { limit: (key: string) => Promise<RateLimitResult> } | null | undefined;
+let upstash:
+  | {
+      limit: (key: string, opts: { limit: number; windowMs: number }) => Promise<RateLimitResult>;
+    }
+  | null
+  | undefined;
 
 async function getUpstash() {
   if (upstash !== undefined) return upstash;
@@ -51,9 +56,18 @@ async function getUpstash() {
       import("@upstash/redis"),
     ]);
     const redis = new Redis({ url: UPSTASH_REDIS_REST_URL, token: UPSTASH_REDIS_REST_TOKEN });
-    const limiter = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "60 s") });
+    const limiters = new Map<string, InstanceType<typeof Ratelimit>>();
     upstash = {
-      limit: async (key: string) => {
+      limit: async (key: string, opts: { limit: number; windowMs: number }) => {
+        const limiterKey = `${opts.limit}:${opts.windowMs}`;
+        let limiter = limiters.get(limiterKey);
+        if (!limiter) {
+          limiter = new Ratelimit({
+            redis,
+            limiter: Ratelimit.slidingWindow(opts.limit, `${Math.ceil(opts.windowMs / 1000)} s`),
+          });
+          limiters.set(limiterKey, limiter);
+        }
         const r = await limiter.limit(key);
         return { success: r.success, limit: r.limit, remaining: r.remaining, resetMs: r.reset };
       },
@@ -72,7 +86,7 @@ export async function rateLimit(
   { limit = 20, windowMs = 60_000 }: { limit?: number; windowMs?: number } = {},
 ): Promise<RateLimitResult> {
   const client = await getUpstash();
-  if (client) return client.limit(identifier);
+  if (client) return client.limit(identifier, { limit, windowMs });
   return inMemoryLimit(identifier, limit, windowMs);
 }
 

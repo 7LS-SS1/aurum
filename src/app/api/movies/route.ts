@@ -22,6 +22,31 @@ const MOVIE_STATUSES = [
   "ARCHIVED",
 ] as const;
 
+function slugifyTitle(title: string) {
+  const slug = title
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return slug || `video-${Date.now().toString(36)}`;
+}
+
+async function getUniqueMovieSlug(title: string, requestedSlug?: string) {
+  const base = requestedSlug?.trim() || slugifyTitle(title);
+  let slug = base;
+  let suffix = 2;
+
+  while (await prisma.movie.findUnique({ where: { slug }, select: { id: true } })) {
+    slug = `${base}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+}
+
 export async function GET(req: NextRequest) {
   try {
     await requireMinRole("STAFF");
@@ -78,11 +103,21 @@ export async function POST(req: NextRequest) {
     const input = createMovieSchema.parse(await req.json());
     const defaultPlayer = input.videoProvider === "jwplayer" ? await getDefaultJwPlayerConfig() : undefined;
     const iframeUrl = input.iframeUrl ?? buildJwPlayerIframeUrl(input.jwPlayerMediaId, defaultPlayer);
+    const slug = await getUniqueMovieSlug(input.title, input.slug);
+
+    // The upload wizard doesn't expose a per-site picker anymore — it publishes
+    // to every currently-active destination, so default targetSiteIds here
+    // when the caller didn't explicitly choose a subset (e.g. a future admin
+    // tool). Without this, movies would sit at APPROVED forever: the publish
+    // cron only picks up movies that already have a non-empty targetSiteIds.
+    const targetSiteIds = input.targetSiteIds.length
+      ? input.targetSiteIds
+      : (await prisma.targetSite.findMany({ where: { isActive: true }, select: { id: true } })).map((s) => s.id);
 
     const movie = await prisma.movie.create({
       data: {
         title: input.title,
-        slug: input.slug,
+        slug,
         excerpt: input.excerpt,
         content: input.content,
         mainCategory: input.mainCategory,
@@ -95,7 +130,7 @@ export async function POST(req: NextRequest) {
         videoProvider: input.videoProvider,
         jwPlayerMediaId: input.jwPlayerMediaId,
         extraMeta: input.extraMeta as Prisma.InputJsonValue,
-        targetSiteIds: input.targetSiteIds as Prisma.InputJsonValue,
+        targetSiteIds: targetSiteIds as Prisma.InputJsonValue,
         createdById: actor.id,
       },
     });

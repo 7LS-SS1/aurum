@@ -1,33 +1,30 @@
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { PlayerManager } from "@/components/admin/PlayerManager";
+import { PlayerManager, type NativeControllerConfig } from "@/components/admin/PlayerManager";
+import { getDefaultVideoControllerConfig } from "@/lib/player-settings";
+
+function withDefaults(config: Awaited<ReturnType<typeof getDefaultVideoControllerConfig>>): NativeControllerConfig {
+  return {
+    accentColor: config.accentColor ?? "#d4af37",
+    controlsList: config.controlsList ?? "",
+    disablePictureInPicture: config.disablePictureInPicture ?? false,
+    defaultMuted: config.defaultMuted ?? false,
+    preload: config.preload ?? "metadata",
+  };
+}
 
 export default async function PlayerPage() {
   const session = await auth();
-  const configs = await prisma.playerConfig.findMany({
-    select: {
-      id: true,
-      provider: true,
-      name: true,
-      playerId: true,
-      libraryUrl: true,
-      defaultPosterMode: true,
-      isDefault: true,
-      isActive: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const controller = withDefaults(await getDefaultVideoControllerConfig());
 
   return (
     <section>
       <div className="page-head">
         <h1>
-          <span className="g">Media Player</span>
+          <span className="g">AURUM Player</span>
         </h1>
-        <p>จัดการการตั้งค่า JWPlayer — apiKey/apiSecret ถูกเข้ารหัส AES-256-GCM ก่อนบันทึก ไม่มีการเก็บ plaintext</p>
+        <p>ตั้งค่า video controller สำหรับ Bunny Stream และ native player ของระบบ</p>
       </div>
-      <PlayerManager initialConfigs={JSON.parse(JSON.stringify(configs))} role={session!.user.role} />
+      <PlayerManager initialController={controller} role={session!.user.role} />
     </section>
   );
 }

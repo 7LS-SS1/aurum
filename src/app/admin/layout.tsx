@@ -54,11 +54,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               เพิ่มวิดีโอใหม่
             </Link>
           )}
-          {role && can(role, "upload:quick-publish") && (
-            <Link className="side-link" href="/admin/upload">
-              อัปโหลดด่วน (เผยแพร่ทันที)
-            </Link>
-          )}
         </div>
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>

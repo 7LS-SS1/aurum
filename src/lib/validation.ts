@@ -124,6 +124,29 @@ export const jwPlayerIngestSchema = z.object({
 });
 export type JwPlayerIngestInput = z.infer<typeof jwPlayerIngestSchema>;
 
+export const viewerRegisterSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(8).max(255),
+  displayName: z.string().trim().min(2).max(60),
+});
+export type ViewerRegisterInput = z.infer<typeof viewerRegisterSchema>;
+
+export const viewerLoginSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(1).max(255),
+});
+export type ViewerLoginInput = z.infer<typeof viewerLoginSchema>;
+
+export const reactionSchema = z.object({
+  type: z.enum(["LIKE", "DISLIKE"]),
+});
+export type ReactionInput = z.infer<typeof reactionSchema>;
+
+export const createCommentSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
+});
+export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+
 export function assertUploadAllowed(kind: "image" | "video", contentType: string, size?: number) {
   const allowed = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;
   if (!allowed.has(contentType)) {

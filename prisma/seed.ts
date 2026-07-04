@@ -5,6 +5,14 @@ import { encrypt } from "../src/lib/crypto";
 const prisma = new PrismaClient();
 
 async function main() {
+  // This seed exists purely for local dev/QA — it creates well-known, publicly
+  // documented (in README) weak passwords. Never let it run against a real
+  // production database; use `npm run admin:create` for a real first admin.
+  if (process.env.NODE_ENV === "production") {
+    console.error("Refusing to run prisma/seed.ts with NODE_ENV=production — see scripts/create-admin.ts instead.");
+    process.exit(1);
+  }
+
   const passwordHash = await bcrypt.hash("ChangeMe123!", 12);
 
   const head = await prisma.user.upsert({
@@ -91,7 +99,25 @@ async function main() {
     },
   });
 
-  console.log("Seed complete:", { head: head.email, site: site.name });
+  // Demo public viewer account, for manually QA-ing likes/watch-later/comments.
+  const viewerPasswordHash = await bcrypt.hash("Viewer1234!", 12);
+  const viewer = await prisma.viewer.upsert({
+    where: { email: "viewer@aurum.local" },
+    update: {},
+    create: { email: "viewer@aurum.local", passwordHash: viewerPasswordHash, displayName: "Demo Viewer" },
+  });
+  await prisma.movieReaction.upsert({
+    where: { movieId_viewerId: { movieId: "seed-movie-demo", viewerId: viewer.id } },
+    update: {},
+    create: { movieId: "seed-movie-demo", viewerId: viewer.id, type: "LIKE" },
+  });
+  await prisma.comment.upsert({
+    where: { id: "seed-comment-demo" },
+    update: {},
+    create: { id: "seed-comment-demo", movieId: "seed-movie-demo", viewerId: viewer.id, body: "ทดสอบระบบคอมเมนต์ — ดูดีมากครับ!" },
+  });
+
+  console.log("Seed complete:", { head: head.email, site: site.name, viewer: viewer.email });
 }
 
 main()

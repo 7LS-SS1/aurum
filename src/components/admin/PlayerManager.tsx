@@ -1,237 +1,211 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type CSSProperties } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { can, type Role } from "@/lib/permissions";
+import { VideoPlayer } from "@/components/public/VideoPlayer";
 
-interface PlayerConfigRow {
-  id: string;
-  provider: string;
-  name: string;
-  playerId: string;
-  libraryUrl: string | null;
-  defaultPosterMode: string;
-  isDefault: boolean;
-  isActive: boolean;
-  createdAt: string;
-  extraConfig?: Record<string, unknown>;
+export interface NativeControllerConfig {
+  accentColor: string;
+  controlsList: string;
+  disablePictureInPicture: boolean;
+  defaultMuted: boolean;
+  preload: "none" | "metadata" | "auto";
 }
 
-export function PlayerManager({ initialConfigs, role }: { initialConfigs: PlayerConfigRow[]; role: Role }) {
-  const [configs, setConfigs] = useState(initialConfigs);
+interface ControllerDraft {
+  accentColor: string;
+  hideDownload: boolean;
+  hidePlaybackRate: boolean;
+  disablePictureInPicture: boolean;
+  defaultMuted: boolean;
+  preload: "none" | "metadata" | "auto";
+}
+
+function toDraft(config: NativeControllerConfig): ControllerDraft {
+  return {
+    accentColor: config.accentColor || "#d4af37",
+    hideDownload: config.controlsList.includes("nodownload"),
+    hidePlaybackRate: config.controlsList.includes("noplaybackrate"),
+    disablePictureInPicture: config.disablePictureInPicture,
+    defaultMuted: config.defaultMuted,
+    preload: config.preload,
+  };
+}
+
+function toPayload(draft: ControllerDraft): NativeControllerConfig {
+  const controlsList = [
+    draft.hideDownload ? "nodownload" : "",
+    draft.hidePlaybackRate ? "noplaybackrate" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    accentColor: draft.accentColor,
+    controlsList,
+    disablePictureInPicture: draft.disablePictureInPicture,
+    defaultMuted: draft.defaultMuted,
+    preload: draft.preload,
+  };
+}
+
+export function PlayerManager({ initialController, role }: { initialController: NativeControllerConfig; role: Role }) {
+  const [draft, setDraft] = useState<ControllerDraft>(() => toDraft(initialController));
+  const [saved, setSaved] = useState<ControllerDraft>(() => toDraft(initialController));
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [previewFor, setPreviewFor] = useState<string | null>(null);
-  const [previewMediaId, setPreviewMediaId] = useState("");
-
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [posterUrl, setPosterUrl] = useState("");
   const canManage = can(role, "player:manage");
-  const canDelete = can(role, "player:delete");
-
-  const [form, setForm] = useState({
-    name: "",
-    playerId: "",
-    siteId: "",
-    libraryUrl: "",
-    apiKey: "",
-    apiSecret: "",
-    defaultPosterMode: "auto",
-    isDefault: false,
-  });
 
   function notify(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 2400);
   }
 
-  function createConfig(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name || !form.playerId || !form.apiKey) {
-      notify("กรอก ชื่อ / Player ID / API Key ให้ครบ");
-      return;
-    }
+  function update(patch: Partial<ControllerDraft>) {
+    setDraft((prev) => ({ ...prev, ...patch }));
+  }
+
+  function saveController() {
     startTransition(async () => {
       try {
-        const config = await apiFetch<PlayerConfigRow>("/api/player", {
-          method: "POST",
-          body: JSON.stringify({
-            name: form.name,
-            playerId: form.playerId,
-            siteId: form.siteId || undefined,
-            libraryUrl: form.libraryUrl || undefined,
-            apiKey: form.apiKey,
-            apiSecret: form.apiSecret || undefined,
-            defaultPosterMode: form.defaultPosterMode,
-            isDefault: form.isDefault,
-          }),
+        const res = await apiFetch<{ controller: NativeControllerConfig }>("/api/player/native-controller", {
+          method: "PATCH",
+          body: JSON.stringify(toPayload(draft)),
         });
-        setConfigs((prev) => [...prev, config]);
-        setForm({ name: "", playerId: "", siteId: "", libraryUrl: "", apiKey: "", apiSecret: "", defaultPosterMode: "auto", isDefault: false });
-        notify("เพิ่ม config แล้ว — กุญแจถูกเข้ารหัสที่ฝั่ง server");
+        const next = toDraft(res.controller);
+        setDraft(next);
+        setSaved(next);
+        notify("บันทึก AURUM Player แล้ว");
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "บันทึกไม่สำเร็จ");
       }
     });
   }
 
-  function toggleActive(cfg: PlayerConfigRow) {
-    startTransition(async () => {
-      try {
-        const updated = await apiFetch<PlayerConfigRow>(`/api/player/${cfg.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ isActive: !cfg.isActive }),
-        });
-        setConfigs((prev) => prev.map((c) => (c.id === cfg.id ? updated : c)));
-      } catch (err) {
-        notify(err instanceof ApiClientError ? err.message : "อัปเดตไม่สำเร็จ");
-      }
-    });
+  function reset() {
+    setDraft(saved);
   }
 
-  function makeDefault(cfg: PlayerConfigRow) {
-    startTransition(async () => {
-      try {
-        await apiFetch(`/api/player/${cfg.id}`, { method: "PATCH", body: JSON.stringify({ isDefault: true }) });
-        setConfigs((prev) => prev.map((c) => ({ ...c, isDefault: c.id === cfg.id })));
-        notify("ตั้งเป็นค่าเริ่มต้นแล้ว");
-      } catch (err) {
-        notify(err instanceof ApiClientError ? err.message : "อัปเดตไม่สำเร็จ");
-      }
-    });
-  }
-
-  function deleteConfig(id: string) {
-    if (!confirm("ลบ config นี้?")) return;
-    startTransition(async () => {
-      try {
-        await apiFetch(`/api/player/${id}`, { method: "DELETE" });
-        setConfigs((prev) => prev.filter((c) => c.id !== id));
-      } catch (err) {
-        notify(err instanceof ApiClientError ? err.message : "ลบไม่สำเร็จ");
-      }
-    });
-  }
+  const changed = JSON.stringify(draft) !== JSON.stringify(saved);
 
   return (
     <div className="ad-grid">
       <div className="panel">
         <div className="panel-head">
-          <h3>Player Configs</h3>
-          <span className="sub">{configs.length} config</span>
+          <span className="n">A</span>
+          <h3>AURUM Player Controller</h3>
+          <span className="sub">Bunny/native video player</span>
         </div>
-        {configs.length === 0 && <div className="empty">ยังไม่มี config — เพิ่มจากฟอร์มด้านขวา</div>}
-        {configs.map((c) => (
-          <div key={c.id}>
-            <div className="site-row" style={{ cursor: "default" }}>
-              <span className={`health ${c.isActive ? "OK" : "ERROR"}`} />
-              <div className="site-info">
-                <div className="nm">
-                  {c.name} {c.isDefault && <span className="badge gold">ค่าเริ่มต้น</span>}
-                </div>
-                <div className="url">
-                  {c.provider} · playerId: {c.playerId} · poster: {c.defaultPosterMode}
-                  {typeof c.extraConfig?.siteId === "string" && c.extraConfig.siteId ? ` · siteId: ${c.extraConfig.siteId}` : ""}
-                </div>
-              </div>
-              <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setPreviewFor(previewFor === c.id ? null : c.id)}>
-                ทดสอบ
-              </button>
-              {canManage && !c.isDefault && (
-                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => makeDefault(c)}>
-                  ตั้งเป็นหลัก
-                </button>
-              )}
-              {canManage && (
-                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => toggleActive(c)}>
-                  {c.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                </button>
-              )}
-              {canDelete && (
-                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, color: "var(--red)" }} disabled={pending} onClick={() => deleteConfig(c.id)}>
-                  ลบ
-                </button>
-              )}
-            </div>
-            {previewFor === c.id && (
-              <div style={{ padding: "0 12px 16px" }}>
-                <div className="field" style={{ marginBottom: 10 }}>
-                  <label>Media ID สำหรับทดสอบ</label>
-                  <input type="text" value={previewMediaId} onChange={(e) => setPreviewMediaId(e.target.value)} placeholder="เช่น AbCdEfGh" />
-                </div>
-                {previewMediaId.trim() && (
-                  <iframe
-                    title={`preview-${c.id}`}
-                    src={`https://cdn.jwplayer.com/players/${previewMediaId.trim()}-${c.playerId}.html`}
-                    style={{ width: "100%", aspectRatio: "16/9", border: "1px solid var(--line)", borderRadius: 10 }}
-                    allowFullScreen
-                  />
-                )}
-              </div>
-            )}
+
+        <div className="controller-preview-card" style={{ "--controller-accent": draft.accentColor } as CSSProperties}>
+          <div className="controller-preview-screen">
+            <span className="controller-preview-play">PLAY</span>
           </div>
-        ))}
+          <div className="controller-preview-timeline">
+            <span />
+          </div>
+          <div className="controller-preview-controls">
+            <b>Play</b>
+            <b>{draft.defaultMuted ? "Muted" : "Sound"}</b>
+            {!draft.hidePlaybackRate && <b>1x</b>}
+            {!draft.disablePictureInPicture && <b>PiP</b>}
+            {!draft.hideDownload && <b>Download</b>}
+            <em>preload: {draft.preload}</em>
+          </div>
+        </div>
+
+        <div className="player-controller-grid">
+          <div className="field">
+            <label>Accent Color</label>
+            <div className="color-input-row">
+              <input type="color" value={draft.accentColor} onChange={(e) => update({ accentColor: e.target.value })} style={{ width: 46, padding: 3 }} disabled={!canManage} />
+              <input type="text" value={draft.accentColor} onChange={(e) => update({ accentColor: e.target.value })} placeholder="#d4af37" disabled={!canManage} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Preload</label>
+            <select value={draft.preload} onChange={(e) => update({ preload: e.target.value as ControllerDraft["preload"] })} disabled={!canManage}>
+              <option value="metadata">metadata</option>
+              <option value="none">none</option>
+              <option value="auto">auto</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="controller-toggle-row">
+          <label>
+            <input type="checkbox" checked={draft.hideDownload} onChange={(e) => update({ hideDownload: e.target.checked })} disabled={!canManage} />
+            ซ่อนปุ่มดาวน์โหลด
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.hidePlaybackRate} onChange={(e) => update({ hidePlaybackRate: e.target.checked })} disabled={!canManage} />
+            ซ่อน playback speed
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={draft.disablePictureInPicture}
+              onChange={(e) => update({ disablePictureInPicture: e.target.checked })}
+              disabled={!canManage}
+            />
+            ปิด Picture-in-Picture
+          </label>
+          <label>
+            <input type="checkbox" checked={draft.defaultMuted} onChange={(e) => update({ defaultMuted: e.target.checked })} disabled={!canManage} />
+            เริ่มแบบ muted
+          </label>
+        </div>
+
+        <div className="player-settings-actions">
+          <button className="btn btn-gold" disabled={!canManage || pending || !changed} onClick={saveController}>
+            {pending ? "กำลังบันทึก..." : "บันทึก Controller"}
+          </button>
+          <button className="btn btn-ghost" disabled={!canManage || pending || !changed} onClick={reset}>
+            ยกเลิกการเปลี่ยนแปลง
+          </button>
+        </div>
       </div>
 
-      {canManage && (
-        <div className="rail">
-          <div className="panel">
-            <div className="panel-head">
-              <span className="n">+</span>
-              <h3>เพิ่ม Config</h3>
-            </div>
-            <form onSubmit={createConfig}>
-              <div className="field">
-                <label>
-                  ชื่อเรียก <span className="req">*</span>
-                </label>
-                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Main JWPlayer" />
-              </div>
-              <div className="field">
-                <label>
-                  Player ID <span className="req">*</span>
-                </label>
-                <input type="text" value={form.playerId} onChange={(e) => setForm({ ...form, playerId: e.target.value })} placeholder="AbCdEfGh" />
-              </div>
-              <div className="field">
-                <label>Site/Property ID (สำหรับ ingest อัตโนมัติ)</label>
-                <input type="text" value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} placeholder="เช่น AbCd1234" />
-                <div className="hint">ใช้เรียก JWX Management API เพื่ออัปโหลดวิดีโอเข้า JWPlayer อัตโนมัติ — เว้นว่างได้ถ้าจะกรอก Media ID เอง</div>
-              </div>
-              <div className="field">
-                <label>Library URL</label>
-                <input type="url" value={form.libraryUrl} onChange={(e) => setForm({ ...form, libraryUrl: e.target.value })} placeholder="https://cdn.jwplayer.com/libraries/xxx.js" />
-              </div>
-              <div className="field">
-                <label>
-                  API Key <span className="req">*</span>
-                </label>
-                <input type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} placeholder="xxxxxxxx" />
-                <div className="hint">เข้ารหัสด้วย AES-256-GCM ก่อนบันทึกเสมอ</div>
-              </div>
-              <div className="field">
-                <label>API Secret (จำเป็นสำหรับ ingest อัตโนมัติ)</label>
-                <input type="password" value={form.apiSecret} onChange={(e) => setForm({ ...form, apiSecret: e.target.value })} placeholder="xxxxxxxx" />
-                <div className="hint">V2 API Secret ของ JWX — ใช้เป็น Bearer token เรียก Management API เพื่ออัปโหลดวิดีโอโดยอัตโนมัติ</div>
-              </div>
-              <div className="field">
-                <label>Default Poster Mode</label>
-                <select value={form.defaultPosterMode} onChange={(e) => setForm({ ...form, defaultPosterMode: e.target.value })}>
-                  <option value="auto">auto</option>
-                  <option value="custom">custom</option>
-                </select>
-              </div>
-              <div className="field">
-                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} style={{ width: "auto" }} />
-                  ตั้งเป็น config เริ่มต้น
-                </label>
-              </div>
-              <button className="btn btn-gold btn-block" type="submit" disabled={pending}>
-                เพิ่ม Config
-              </button>
-            </form>
+      <div className="rail">
+        <div className="panel">
+          <div className="panel-head">
+            <span className="n">P</span>
+            <h3>ทดสอบเล่นจริง</h3>
+          </div>
+          <div className="field">
+            <label>Video URL</label>
+            <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://.../video.mp4 หรือ .m3u8" />
+          </div>
+          <div className="field">
+            <label>Poster URL</label>
+            <input type="url" value={posterUrl} onChange={(e) => setPosterUrl(e.target.value)} placeholder="https://.../poster.jpg" />
+          </div>
+          <div className="real-player-preview">
+            {previewUrl.trim() ? (
+              <VideoPlayer src={previewUrl.trim()} poster={posterUrl.trim() || undefined} controller={toPayload(draft)} />
+            ) : (
+              <div className="real-player-empty">ใส่ Video URL เพื่อทดสอบ player จริง</div>
+            )}
           </div>
         </div>
-      )}
+
+        <div className="panel">
+          <div className="panel-head">
+            <span className="n">i</span>
+            <h3>การใช้งาน</h3>
+          </div>
+          <p className="hint" style={{ marginBottom: 10 }}>
+            ค่านี้ใช้กับวิดีโอที่เล่นด้วย AURUM native player เช่น Bunny Stream หรือไฟล์ HLS/MP4 โดยตรง
+          </p>
+          <p className="hint" style={{ marginBottom: 10 }}>
+            ไม่ต้องกรอก JWPlayer Player ID, API Key หรือ API Secret แล้ว
+          </p>
+          <p className="hint">ถ้าวิดีโอเก่าบางรายการยังเป็น JWPlayer iframe การแต่ง controller ต้องทำใน JWP/JWPlayer dashboard แยกต่างหาก</p>
+        </div>
+      </div>
 
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
     </div>

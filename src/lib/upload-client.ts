@@ -1,10 +1,11 @@
 import { apiFetch } from "@/lib/api-client";
+import { Upload } from "tus-js-client";
 
 /**
  * Presigns and uploads a file straight to Cloudflare R2 (images, XHR PUT) or
  * Bunny Stream (video, tus resumable) — the bytes never pass through our
- * server, only the presigned URL/credential does. Shared by every admin form
- * that accepts a thumbnail or video file (UploadDistribute, VideoForm).
+ * server, only the presigned URL/credential does. Shared by admin forms that
+ * accept a thumbnail or video file.
  */
 export async function presignAndUpload(
   file: File,
@@ -33,7 +34,6 @@ export async function presignAndUpload(
   }
 
   // strategy === 'tus' (Bunny Stream)
-  const { Upload } = await import("tus-js-client");
   const tus = presign.tus as Record<string, string>;
   return new Promise<string>((resolve, reject) => {
     const upload = new Upload(file, {

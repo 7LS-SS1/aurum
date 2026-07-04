@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+*.log
+.dev-server.out.log
+npm-debug.log*
+legacy
+.vscode
+.claude
+prisma/dev.db

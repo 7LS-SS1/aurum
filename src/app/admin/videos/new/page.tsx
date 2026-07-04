@@ -14,7 +14,7 @@ export default async function NewVideoPage() {
         <h1>
           <span className="g">เพิ่มวิดีโอ</span>ใหม่
         </h1>
-        <p>กรอกข้อมูล บันทึกร่าง หรือส่งตรวจสอบเพื่อเข้าสู่ขั้นตอนอนุมัติ</p>
+        <p>อัปโหลดวิดีโอและหน้าปก กรอกรายละเอียด แล้วเริ่มประมวลผลเพื่อดูตัวอย่าง</p>
       </div>
       <VideoForm sites={sites} />
     </section>

@@ -1,6 +1,6 @@
 
 > aurum-project@2.0.0 dev
-> next dev --port 3000
+> next dev
 
    ▲ Next.js 15.5.19
    - Local:        http://localhost:3000
@@ -8,8 +8,10 @@
    - Environments: .env
 
  ✓ Starting...
- ✓ Ready in 4.2s
- ✓ Compiled /middleware in 487ms (232 modules)
- ○ Compiling /api/health ...
- ✓ Compiled /api/health in 1273ms (309 modules)
- GET /api/health 200 in 33ms
+ ✓ Ready in 3.8s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 551ms (232 modules)
+ ○ Compiling /admin/login ...
+ ✓ Compiled /admin/login in 2.2s (744 modules)
+ GET /admin/login?callbackUrl=%2Fadmin%2Fvideos%2Fnew 200 in 3307ms
+[?25h

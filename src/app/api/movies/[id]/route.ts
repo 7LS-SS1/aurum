@@ -64,3 +64,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return apiError(err);
   }
 }
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const actor = await requireMinRole("HEAD");
+    const { id } = await params;
+
+    const existing = await prisma.movie.findUnique({ where: { id }, select: { id: true, title: true, status: true } });
+    if (!existing) throw new ApiError("movie_not_found", 404);
+    if (existing.status === "PUBLISHING") throw new ApiError("cannot_delete_while_publishing", 409);
+
+    await prisma.$transaction([
+      prisma.auditLog.create({
+        data: {
+          actorId: actor.id,
+          actorRole: actor.role,
+          action: "delete_movie",
+          resourceType: "movie",
+          resourceId: id,
+          metadata: { title: existing.title, status: existing.status },
+        },
+      }),
+      prisma.movie.delete({ where: { id } }),
+    ]);
+
+    return jsonOk({ deleted: true, id });
+  } catch (err) {
+    return apiError(err);
+  }
+}

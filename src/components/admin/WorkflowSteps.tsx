@@ -1,46 +1,55 @@
 type StepState = "pending" | "current" | "done" | "blocked";
 
 const STEPS = [
-  { key: "draft", label: "ร่าง" },
-  { key: "review", label: "ตรวจสอบ" },
-  { key: "approval", label: "อนุมัติ" },
-  { key: "publish", label: "เผยแพร่" },
+  { key: "upload", label: "อัปโหลดวิดีโอ" },
+  { key: "details", label: "กรอกรายละเอียด" },
+  { key: "processing", label: "ประมวลผล" },
+  { key: "complete", label: "เสร็จสิ้น" },
 ] as const;
 
-function stateFor(status: string, stepKey: (typeof STEPS)[number]["key"]): StepState {
-  const order: Record<string, number> = {
-    DRAFT: 0,
-    READY_FOR_REVIEW: 1,
-    IN_REVIEW: 1,
-    REJECTED: 1,
-    READY_FOR_APPROVAL: 2,
-    APPROVED: 3,
-    PUBLISHING: 3,
-    DONE: 3,
-    PARTIAL: 3,
-    FAILED: 3,
-    ARCHIVED: 3,
-  };
-  const stepIndex = STEPS.findIndex((s) => s.key === stepKey);
-  const currentIndex = order[status] ?? 0;
-  const isBlocked = (status === "REJECTED" && stepKey === "review") || ((status === "PARTIAL" || status === "FAILED") && stepKey === "publish");
+type StepKey = (typeof STEPS)[number]["key"];
 
-  if (isBlocked) return "blocked";
-  if (stepIndex < currentIndex) return "done";
-  if (stepIndex === currentIndex) return status === "DONE" || status === "ARCHIVED" ? "done" : "current";
+function stateFor(status: string, stepKey: StepKey, mediaReady: boolean, detailsReady: boolean): StepState {
+  const processingStatuses = new Set(["READY_FOR_REVIEW", "IN_REVIEW", "READY_FOR_APPROVAL", "APPROVED", "PUBLISHING"]);
+  const completeStatuses = new Set(["DONE", "ARCHIVED"]);
+  const blockedStatuses = new Set(["REJECTED", "PARTIAL", "FAILED"]);
+
+  if (completeStatuses.has(status)) return "done";
+  if (blockedStatuses.has(status)) {
+    if (stepKey === "upload" || stepKey === "details") return "done";
+    return stepKey === "processing" ? "blocked" : "pending";
+  }
+  if (processingStatuses.has(status)) {
+    if (stepKey === "upload" || stepKey === "details") return "done";
+    return stepKey === "processing" ? "current" : "pending";
+  }
+
+  if (stepKey === "upload") return mediaReady ? "done" : "current";
+  if (stepKey === "details") {
+    if (!mediaReady) return "pending";
+    return detailsReady ? "done" : "current";
+  }
+  if (stepKey === "processing") return mediaReady && detailsReady ? "current" : "pending";
   return "pending";
 }
 
-/** Visual "where is this video right now" strip — draft/edit forms use it to orient the editor. */
-export function WorkflowSteps({ status }: { status: string }) {
+export function WorkflowSteps({
+  status,
+  mediaReady = false,
+  detailsReady = false,
+}: {
+  status: string;
+  mediaReady?: boolean;
+  detailsReady?: boolean;
+}) {
   return (
     <div className="workflow-steps">
       {STEPS.map((step, i) => {
-        const state = stateFor(status, step.key);
+        const state = stateFor(status, step.key, mediaReady, detailsReady);
         return (
           <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i === STEPS.length - 1 ? "none" : 1 }}>
             <div className={`wf-step ${state}`}>
-              <span className="dot">{state === "done" ? "✓" : state === "blocked" ? "!" : i + 1}</span>
+              <span className="dot">{state === "done" ? "OK" : state === "blocked" ? "!" : i + 1}</span>
               <span className="lbl">{step.label}</span>
             </div>
             {i < STEPS.length - 1 && <div className={`wf-line ${state === "done" ? "done" : ""}`} />}

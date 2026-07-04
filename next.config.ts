@@ -17,6 +17,9 @@ const remoteHosts = [r2Host, bunnyHost].filter((h): h is string => Boolean(h));
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Self-contained runtime bundle (.next/standalone) — keeps the Docker image
+  // lean and avoids shipping the full node_modules tree to Coolify.
+  output: "standalone",
   images: {
     remotePatterns: [
       ...remoteHosts.map((hostname) => ({ protocol: "https" as const, hostname })),

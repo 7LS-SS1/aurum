@@ -8,8 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 
 const DISTRIBUTABLE_FROM = ["APPROVED", "PARTIAL", "FAILED"];
-// Manager/head may also quick-publish straight from DRAFT, bypassing the
-// review/approval gate entirely (see /admin/upload) — SYSTEM automation may
+// Manager/head may publish straight from DRAFT if needed. SYSTEM automation may
 // not, it only retries/redistributes already-approved movies.
 const BYPASS_ROLES = ["MANAGER", "HEAD"];
 

@@ -56,7 +56,6 @@ export default async function AdminDashboardPage() {
     failedMovies,
     activeSites,
     unhealthySites,
-    activePlayers,
     failedDistributions,
     recentMovies,
     statusGroups,
@@ -66,7 +65,6 @@ export default async function AdminDashboardPage() {
     prisma.movie.count({ where: { status: "FAILED" } }),
     prisma.targetSite.count({ where: { isActive: true } }),
     prisma.targetSite.count({ where: { isActive: true, healthStatus: "ERROR" } }),
-    prisma.playerConfig.count({ where: { isActive: true } }),
     prisma.distribution.count({ where: { status: "FAILED" } }),
     prisma.movie.findMany({
       take: 8,
@@ -126,9 +124,9 @@ export default async function AdminDashboardPage() {
           <span>{unhealthySites} domain มีปัญหา</span>
         </Link>
         <Link className="dash-card" href="/admin/player">
-          <span className="dash-label">Media Player</span>
-          <strong>{activePlayers}</strong>
-          <span>config ที่เปิดใช้งาน</span>
+          <span className="dash-label">AURUM Player</span>
+          <strong>ON</strong>
+          <span>ตั้งค่า controller สำหรับ Bunny/native player</span>
         </Link>
         <Link className="dash-card danger" href="/admin/videos">
           <span className="dash-label">Distribution Failed</span>

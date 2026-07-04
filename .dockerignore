@@ -8,6 +8,7 @@ node_modules
 .dev-server.out.log
 npm-debug.log*
 legacy
+wordpress-theme
 .vscode
 .claude
 prisma/dev.db

@@ -1,0 +1,389 @@
+/*
+Theme Name: AURUM Video
+Theme URI: https://github.com/
+Author: AURUM
+Description: Dark/gold cinema-style theme built to display movies distributed from AURUM (JWPlayer iframe embeds or Bunny Stream / direct HLS video), matching the AURUM public site's own visual language. Requires no companion plugin — video custom fields are registered by this theme itself.
+Version: 1.0.0
+Requires at least: 6.0
+Requires PHP: 7.4
+License: GPL v2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: aurum-video
+*/
+
+:root {
+  --bg: #0f0f0f;
+  --bg-2: #1c1c1c;
+  --bg-3: #272727;
+  --hover: #3f3f3f;
+  --text: #f1f1f1;
+  --muted: #aaaaaa;
+  --muted-2: #717171;
+  --gold: #d4af37;
+  --gold-bright: #ffe08a;
+  --gold-deep: #a8842a;
+  --line: rgba(255, 255, 255, 0.12);
+  --topbar-h: 60px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+h1, h2, h3, h4 {
+  font-family: Georgia, "Playfair Display", serif;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+::selection {
+  background: var(--gold);
+  color: #000;
+}
+
+/* ===== TOPBAR ===== */
+.aurum-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.aurum-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex: none;
+}
+.aurum-logo .mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(from 210deg, var(--gold-deep), var(--gold-bright), var(--gold), var(--gold-deep));
+  color: #1a1407;
+  font-weight: 900;
+  font-size: 13px;
+  font-style: italic;
+}
+.aurum-logo .word {
+  background: linear-gradient(180deg, #fff, var(--gold-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.aurum-nav {
+  flex: 1;
+}
+/* wp_nav_menu() renders a <ul><li> list — reset it into a horizontal bar. */
+.aurum-nav ul {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.aurum-nav li {
+  list-style: none;
+}
+.aurum-nav a {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.aurum-nav a:hover {
+  background: var(--bg-3);
+}
+.aurum-search {
+  display: flex;
+  flex: none;
+}
+.aurum-search input {
+  background: #121212;
+  border: 1px solid #303030;
+  border-right: none;
+  border-radius: 40px 0 0 40px;
+  color: var(--text);
+  padding: 8px 16px;
+  font-size: 14px;
+  outline: none;
+  width: 200px;
+}
+.aurum-search input:focus {
+  border-color: var(--gold);
+}
+.aurum-search button {
+  background: var(--bg-3);
+  border: 1px solid #303030;
+  border-radius: 0 40px 40px 0;
+  color: var(--text);
+  padding: 0 14px;
+  cursor: pointer;
+}
+.aurum-nav-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* ===== MAIN LAYOUT ===== */
+.aurum-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  min-height: 60vh;
+}
+.aurum-page-title {
+  font-size: 26px;
+  margin-bottom: 20px;
+}
+
+/* ===== VIDEO GRID / CARDS ===== */
+.aurum-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+.aurum-card {
+  display: block;
+}
+.aurum-card-thumb {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a2440, #3a1f38);
+}
+.aurum-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.aurum-card:hover .aurum-card-thumb {
+  outline: 2px solid var(--gold);
+}
+.aurum-card-title {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.aurum-card-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.aurum-empty {
+  color: var(--muted-2);
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* ===== PAGINATION ===== */
+.aurum-pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+.aurum-pagination a,
+.aurum-pagination span {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--bg-3);
+  font-size: 14px;
+}
+.aurum-pagination .current {
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: #1a1407;
+  font-weight: 700;
+}
+
+/* ===== SINGLE VIDEO PAGE ===== */
+.aurum-video-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.aurum-video-stage iframe,
+.aurum-video-stage video {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #000;
+}
+.aurum-video-missing {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted-2);
+}
+.aurum-single-title {
+  font-size: 24px;
+}
+.aurum-single-meta {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+.aurum-single-content {
+  line-height: 1.75;
+  font-size: 15.5px;
+  max-width: 900px;
+}
+.aurum-single-content img {
+  border-radius: 10px;
+}
+.aurum-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+.aurum-tags a {
+  background: var(--bg-3);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--gold-bright);
+}
+
+/* ===== COMMENTS (theme WordPress's default markup) ===== */
+.comments-area {
+  max-width: 900px;
+  margin-top: 32px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.comment-list .comment,
+.comment-list .pingback {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.comment-list .avatar {
+  border-radius: 50%;
+  float: left;
+  margin-right: 14px;
+}
+.comment-author cite {
+  font-style: normal;
+  font-weight: 600;
+}
+.comment-metadata a {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+#respond input[type="text"],
+#respond input[type="email"],
+#respond input[type="url"],
+#respond textarea {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+#respond textarea {
+  min-height: 100px;
+}
+#respond .form-submit input[type="submit"] {
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: #1a1407;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ===== FOOTER ===== */
+.aurum-footer {
+  border-top: 1px solid var(--line);
+  padding: 28px 24px;
+  text-align: center;
+  color: var(--muted-2);
+  font-size: 13px;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 720px) {
+  .aurum-search input {
+    width: 120px;
+  }
+  .aurum-nav {
+    display: none;
+    position: absolute;
+    top: var(--topbar-h);
+    left: 0;
+    right: 0;
+    background: var(--bg);
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .aurum-nav.is-open {
+    display: block;
+  }
+  .aurum-nav ul {
+    flex-direction: column;
+  }
+  .aurum-nav-toggle {
+    display: block;
+  }
+}

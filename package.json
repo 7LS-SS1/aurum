@@ -18,6 +18,8 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "admin:create": "tsx scripts/create-admin.ts",
+    "admin:check-login": "tsx scripts/check-admin-login.ts",
+    "admin:check-http-login": "tsx scripts/check-admin-http-login.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "postinstall": "prisma generate"

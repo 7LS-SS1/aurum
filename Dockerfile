@@ -28,6 +28,7 @@ COPY . .
 # DATABASE_URL etc. are NOT required here — `prisma generate` only reads the
 # schema file, it never needs a live database connection.
 ENV NODE_ENV=production
+RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-slim AS runner

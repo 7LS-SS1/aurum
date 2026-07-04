@@ -9,7 +9,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit; // No direct access.
 }
 
-define( 'AURUM_VIDEO_VERSION', '1.0.0' );
+// Bump this on every theme.zip re-upload — it's the cache-busting query
+// string (?ver=...) on style.css/aurum-player.js, so browsers/host caches
+// keep serving the old file after an update until this value changes.
+define( 'AURUM_VIDEO_VERSION', '1.1.0' );
 
 /**
  * Theme support + nav menu registration.
@@ -68,8 +71,31 @@ function aurum_video_enqueue_assets() {
 		AURUM_VIDEO_VERSION,
 		true
 	);
+
+	// Post ID + REST base URL for the view-beacon and like/dislike buttons in
+	// aurum-player.js — only needed (and only sent) on the single video page.
+	if ( is_singular( 'post' ) ) {
+		wp_localize_script(
+			'aurum-video-player',
+			'aurumData',
+			array(
+				'restUrl'  => esc_url_raw( rest_url( 'aurum/v1' ) ),
+				'postId'   => get_the_ID(),
+				'reaction' => aurum_get_visitor_reaction( get_the_ID() ),
+				// Only actually enforced by WordPress when the visitor also
+				// happens to have a logged-in wp-admin session cookie in the
+				// same browser — anonymous visitors hit these public routes
+				// fine either way, but WP's cookie-auth check runs before our
+				// own permission_callback and rejects an unauthenticated
+				// nonce for logged-in users otherwise.
+				'nonce'    => wp_create_nonce( 'wp_rest' ),
+			)
+		);
+	}
 }
 add_action( 'wp_enqueue_scripts', 'aurum_video_enqueue_assets' );
 
 require get_template_directory() . '/inc/meta.php';
 require get_template_directory() . '/inc/template-tags.php';
+require get_template_directory() . '/inc/engagement.php';
+require get_template_directory() . '/inc/video-info-metabox.php';

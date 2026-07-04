@@ -21,8 +21,13 @@ WORKDIR /app
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Forced regardless of any ambient NODE_ENV build arg/env a host might inject
+# (e.g. a platform defaulting build-time vars to "development") — `next build`
+# run with a non-production NODE_ENV is a known cause of prerender failures
+# like "<Html> should not be imported outside of pages/_document" on /404.
 # DATABASE_URL etc. are NOT required here — `prisma generate` only reads the
 # schema file, it never needs a live database connection.
+ENV NODE_ENV=production
 RUN npm run build
 
 FROM node:20-slim AS runner
@@ -36,6 +41,12 @@ RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nod
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# WordPress theme source — not an npm dependency, so Next's standalone trace
+# never picks it up automatically; the admin "WordPress Theme" page zips this
+# directory on demand (src/app/api/wp-theme/download/route.ts) and needs it
+# present on disk at runtime.
+COPY --from=builder /app/wordpress-theme ./wordpress-theme
 
 # Prisma CLI + schema/migrations for `prisma migrate deploy` on boot
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma

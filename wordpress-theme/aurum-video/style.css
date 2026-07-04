@@ -23,6 +23,7 @@ Text Domain: aurum-video
   --gold-bright: #ffe08a;
   --gold-deep: #a8842a;
   --line: rgba(255, 255, 255, 0.12);
+  --red: #ff4d4d;
   --topbar-h: 60px;
 }
 
@@ -265,6 +266,207 @@ h1, h2, h3, h4 {
   height: 100%;
   color: var(--muted-2);
 }
+
+/* ===== CUSTOM VIDEO CONTROL BAR (direct/HLS sources only — matches the
+   AURUM Next.js app's own VideoPlayer component 1:1) ===== */
+.video-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.video-stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+.video-stage.theater {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+.poster-fb {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+.poster-fb.hidden {
+  display: none;
+}
+.poster-fb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+}
+.big-play {
+  position: relative;
+  z-index: 2;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: #1a1407;
+  display: grid;
+  place-items: center;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
+  transition: transform 0.25s;
+}
+.big-play:hover {
+  transform: scale(1.08);
+}
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  padding: 14px 14px 10px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.9), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.video-stage:hover .controls,
+.controls.show {
+  opacity: 1;
+}
+.progress {
+  position: relative;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.progress .filled {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+}
+.progress .knob {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ctrl-row .spacer {
+  margin-left: auto;
+}
+.cbtn {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+  border-radius: 6px;
+  padding: 4px;
+}
+.cbtn:hover {
+  color: var(--gold-bright);
+}
+.time {
+  font-size: 13px;
+  color: #eee;
+  font-variant-numeric: tabular-nums;
+}
+.vol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.vol input {
+  width: 0;
+  opacity: 0;
+  transition: 0.3s;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.vol:hover input {
+  width: 70px;
+  opacity: 1;
+}
+.menu {
+  position: relative;
+}
+.menu-pop {
+  position: absolute;
+  bottom: 46px;
+  right: 0;
+  display: none;
+  background: rgba(28, 28, 28, 0.98);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 140px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  z-index: 5;
+}
+.menu-pop.open {
+  display: block;
+}
+.menu-pop .mt {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  padding: 6px 12px;
+}
+.menu-pop button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  transition: 0.15s;
+}
+.menu-pop button:hover {
+  background: var(--hover);
+}
+.menu-pop button.sel {
+  color: var(--gold-bright);
+}
+.menu-pop button.sel::after {
+  content: "✓";
+}
+@media (max-width: 640px) {
+  .ctrl-row {
+    gap: 8px;
+  }
+  .vol input {
+    display: none;
+  }
+}
 .aurum-single-title {
   font-size: 24px;
 }
@@ -273,19 +475,134 @@ h1, h2, h3, h4 {
   font-size: 14px;
   margin-bottom: 18px;
 }
+
+/* ===== ACTIONS ROW (like/dislike + share) ===== */
+.aurum-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.aurum-like-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.aurum-reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.aurum-reaction-btn:hover {
+  background: var(--hover);
+}
+.aurum-reaction-btn[data-reaction="like"].is-active {
+  color: var(--gold-bright);
+}
+.aurum-reaction-btn[data-reaction="dislike"].is-active {
+  color: var(--red);
+}
+.aurum-like-pill-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+}
+.aurum-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.aurum-pill:hover {
+  background: var(--hover);
+}
+.aurum-share-wrap {
+  position: relative;
+}
+.aurum-share-menu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  z-index: 20;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  min-width: 160px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+.aurum-share-menu a,
+.aurum-share-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.aurum-share-menu a:hover,
+.aurum-share-menu button:hover {
+  background: var(--hover);
+}
+
+/* ===== DESCRIPTION BOX ===== */
+.aurum-descbox {
+  background: var(--bg-2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  max-width: 900px;
+}
 .aurum-single-content {
   line-height: 1.75;
   font-size: 15.5px;
-  max-width: 900px;
 }
 .aurum-single-content img {
   border-radius: 10px;
+}
+.aurum-desc-body {
+  max-height: 3.5em;
+  overflow: hidden;
+}
+.aurum-desc-body.is-open {
+  max-height: none;
+}
+.aurum-desc-more {
+  background: none;
+  border: none;
+  color: var(--gold-bright);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0 0;
 }
 .aurum-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 20px 0;
+  margin: 16px 0 0;
 }
 .aurum-tags a {
   background: var(--bg-3);

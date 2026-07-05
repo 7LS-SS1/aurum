@@ -78,77 +78,17 @@ function aurum_render_video_player( $post_id ) {
 		return;
 	}
 
-	// Direct/HLS source — custom control bar (progress/play/skip/volume/speed/
-	// theater/fullscreen), the same design as the AURUM Next.js app's own
-	// VideoPlayer component (src/components/public/VideoPlayer.tsx), not the
-	// browser's native <video controls>. JWPlayer/iframe embeds above already
-	// ship their own controls, so this path only applies here.
+	// Direct/HLS source — shared embeddable AURUM player. The custom element is
+	// built from src/embeds and bundled into assets/player for WordPress.
 	$poster = $meta['thumbnail_url'];
 	?>
-	<div class="video-stage" id="aurum-stage-<?php echo (int) $post_id; ?>" data-role="video-stage">
-		<video
-			id="aurum-video-<?php echo (int) $post_id; ?>"
-			playsinline
-			preload="metadata"
+	<div class="aurum-video-stage">
+		<aurum-video-player
+			src="<?php echo esc_url( $meta['video_url'] ); ?>"
 			<?php echo $poster ? 'poster="' . esc_url( $poster ) . '"' : ''; ?>
-			data-src="<?php echo esc_url( $meta['video_url'] ); ?>"
-		></video>
-
-		<div class="poster-fb" data-role="poster">
-			<button class="big-play" type="button" data-role="big-play" aria-label="<?php esc_attr_e( 'เล่น', 'aurum-video' ); ?>">
-				<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-			</button>
-		</div>
-
-		<div class="controls" data-role="controls">
-			<div class="progress" data-role="progress">
-				<div class="filled" data-role="filled"></div>
-				<div class="knob" data-role="knob"></div>
-			</div>
-			<div class="ctrl-row">
-				<button class="cbtn" type="button" data-role="play-btn" aria-label="<?php esc_attr_e( 'เล่น/หยุด', 'aurum-video' ); ?>">
-					<svg data-role="play-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-				</button>
-				<button class="cbtn" type="button" data-role="skip-back" aria-label="<?php esc_attr_e( 'ถอย 10 วิ', 'aurum-video' ); ?>">
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" /></svg>
-				</button>
-				<button class="cbtn" type="button" data-role="skip-fwd" aria-label="<?php esc_attr_e( 'ไป 10 วิ', 'aurum-video' ); ?>">
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 17l5-5-5-5M6 17l5-5-5-5" /></svg>
-				</button>
-				<div class="vol">
-					<button class="cbtn" type="button" data-role="mute-btn" aria-label="<?php esc_attr_e( 'เสียง', 'aurum-video' ); ?>">
-						<svg data-role="vol-icon" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" />
-						</svg>
-					</button>
-					<input type="range" data-role="volume" min="0" max="1" step="0.05" value="1" aria-label="<?php esc_attr_e( 'ระดับเสียง', 'aurum-video' ); ?>" />
-				</div>
-				<span class="time"><span data-role="cur">0:00</span> / <span data-role="dur">0:00</span></span>
-				<span class="spacer"></span>
-				<div class="menu">
-					<button class="cbtn" type="button" data-role="speed-toggle" aria-label="<?php esc_attr_e( 'ความเร็ว', 'aurum-video' ); ?>" title="<?php esc_attr_e( 'ความเร็ว', 'aurum-video' ); ?>">
-						<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-							<path d="M12 22a9 9 0 1 0-9-9" /><path d="M12 7v5l3 2" /><path d="M3 13H1" />
-						</svg>
-					</button>
-					<div class="menu-pop" data-role="speed-menu">
-						<div class="mt"><?php esc_html_e( 'ความเร็ว', 'aurum-video' ); ?></div>
-						<button type="button" data-speed="0.5">0.5x</button>
-						<button type="button" data-speed="0.75">0.75x</button>
-						<button type="button" class="sel" data-speed="1"><?php esc_html_e( 'ปกติ', 'aurum-video' ); ?></button>
-						<button type="button" data-speed="1.25">1.25x</button>
-						<button type="button" data-speed="1.5">1.5x</button>
-						<button type="button" data-speed="2">2x</button>
-					</div>
-				</div>
-				<button class="cbtn" type="button" data-role="theater-toggle" aria-label="<?php esc_attr_e( 'โหมดโรงภาพยนตร์', 'aurum-video' ); ?>" title="<?php esc_attr_e( 'โหมดโรงภาพยนตร์', 'aurum-video' ); ?>">
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2" /></svg>
-				</button>
-				<button class="cbtn" type="button" data-role="fullscreen-toggle" aria-label="<?php esc_attr_e( 'เต็มจอ', 'aurum-video' ); ?>" title="<?php esc_attr_e( 'เต็มจอ', 'aurum-video' ); ?>">
-					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3" /></svg>
-				</button>
-			</div>
-		</div>
+			title="<?php echo esc_attr( get_the_title( $post_id ) ); ?>"
+			preload="metadata"
+		></aurum-video-player>
 	</div>
 	<?php
 }

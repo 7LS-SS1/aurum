@@ -10,9 +10,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Bump this on every theme.zip re-upload — it's the cache-busting query
-// string (?ver=...) on style.css/aurum-player.js, so browsers/host caches
+// string (?ver=...) on style.css/player assets, so browsers/host caches
 // keep serving the old file after an update until this value changes.
-define( 'AURUM_VIDEO_VERSION', '1.1.0' );
+define( 'AURUM_VIDEO_VERSION', '1.2.0' );
 
 /**
  * Theme support + nav menu registration.
@@ -42,32 +42,27 @@ add_action( 'after_setup_theme', 'aurum_video_setup' );
 function aurum_video_enqueue_assets() {
 	wp_enqueue_style( 'aurum-video-style', get_stylesheet_uri(), array(), AURUM_VIDEO_VERSION );
 
-	// hls.js is only needed on a single video page whose source is an .m3u8
-	// playlist (Bunny Stream / other HLS-only sources) — Safari plays HLS
-	// natively, hls.js fills the gap for every other browser. Loaded only
-	// where actually needed, same reasoning as the AURUM Next.js app's own
-	// VideoPlayer component. Declared as a dependency of aurum-player.js below
-	// so it's guaranteed to execute first when both are present.
-	$player_deps = array();
 	if ( is_singular( 'post' ) ) {
-		$video_meta = aurum_get_video_meta( get_the_ID() );
-		if ( empty( $video_meta['iframe_url'] ) && ! empty( $video_meta['video_url'] )
-			&& false !== strpos( $video_meta['video_url'], '.m3u8' ) ) {
-			wp_enqueue_script(
-				'hls-js',
-				'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js',
-				array(),
-				'1',
-				true
-			);
-			$player_deps[] = 'hls-js';
-		}
+		wp_enqueue_style(
+			'aurum-video-player',
+			get_template_directory_uri() . '/assets/player/aurum-video-player.css',
+			array(),
+			AURUM_VIDEO_VERSION
+		);
+
+		wp_enqueue_script(
+			'aurum-video-player',
+			get_template_directory_uri() . '/assets/player/aurum-video-player.js',
+			array(),
+			AURUM_VIDEO_VERSION,
+			true
+		);
 	}
 
 	wp_enqueue_script(
-		'aurum-video-player',
+		'aurum-video-theme',
 		get_template_directory_uri() . '/assets/js/aurum-player.js',
-		$player_deps,
+		array(),
 		AURUM_VIDEO_VERSION,
 		true
 	);
@@ -76,7 +71,7 @@ function aurum_video_enqueue_assets() {
 	// aurum-player.js — only needed (and only sent) on the single video page.
 	if ( is_singular( 'post' ) ) {
 		wp_localize_script(
-			'aurum-video-player',
+			'aurum-video-theme',
 			'aurumData',
 			array(
 				'restUrl'  => esc_url_raw( rest_url( 'aurum/v1' ) ),

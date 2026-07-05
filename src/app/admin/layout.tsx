@@ -63,9 +63,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="side-link" href="/admin/player">
             Media Player
           </Link>
-          <Link className="side-link" href="/admin/wp-theme">
-            WordPress Theme
-          </Link>
+          {role === "HEAD" && (
+            <Link className="side-link" href="/admin/wp-theme">
+              WordPress Theme
+            </Link>
+          )}
         </div>
         {role && can(role, "audit:view") && (
           <div className="side-sec">

@@ -39,7 +39,7 @@ export interface PresignedUpload {
 export async function presignR2Upload(opts: {
   filename: string;
   contentType: string;
-  folder: "images" | "videos";
+  folder: "images" | "videos" | "themes";
 }): Promise<PresignedUpload> {
   const { R2_BUCKET_NAME, R2_PUBLIC_HOSTNAME } = env();
   if (!R2_BUCKET_NAME || !R2_PUBLIC_HOSTNAME) {

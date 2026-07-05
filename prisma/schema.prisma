@@ -67,6 +67,7 @@ model User {
   createdMovies  Movie[]    @relation("MovieCreatedBy")
   reviewedMovies Movie[]    @relation("MovieReviewer")
   auditLogs      AuditLog[]
+  wordpressThemes WordpressTheme[] @relation("WordpressThemeCreatedBy")
 
   @@map("users")
 }
@@ -233,6 +234,29 @@ model PlayerConfig {
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("player_configs")
+}
+
+model WordpressTheme {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String
+  version       String
+  description   String?
+  packageUrl    String   @map("package_url")
+  packageSize   Int?     @map("package_size")
+  screenshotUrl String?  @map("screenshot_url")
+  changelog     String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdById   String?  @map("created_by_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  createdBy User? @relation("WordpressThemeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([slug, version])
+  @@index([slug, isActive])
+  @@index([createdAt])
+  @@map("wordpress_themes")
 }
 
 /// Public viewer account — a separate identity system from staff `User`.

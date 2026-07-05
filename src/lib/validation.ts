@@ -83,8 +83,10 @@ export const presignSchema = z.object({
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/mp2t"]);
+const THEME_PACKAGE_TYPES = new Set(["application/zip", "application/x-zip-compressed", "application/octet-stream"]);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_VIDEO_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB
+const MAX_THEME_PACKAGE_BYTES = 80 * 1024 * 1024; // 80 MB
 
 export const reviewActionSchema = z.object({
   action: z.enum(["start", "ready"]),
@@ -115,6 +117,45 @@ export type CreatePlayerConfigInput = z.infer<typeof createPlayerConfigSchema>;
 
 export const updatePlayerConfigSchema = createPlayerConfigSchema.partial();
 export type UpdatePlayerConfigInput = z.infer<typeof updatePlayerConfigSchema>;
+
+export const createWordpressThemeSchema = z.object({
+  name: shortText,
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens"),
+  version: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .regex(/^[0-9A-Za-z.+_-]+$/, "version contains unsupported characters"),
+  description: longText,
+  packageUrl: urlField,
+  packageSize: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
+  screenshotUrl: urlField.optional(),
+  changelog: longText,
+  isActive: z.boolean().default(true),
+});
+export type CreateWordpressThemeInput = z.infer<typeof createWordpressThemeSchema>;
+
+export const updateWordpressThemeSchema = createWordpressThemeSchema.partial();
+export type UpdateWordpressThemeInput = z.infer<typeof updateWordpressThemeSchema>;
+
+export const wordpressThemePresignSchema = z.object({
+  kind: z.enum(["package", "screenshot"]),
+  filename: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .regex(/^[^/\\]+$/, "filename must not contain path separators"),
+  contentType: z.string().trim().min(1).max(255),
+  size: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
+});
+export type WordpressThemePresignInput = z.infer<typeof wordpressThemePresignSchema>;
 
 export const jwPlayerIngestSchema = z.object({
   sourceUrl: urlField,
@@ -155,6 +196,20 @@ export function assertUploadAllowed(kind: "image" | "video", contentType: string
   const max = kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
   if (size !== undefined && size > max) {
     throw new ValidationError(`${kind} exceeds maximum allowed size of ${max} bytes`);
+  }
+}
+
+export function assertThemeUploadAllowed(kind: "package" | "screenshot", filename: string, contentType: string, size?: number) {
+  if (kind === "screenshot") {
+    assertUploadAllowed("image", contentType, size);
+    return;
+  }
+
+  if (!filename.toLowerCase().endsWith(".zip") || !THEME_PACKAGE_TYPES.has(contentType)) {
+    throw new ValidationError(`Unsupported theme package: ${contentType}`);
+  }
+  if (size !== undefined && size > MAX_THEME_PACKAGE_BYTES) {
+    throw new ValidationError(`theme package exceeds maximum allowed size of ${MAX_THEME_PACKAGE_BYTES} bytes`);
   }
 }
 

@@ -99,3 +99,4 @@ require get_template_directory() . '/inc/meta.php';
 require get_template_directory() . '/inc/template-tags.php';
 require get_template_directory() . '/inc/engagement.php';
 require get_template_directory() . '/inc/video-info-metabox.php';
+require get_template_directory() . '/inc/updater.php';

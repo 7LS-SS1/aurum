@@ -48,3 +48,29 @@ export async function presignAndUpload(
     upload.start();
   });
 }
+
+export async function presignAndUploadWordpressThemeAsset(
+  file: File,
+  kind: "package" | "screenshot",
+  onProgress: (pct: number) => void,
+): Promise<string> {
+  const presign = await apiFetch<Record<string, unknown>>("/api/wp-themes/presign", {
+    method: "POST",
+    body: JSON.stringify({ kind, filename: file.name, contentType: file.type || "application/octet-stream", size: file.size }),
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(presign.method as string, presign.uploadUrl as string);
+    const headers = (presign.headers as Record<string, string>) ?? {};
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.send(file);
+  });
+
+  return presign.publicUrl as string;
+}

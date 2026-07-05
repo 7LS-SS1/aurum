@@ -6,6 +6,7 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
+import { cleanupMovieMedia } from "@/lib/storage/media-cleanup";
 
 const LOCKED_FOR_STAFF: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
 const LOCKED_FOR_SENIOR: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
@@ -70,9 +71,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const actor = await requireMinRole("HEAD");
     const { id } = await params;
 
-    const existing = await prisma.movie.findUnique({ where: { id }, select: { id: true, title: true, status: true } });
+    const existing = await prisma.movie.findUnique({
+      where: { id },
+      select: { id: true, title: true, status: true, thumbnailUrl: true, previewUrl: true, videoUrl: true },
+    });
     if (!existing) throw new ApiError("movie_not_found", 404);
     if (existing.status === "PUBLISHING") throw new ApiError("cannot_delete_while_publishing", 409);
+
+    const mediaCleanup = await cleanupMovieMedia(existing);
 
     await prisma.$transaction([
       prisma.auditLog.create({
@@ -82,13 +88,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
           action: "delete_movie",
           resourceType: "movie",
           resourceId: id,
-          metadata: { title: existing.title, status: existing.status },
+          metadata: { title: existing.title, status: existing.status, mediaCleanup } as unknown as Prisma.InputJsonValue,
         },
       }),
       prisma.movie.delete({ where: { id } }),
     ]);
 
-    return jsonOk({ deleted: true, id });
+    return jsonOk({ deleted: true, id, mediaCleanup });
   } catch (err) {
     return apiError(err);
   }

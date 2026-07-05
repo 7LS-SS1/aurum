@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 import { ApiError } from "@/lib/api-response";
@@ -62,4 +62,39 @@ export async function presignR2Upload(opts: {
     publicUrl: `${publicBaseUrl(R2_PUBLIC_HOSTNAME)}/${key}`,
     headers: { "Content-Type": opts.contentType },
   };
+}
+
+export async function deleteR2Object(key: string): Promise<void> {
+  const { R2_BUCKET_NAME } = env();
+  if (!R2_BUCKET_NAME) {
+    throw new ApiError("R2_BUCKET_NAME is not configured", 503);
+  }
+
+  await r2Client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+}
+
+export function getR2ObjectKeyFromPublicUrl(fileUrl: string): string | null {
+  const { R2_ACCOUNT_ID, R2_PUBLIC_HOSTNAME, NEXT_PUBLIC_R2_PUBLIC_URL } = env();
+  let parsed: URL;
+  try {
+    parsed = new URL(fileUrl);
+  } catch {
+    return null;
+  }
+
+  const allowedHosts = new Set<string>();
+  for (const value of [R2_PUBLIC_HOSTNAME, NEXT_PUBLIC_R2_PUBLIC_URL]) {
+    if (!value) continue;
+    try {
+      allowedHosts.add(new URL(value).hostname);
+    } catch {
+      allowedHosts.add(value);
+    }
+  }
+  if (R2_ACCOUNT_ID) allowedHosts.add(`${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`);
+
+  if (!allowedHosts.has(parsed.hostname)) return null;
+
+  const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+  return key || null;
 }

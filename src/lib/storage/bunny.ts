@@ -53,3 +53,36 @@ export async function presignBunnyUpload(filename: string): Promise<PresignedTus
     publicUrl: `https://${BUNNY_CDN_HOST}/${videoId}/playlist.m3u8`,
   };
 }
+
+export function getBunnyVideoIdFromUrl(fileUrl: string): string | null {
+  const { BUNNY_CDN_HOST } = env();
+  if (!BUNNY_CDN_HOST) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(fileUrl);
+  } catch {
+    return null;
+  }
+
+  if (parsed.hostname !== BUNNY_CDN_HOST) return null;
+  const [videoId] = parsed.pathname.replace(/^\/+/, "").split("/");
+  return videoId || null;
+}
+
+export async function deleteBunnyVideo(videoId: string): Promise<void> {
+  const { BUNNY_LIBRARY_ID, BUNNY_API_KEY } = env();
+  if (!BUNNY_LIBRARY_ID || !BUNNY_API_KEY) {
+    throw new ApiError("Bunny Stream is not configured (BUNNY_LIBRARY_ID / BUNNY_API_KEY)", 503);
+  }
+
+  const res = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
+    method: "DELETE",
+    headers: { AccessKey: BUNNY_API_KEY },
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  if (!res.ok && res.status !== 404) {
+    throw new ApiError(`Failed to delete Bunny video: HTTP ${res.status}`, 502);
+  }
+}

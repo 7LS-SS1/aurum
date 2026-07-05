@@ -8,7 +8,17 @@ import type { NextAuthConfig } from "next-auth";
  * a database connection. The full config (auth.ts) extends this with the
  * actual provider for use in route handlers and Server Components.
  */
+function authSecrets() {
+  const secrets = [process.env.AUTH_SECRET, process.env.AUTH_SECRET_PREVIOUS]
+    .flatMap((value) => (value ? value.split(",") : []))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return secrets.length > 1 ? secrets : secrets[0];
+}
+
 export default {
+  secret: authSecrets(),
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   pages: { signIn: "/admin/login" },
   trustHost: true,

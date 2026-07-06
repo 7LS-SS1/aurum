@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   try {
-    await requireMinRole("HEAD");
+    await requireMinRole("STAFF");
     const themes = await prisma.wordpressTheme.findMany({
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
       include: { createdBy: { select: { id: true, name: true, email: true } } },

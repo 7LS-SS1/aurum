@@ -40,7 +40,8 @@ export type Action =
   | "player:manage"
   | "player:delete"
   | "audit:view"
-  | "upload:quick-publish";
+  | "upload:quick-publish"
+  | "comment:moderate";
 
 const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "movie:view": "STAFF",
@@ -61,6 +62,7 @@ const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "player:delete": "HEAD",
   "audit:view": "HEAD",
   "upload:quick-publish": "MANAGER",
+  "comment:moderate": "SENIOR",
 };
 
 /** True if `role` has at least the minimum rank required for `action`. SYSTEM never passes human-role checks. */

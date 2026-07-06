@@ -26,6 +26,8 @@ interface MovieRow {
   mainCategory: string | null;
   thumbnailUrl: string | null;
   previewUrl: string | null;
+  viewCount: number;
+  wpViewCount: number;
   extraMeta: unknown;
   targetSiteIds: unknown;
   status: MovieStatus;
@@ -330,6 +332,7 @@ export function VideosManager({
               {movies.map((m) => {
                 const statusMeta = STATUS_META[m.status];
                 const mediaMeta = (m.extraMeta as Record<string, unknown>) ?? {};
+                const totalViewCount = m.viewCount + m.wpViewCount;
                 const checked = selectedIds.has(m.id);
                 const selectable = canDeleteMovies && m.status !== "PUBLISHING";
                 return (
@@ -369,6 +372,8 @@ export function VideosManager({
                         </Link>
                         <div className="vchannel">{m.mainCategory ?? "ไม่ระบุหมวดหมู่"}</div>
                         <div className="vstats admin-video-inline-meta">
+                          <span>{totalViewCount.toLocaleString("th-TH")} views</span>
+                          {m.wpViewCount > 0 && <span>WP {m.wpViewCount.toLocaleString("th-TH")}</span>}
                           <span>{new Date(m.createdAt).toLocaleDateString("th-TH")}</span>
                           <span>{m.createdBy?.name ?? m.createdBy?.email ?? "ไม่ระบุผู้สร้าง"}</span>
                         </div>

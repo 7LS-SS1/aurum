@@ -21,6 +21,13 @@ export interface WpPost {
   status: string;
 }
 
+export interface WpEngagement {
+  postId: number;
+  views: number;
+  likes: number;
+  dislikes: number;
+}
+
 interface WpTerm {
   id: number;
   name: string;
@@ -48,6 +55,10 @@ export class WordPressClient {
 
   private get api() {
     return `${this.baseUrl}/wp-json/wp/v2`;
+  }
+
+  private get aurumApi() {
+    return `${this.baseUrl}/wp-json/aurum/v1`;
   }
 
   private authHeader(): string {
@@ -167,5 +178,9 @@ export class WordPressClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+  }
+
+  async getAurumEngagement(postId: string | number): Promise<WpEngagement> {
+    return this.json(`${this.aurumApi}/posts/${encodeURIComponent(String(postId))}/engagement`);
   }
 }

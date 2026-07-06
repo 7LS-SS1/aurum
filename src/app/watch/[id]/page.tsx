@@ -59,6 +59,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const quality = typeof meta.quality === "string" ? meta.quality : null;
   const duration = typeof meta.duration === "string" ? meta.duration : null;
   const movieKey = movie.slug ?? movie.id;
+  const totalViewCount = movie.viewCount + movie.wpViewCount;
 
   return (
     <>
@@ -81,7 +82,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
               <div>
                 <div className="ch-name">{movie.mainCategory ?? "ไม่ระบุหมวดหมู่"}</div>
                 <div className="ch-subs">
-                  {movie.viewCount.toLocaleString("th-TH")} ครั้ง
+                  {totalViewCount.toLocaleString("th-TH")} ครั้ง
                   {quality ? ` · ${quality}` : ""}
                   {duration ? ` · ${duration}` : ""}
                 </div>

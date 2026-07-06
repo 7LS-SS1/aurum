@@ -54,6 +54,28 @@ function aurum_get_reaction_counts( $post_id ) {
 function aurum_register_engagement_routes() {
 	register_rest_route(
 		'aurum/v1',
+		'/posts/(?P<id>\d+)/engagement',
+		array(
+			'methods'             => 'GET',
+			'permission_callback' => '__return_true',
+			'callback'            => function ( WP_REST_Request $req ) {
+				$post_id = (int) $req->get_param( 'id' );
+				if ( 'publish' !== get_post_status( $post_id ) ) {
+					return new WP_Error( 'not_found', 'Post not found', array( 'status' => 404 ) );
+				}
+
+				return array(
+					'postId'   => $post_id,
+					'views'    => aurum_get_view_count( $post_id ),
+					'likes'    => aurum_get_int_meta( $post_id, AURUM_LIKE_META_KEY ),
+					'dislikes' => aurum_get_int_meta( $post_id, AURUM_DISLIKE_META_KEY ),
+				);
+			},
+		)
+	);
+
+	register_rest_route(
+		'aurum/v1',
 		'/posts/(?P<id>\d+)/view',
 		array(
 			'methods'             => 'POST',

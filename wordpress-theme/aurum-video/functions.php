@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Bump this on every theme.zip re-upload — it's the cache-busting query
 // string (?ver=...) on style.css/player assets, so browsers/host caches
 // keep serving the old file after an update until this value changes.
-define( 'AURUM_VIDEO_VERSION', '1.2.0' );
+define( 'AURUM_VIDEO_VERSION', '2.0.0' );
 
 /**
  * Theme support + nav menu registration.

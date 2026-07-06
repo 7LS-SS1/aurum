@@ -66,6 +66,7 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
   const description = movie.content || movie.excerpt || "ยังไม่มีรายละเอียดเพิ่มเติม";
   const duration = typeof meta.duration === "string" ? meta.duration : null;
   const quality = typeof meta.quality === "string" ? meta.quality : null;
+  const totalViewCount = movie.viewCount + movie.wpViewCount;
 
   return (
     <section className="admin-watch-page">
@@ -107,7 +108,11 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
         <div className="admin-watch-description">
           <div className="admin-watch-description-head">
             <strong>{movie.slug ?? movie.id}</strong>
-            <span>{movie.updatedAt ? `อัปเดต ${formatDate(movie.updatedAt)}` : ""}</span>
+            <span>
+              {totalViewCount.toLocaleString("th-TH")} views - App {movie.viewCount.toLocaleString("th-TH")} - WP{" "}
+              {movie.wpViewCount.toLocaleString("th-TH")}
+              {movie.updatedAt ? ` - updated ${formatDate(movie.updatedAt)}` : ""}
+            </span>
           </div>
           <p>{description}</p>
           {(tags.length > 0 || categories.length > 0) && (

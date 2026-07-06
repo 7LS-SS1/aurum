@@ -68,6 +68,21 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
     });
   }
 
+  function syncExistingMovies(id: string, name: string) {
+    if (!confirm(`ซิงก์วิดีโอเก่าที่เผยแพร่แล้วทั้งหมดเข้า "${name}"? ระบบจะทยอยส่งเข้าเว็บนี้ทีละชุดผ่าน cron ไม่ใช่ทันที`)) return;
+    startTransition(async () => {
+      try {
+        const result = await apiFetch<{ eligible: number; created: number; skipped: number }>(
+          `/api/sites/${id}/sync-existing`,
+          { method: "POST" },
+        );
+        notify(`สร้างงานซิงก์ใหม่ ${result.created} รายการ (ข้าม ${result.skipped} รายการที่มีอยู่แล้ว)`);
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "ซิงก์ไม่สำเร็จ");
+      }
+    });
+  }
+
   function toggleActive(site: SiteRow) {
     startTransition(async () => {
       try {
@@ -116,6 +131,17 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
             {canManage && (
               <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => pingSite(s.id)}>
                 ตรวจสอบ
+              </button>
+            )}
+            {canManage && s.isActive && (
+              <button
+                className="btn-ghost"
+                style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }}
+                disabled={pending}
+                onClick={() => syncExistingMovies(s.id, s.name)}
+                title="ส่งวิดีโอที่เผยแพร่แล้วทั้งหมดเข้าเว็บนี้ (สำหรับเว็บที่เพิ่งเพิ่มใหม่)"
+              >
+                ซิงก์วิดีโอเก่า
               </button>
             )}
             {canManage && (

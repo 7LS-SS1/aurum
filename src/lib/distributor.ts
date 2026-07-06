@@ -92,7 +92,14 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
   return payload;
 }
 
-async function distributeToSite(
+/**
+ * Distributes one movie to one site, updating that (movie, site) Distribution
+ * row only — unlike distributeMovie(), it never touches Movie.status, so
+ * callers that need to sync a single movie to a single additional site (e.g.
+ * backfilling a newly-added TargetSite) can reuse this without disturbing a
+ * movie's overall DONE/PARTIAL/FAILED state. Exported for src/lib/site-backfill.ts.
+ */
+export async function distributeToSite(
   movie: Movie,
   site: TargetSite,
   draft: MovieSiteDraft | undefined,

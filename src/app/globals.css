@@ -1574,6 +1574,40 @@ select {
   gap: 16px;
   padding: 6px 24px 60px;
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 24px 72px;
+}
+.admin-pagination {
+  padding: 24px 0 0;
+}
+.page-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.page-btn:hover {
+  background: var(--hover);
+}
+.page-btn:disabled,
+.page-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.page-status {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
 .vcard {
   cursor: pointer;
 }
@@ -2501,6 +2535,30 @@ body.mside-open .scrim {
 .dtable .actions button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+.user-cell strong,
+.user-cell span {
+  display: block;
+}
+.user-cell span {
+  color: var(--muted-2);
+  font-size: 12.5px;
+  margin-top: 3px;
+}
+.user-edit-fields {
+  display: grid;
+  gap: 8px;
+  min-width: min(360px, 100%);
+}
+.user-edit-fields input,
+.dtable select {
+  width: 100%;
+  background: var(--field);
+  border: 1px solid var(--field-line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
 }
 
 .filter-bar {

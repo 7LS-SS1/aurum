@@ -9,17 +9,20 @@ export function VideoCatalog({
   category,
   query,
   basePath = "/",
+  pagination,
 }: {
   movies: CatalogMovie[];
   categories: string[];
   category?: string;
   query?: string;
   basePath?: "/" | "/videos";
+  pagination?: { page: number; totalPages: number; total: number };
 }) {
-  const hrefFor = (nextCategory?: string) => {
+  const hrefFor = (nextCategory?: string, page?: number) => {
     const params = new URLSearchParams();
     if (nextCategory) params.set("category", nextCategory);
     if (query) params.set("q", query);
+    if (page && page > 1) params.set("page", String(page));
     const qs = params.toString();
     return qs ? `${basePath}?${qs}` : basePath;
   };
@@ -111,6 +114,28 @@ export function VideoCatalog({
               <VideoCard key={m.id} movie={m} />
             ))}
           </div>
+        )}
+
+        {pagination && pagination.totalPages > 1 && (
+          <nav className="pagination" aria-label="Video pagination">
+            <Link
+              className={`page-btn ${pagination.page <= 1 ? "disabled" : ""}`}
+              href={hrefFor(category, Math.max(1, pagination.page - 1))}
+              aria-disabled={pagination.page <= 1}
+            >
+              ก่อนหน้า
+            </Link>
+            <span className="page-status">
+              หน้า {pagination.page.toLocaleString("th-TH")} / {pagination.totalPages.toLocaleString("th-TH")}
+            </span>
+            <Link
+              className={`page-btn ${pagination.page >= pagination.totalPages ? "disabled" : ""}`}
+              href={hrefFor(category, Math.min(pagination.totalPages, pagination.page + 1))}
+              aria-disabled={pagination.page >= pagination.totalPages}
+            >
+              ถัดไป
+            </Link>
+          </nav>
         )}
       </main>
     </>

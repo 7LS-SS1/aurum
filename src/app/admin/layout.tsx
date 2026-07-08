@@ -75,6 +75,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {role && can(role, "audit:view") && (
           <div className="side-sec">
             <div className="side-cat">ระบบ</div>
+            {can(role, "user:manage") && (
+              <Link className="side-link" href="/admin/users">
+                จัดการผู้ใช้
+              </Link>
+            )}
             <Link className="side-link" href="/admin/audit">
               Audit Log
             </Link>

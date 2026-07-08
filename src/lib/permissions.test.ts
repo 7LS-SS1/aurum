@@ -29,6 +29,11 @@ describe("can", () => {
     expect(can("MANAGER", "audit:view")).toBe(false);
   });
 
+  it("only HEAD passes user:manage", () => {
+    expect(can("HEAD", "user:manage")).toBe(true);
+    expect(can("MANAGER", "user:manage")).toBe(false);
+  });
+
   it("comment:moderate requires at least SENIOR", () => {
     expect(can("STAFF", "comment:moderate")).toBe(false);
     expect(can("SENIOR", "comment:moderate")).toBe(true);

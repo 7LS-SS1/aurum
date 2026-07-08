@@ -47,6 +47,13 @@ interface UserRow {
   email: string;
 }
 
+interface PaginationState {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+}
+
 const STATUS_META: Record<MovieStatus, { label: string; cls: string }> = {
   DRAFT: { label: "รอเริ่มประมวลผล", cls: "neutral" },
   READY_FOR_REVIEW: { label: "กำลังประมวลผล", cls: "gold" },
@@ -62,19 +69,23 @@ const STATUS_META: Record<MovieStatus, { label: string; cls: string }> = {
 };
 
 const ALL_STATUSES = Object.keys(STATUS_META) as MovieStatus[];
+const PAGE_SIZE = 20;
 
 export function VideosManager({
   initialMovies,
+  initialPagination,
   users,
   currentUserId,
   role,
 }: {
   initialMovies: MovieRow[];
+  initialPagination: PaginationState;
   users: UserRow[];
   currentUserId: string;
   role: Role;
 }) {
   const [movies, setMovies] = useState(initialMovies);
+  const [pagination, setPagination] = useState(initialPagination);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -93,18 +104,41 @@ export function VideosManager({
     setTimeout(() => setToast(null), 2800);
   }
 
+  function addFilterParams(params: URLSearchParams) {
+    if (status) params.set("status", status);
+    if (mainCategory) params.set("mainCategory", mainCategory);
+    if (createdById) params.set("createdById", createdById);
+    if (dateFrom) params.set("dateFrom", new Date(dateFrom).toISOString());
+    if (dateTo) params.set("dateTo", new Date(dateTo).toISOString());
+    if (q.trim()) params.set("q", q.trim());
+  }
+
+  async function fetchPage(page: number) {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("take", String(PAGE_SIZE));
+    addFilterParams(params);
+    const res = await apiFetch<{ movies: MovieRow[]; pagination: PaginationState }>(`/api/movies?${params.toString()}`);
+    setMovies(res.movies);
+    setPagination(res.pagination);
+    setSelectedIds(new Set());
+  }
+
   function applyFilters() {
     startTransition(async () => {
       try {
         const params = new URLSearchParams();
+        params.set("page", "1");
+        params.set("take", String(PAGE_SIZE));
         if (status) params.set("status", status);
         if (mainCategory) params.set("mainCategory", mainCategory);
         if (createdById) params.set("createdById", createdById);
         if (dateFrom) params.set("dateFrom", new Date(dateFrom).toISOString());
         if (dateTo) params.set("dateTo", new Date(dateTo).toISOString());
         if (q.trim()) params.set("q", q.trim());
-        const res = await apiFetch<{ movies: MovieRow[] }>(`/api/movies?${params.toString()}`);
+        const res = await apiFetch<{ movies: MovieRow[]; pagination: PaginationState }>(`/api/movies?${params.toString()}`);
         setMovies(res.movies);
+        setPagination(res.pagination);
         setSelectedIds(new Set());
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "โหลดรายการไม่สำเร็จ");
@@ -120,9 +154,21 @@ export function VideosManager({
     setDateTo("");
     setQ("");
     startTransition(async () => {
-      const res = await apiFetch<{ movies: MovieRow[] }>("/api/movies");
+      const res = await apiFetch<{ movies: MovieRow[]; pagination: PaginationState }>(`/api/movies?page=1&take=${PAGE_SIZE}`);
       setMovies(res.movies);
+      setPagination(res.pagination);
       setSelectedIds(new Set());
+    });
+  }
+
+  function goToPage(page: number) {
+    if (page < 1 || page > pagination.totalPages || page === pagination.page) return;
+    startTransition(async () => {
+      try {
+        await fetchPage(page);
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "โหลดรายการไม่สำเร็จ");
+      }
     });
   }
 
@@ -131,7 +177,7 @@ export function VideosManager({
     try {
       await fn();
       notify(label);
-      if (refetchAfter) applyFilters();
+      if (refetchAfter) await fetchPage(pagination.page);
     } catch (err) {
       notify(err instanceof ApiClientError ? err.message : "ดำเนินการไม่สำเร็จ");
     } finally {
@@ -181,7 +227,7 @@ export function VideosManager({
       await apiFetch("/api/movies/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) });
       notify(`ลบวิดีโอแล้ว ${ids.length} รายการ`);
       setSelectedIds(new Set());
-      applyFilters();
+      await fetchPage(pagination.page);
     } catch (err) {
       notify(err instanceof ApiClientError ? err.message : "ลบวิดีโอไม่สำเร็จ");
     } finally {
@@ -207,7 +253,7 @@ export function VideosManager({
       }
       await apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds: failedIds }) });
       notify("ลองเผยแพร่ใหม่แล้ว");
-      applyFilters();
+      await fetchPage(pagination.page);
     } catch (err) {
       notify(err instanceof ApiClientError ? err.message : "ลองใหม่ไม่สำเร็จ");
     } finally {
@@ -382,6 +428,19 @@ export function VideosManager({
                 );
               })}
             </div>
+            {pagination.totalPages > 1 && (
+              <nav className="pagination admin-pagination" aria-label="Admin video pagination">
+                <button className="page-btn" disabled={pending || pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}>
+                  ก่อนหน้า
+                </button>
+                <span className="page-status">
+                  หน้า {pagination.page.toLocaleString("th-TH")} / {pagination.totalPages.toLocaleString("th-TH")}
+                </span>
+                <button className="page-btn" disabled={pending || pagination.page >= pagination.totalPages} onClick={() => goToPage(pagination.page + 1)}>
+                  ถัดไป
+                </button>
+              </nav>
+            )}
           </>
         )}
       </div>

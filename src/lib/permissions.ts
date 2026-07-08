@@ -40,6 +40,7 @@ export type Action =
   | "player:manage"
   | "player:delete"
   | "audit:view"
+  | "user:manage"
   | "upload:quick-publish"
   | "comment:moderate";
 
@@ -61,6 +62,7 @@ const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "player:manage": "MANAGER",
   "player:delete": "HEAD",
   "audit:view": "HEAD",
+  "user:manage": "HEAD",
   "upload:quick-publish": "MANAGER",
   "comment:moderate": "SENIOR",
 };

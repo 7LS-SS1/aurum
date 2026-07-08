@@ -144,6 +144,24 @@ export type CreateWordpressThemeInput = z.infer<typeof createWordpressThemeSchem
 export const updateWordpressThemeSchema = createWordpressThemeSchema.partial();
 export type UpdateWordpressThemeInput = z.infer<typeof updateWordpressThemeSchema>;
 
+const manageableRoleSchema = z.enum(["STAFF", "SENIOR", "MANAGER"]);
+
+export const createUserSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(8).max(255),
+  name: z.string().trim().min(1).max(255).optional(),
+  role: manageableRoleSchema.default("STAFF"),
+});
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export const updateUserSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(255).optional(),
+  password: z.string().min(8).max(255).optional(),
+  name: z.string().trim().min(1).max(255).nullable().optional(),
+  role: manageableRoleSchema.optional(),
+});
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
 export const wordpressThemePresignSchema = z.object({
   kind: z.enum(["package", "screenshot"]),
   filename: z

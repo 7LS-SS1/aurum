@@ -52,8 +52,9 @@ export async function GET(req: NextRequest) {
     await requireMinRole("STAFF");
 
     const { searchParams } = req.nextUrl;
-    const take = Math.min(Number(searchParams.get("take") ?? 20), 100);
-    const cursor = searchParams.get("cursor") ?? undefined;
+    const requestedTake = Number(searchParams.get("take") ?? 20);
+    const take = Number.isFinite(requestedTake) ? Math.min(Math.max(1, requestedTake), 100) : 20;
+    const requestedPage = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
 
     const status = searchParams.get("status");
     const mainCategory = searchParams.get("mainCategory");
@@ -79,15 +80,19 @@ export async function GET(req: NextRequest) {
         : {}),
     };
 
+    const total = await prisma.movie.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / take));
+    const page = Math.min(requestedPage, totalPages);
+
     const movies = await prisma.movie.findMany({
       where,
       take,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      skip: (page - 1) * take,
       orderBy: { createdAt: "desc" },
       include: { createdBy: { select: { id: true, name: true, email: true } } },
     });
 
-    return jsonOk({ movies, nextCursor: movies.at(-1)?.id ?? null });
+    return jsonOk({ movies, pagination: { page, totalPages, total, pageSize: take } });
   } catch (err) {
     return apiError(err);
   }

@@ -83,6 +83,22 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
     });
   }
 
+  function syncBunnyReferrers() {
+    startTransition(async () => {
+      try {
+        const result = await apiFetch<{ added: string[]; alreadyPresent: string[]; failed: { hostname: string; error: string }[] }>(
+          "/api/sites/sync-bunny-referrers",
+          { method: "POST" },
+        );
+        const parts = [`เพิ่มใหม่ ${result.added.length}`, `มีอยู่แล้ว ${result.alreadyPresent.length}`];
+        if (result.failed.length > 0) parts.push(`ล้มเหลว ${result.failed.length} (${result.failed.map((f) => f.hostname).join(", ")})`);
+        notify(parts.join(" · "));
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "ซิงก์ Bunny domain ไม่สำเร็จ");
+      }
+    });
+  }
+
   function toggleActive(site: SiteRow) {
     startTransition(async () => {
       try {
@@ -115,6 +131,17 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
         <div className="panel-head">
           <h3>เว็บที่เชื่อมต่อ</h3>
           <span className="sub">{sites.length} เว็บ</span>
+          {canManage && (
+            <button
+              className="btn-ghost"
+              style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }}
+              disabled={pending}
+              onClick={syncBunnyReferrers}
+              title="เพิ่ม domain ของเว็บที่เปิดใช้งานทั้งหมดเข้า Bunny Allowed Referrers เพื่อแก้ปัญหาวิดีโอเล่นไม่ได้ (403)"
+            >
+              Sync Bunny Domains
+            </button>
+          )}
         </div>
         {sites.length === 0 && <div className="empty">ยังไม่มีเว็บปลายทาง{canManage ? " — เพิ่มจากฟอร์มด้านขวา" : ""}</div>}
         {sites.map((s) => (

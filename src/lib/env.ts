@@ -37,6 +37,9 @@ const envSchema = z.object({
   BUNNY_LIBRARY_ID: optionalString(),
   BUNNY_API_KEY: optionalString(),
   BUNNY_CDN_HOST: optionalString(),
+  // AURUM's own public hostname — kept allowed as a Bunny referrer so the
+  // admin UI itself can preview videos. Defaults to the sslip.io host below.
+  AURUM_PUBLIC_HOSTNAME: optionalString(),
 
   UPSTASH_REDIS_REST_URL: optionalUrl(),
   UPSTASH_REDIS_REST_TOKEN: optionalString(),

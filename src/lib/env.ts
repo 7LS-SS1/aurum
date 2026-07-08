@@ -37,6 +37,11 @@ const envSchema = z.object({
   BUNNY_LIBRARY_ID: optionalString(),
   BUNNY_API_KEY: optionalString(),
   BUNNY_CDN_HOST: optionalString(),
+  // Account-level key (dash.bunny.net → account menu → "API" / "API Key") —
+  // required for api.bunny.net/videolibrary/* calls (Allowed Referrers sync).
+  // Distinct from BUNNY_API_KEY, which is the per-library Stream key used
+  // against video.bunnycdn.com for upload/delete and does NOT work here.
+  BUNNY_ACCOUNT_API_KEY: optionalString(),
   // AURUM's own public hostname — kept allowed as a Bunny referrer so the
   // admin UI itself can preview videos. Defaults to the sslip.io host below.
   AURUM_PUBLIC_HOSTNAME: optionalString(),

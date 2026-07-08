@@ -50,16 +50,16 @@ interface BunnyVideoLibrary {
 const BUNNY_API_BASE = "https://api.bunny.net";
 
 function requireBunnyConfig() {
-  const { BUNNY_LIBRARY_ID, BUNNY_API_KEY } = env();
-  if (!BUNNY_LIBRARY_ID || !BUNNY_API_KEY) {
-    throw new ApiError("Bunny Stream is not configured (BUNNY_LIBRARY_ID / BUNNY_API_KEY)", 503);
+  const { BUNNY_LIBRARY_ID, BUNNY_ACCOUNT_API_KEY } = env();
+  if (!BUNNY_LIBRARY_ID || !BUNNY_ACCOUNT_API_KEY) {
+    throw new ApiError("Bunny referrer sync is not configured (BUNNY_LIBRARY_ID / BUNNY_ACCOUNT_API_KEY)", 503);
   }
-  return { BUNNY_LIBRARY_ID, BUNNY_API_KEY };
+  return { libraryId: BUNNY_LIBRARY_ID, accountApiKey: BUNNY_ACCOUNT_API_KEY };
 }
 
-async function fetchCurrentReferrers(libraryId: string, apiKey: string): Promise<string[]> {
+async function fetchCurrentReferrers(libraryId: string, accountApiKey: string): Promise<string[]> {
   const res = await fetch(`${BUNNY_API_BASE}/videolibrary/${libraryId}`, {
-    headers: { AccessKey: apiKey, Accept: "application/json" },
+    headers: { AccessKey: accountApiKey, Accept: "application/json" },
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
@@ -69,10 +69,10 @@ async function fetchCurrentReferrers(libraryId: string, apiKey: string): Promise
   return (data.AllowedReferrers ?? []).map((h) => h.toLowerCase());
 }
 
-async function addReferrer(libraryId: string, apiKey: string, hostname: string): Promise<void> {
+async function addReferrer(libraryId: string, accountApiKey: string, hostname: string): Promise<void> {
   const res = await fetch(`${BUNNY_API_BASE}/videolibrary/${libraryId}/addAllowedReferrer`, {
     method: "POST",
-    headers: { AccessKey: apiKey, "Content-Type": "application/json", Accept: "application/json" },
+    headers: { AccessKey: accountApiKey, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ Hostname: hostname }),
     signal: AbortSignal.timeout(15_000),
   });
@@ -95,10 +95,10 @@ async function addReferrer(libraryId: string, apiKey: string, hostname: string):
  * domain someone added manually in the Bunny dashboard.
  */
 export async function syncBunnyReferrers(baseUrls: string[]): Promise<ReferrerSyncResult> {
-  const { BUNNY_LIBRARY_ID, BUNNY_API_KEY } = requireBunnyConfig();
+  const { libraryId, accountApiKey } = requireBunnyConfig();
 
   const wanted = buildReferrerDomains(baseUrls);
-  const current = new Set(await fetchCurrentReferrers(BUNNY_LIBRARY_ID, BUNNY_API_KEY));
+  const current = new Set(await fetchCurrentReferrers(libraryId, accountApiKey));
 
   const result: ReferrerSyncResult = { added: [], alreadyPresent: [], failed: [] };
 
@@ -108,7 +108,7 @@ export async function syncBunnyReferrers(baseUrls: string[]): Promise<ReferrerSy
       continue;
     }
     try {
-      await addReferrer(BUNNY_LIBRARY_ID, BUNNY_API_KEY, hostname);
+      await addReferrer(libraryId, accountApiKey, hostname);
       result.added.push(hostname);
     } catch (err) {
       result.failed.push({ hostname, error: err instanceof Error ? err.message : "unknown_error" });

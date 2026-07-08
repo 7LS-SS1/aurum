@@ -8,9 +8,6 @@ import { logAudit } from "@/lib/audit";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 import { cleanupMovieMedia } from "@/lib/storage/media-cleanup";
 
-const LOCKED_FOR_STAFF: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
-const LOCKED_FOR_SENIOR: string[] = ["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"];
-
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireMinRole("STAFF");
@@ -34,15 +31,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const existing = await prisma.movie.findUnique({ where: { id } });
     if (!existing) throw new ApiError("movie_not_found", 404);
-
-    // Staff may only edit their own not-yet-approved draft; senior may edit
-    // any movie up through the approval gate; manager+ can edit anytime.
-    if (actor.role === "STAFF") {
-      if (existing.createdById !== actor.id) throw new ApiError("forbidden", 403);
-      if (LOCKED_FOR_STAFF.includes(existing.status)) throw new ApiError("movie_locked", 409);
-    } else if (actor.role === "SENIOR") {
-      if (LOCKED_FOR_SENIOR.includes(existing.status)) throw new ApiError("movie_locked", 409);
-    }
 
     const defaultPlayer = input.videoProvider === "jwplayer" ? await getDefaultJwPlayerConfig() : undefined;
     const iframeUrl =
@@ -68,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const actor = await requireMinRole("HEAD");
+    const actor = await requireMinRole("STAFF");
     const { id } = await params;
 
     const existing = await prisma.movie.findUnique({

@@ -17,9 +17,11 @@ describe("can", () => {
     expect(can("STAFF", "movie:review")).toBe(false);
   });
 
-  it("only HEAD passes movie:delete", () => {
+  it("all human roles pass movie:delete", () => {
+    expect(can("STAFF", "movie:delete")).toBe(true);
+    expect(can("SENIOR", "movie:delete")).toBe(true);
+    expect(can("MANAGER", "movie:delete")).toBe(true);
     expect(can("HEAD", "movie:delete")).toBe(true);
-    expect(can("MANAGER", "movie:delete")).toBe(false);
   });
 
   it("only HEAD and above pass audit:view", () => {

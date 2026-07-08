@@ -215,15 +215,8 @@ export function VideosManager({
     }
   }
 
-  function canEdit(m: MovieRow): boolean {
-    if (!can(role, "movie:edit")) return false;
-    if (role === "STAFF") {
-      return m.createdBy?.id === currentUserId && ["DRAFT", "REJECTED", "READY_FOR_REVIEW"].includes(m.status);
-    }
-    if (role === "SENIOR") {
-      return !["APPROVED", "PUBLISHING", "DONE", "PARTIAL", "FAILED", "ARCHIVED"].includes(m.status);
-    }
-    return true;
+  function canEdit(): boolean {
+    return can(role, "movie:edit");
   }
 
   function renderActions(m: MovieRow) {
@@ -231,7 +224,7 @@ export function VideosManager({
     const canDeleteMovie = can(role, "movie:delete") && m.status !== "PUBLISHING";
     return (
       <div className="admin-video-actions">
-        {canEdit(m) && (
+        {canEdit() && (
           <Link href={`/admin/videos/${m.id}/edit`}>
             <button disabled={busy}>แก้ไข</button>
           </Link>

@@ -53,7 +53,7 @@ const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "movie:approve": "MANAGER",
   "movie:publish": "MANAGER",
   "movie:archive": "MANAGER",
-  "movie:delete": "HEAD",
+  "movie:delete": "STAFF",
   "site:view": "STAFF",
   "site:manage": "MANAGER",
   "site:delete": "HEAD",

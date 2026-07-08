@@ -12,7 +12,7 @@ const bulkDeleteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const actor = await requireMinRole("HEAD");
+    const actor = await requireMinRole("STAFF");
     const { ids } = bulkDeleteSchema.parse(await req.json());
     const uniqueIds = [...new Set(ids)];
 

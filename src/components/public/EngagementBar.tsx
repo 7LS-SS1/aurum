@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
 interface EngagementBarProps {
@@ -9,18 +9,19 @@ interface EngagementBarProps {
   initialLikes: number;
   initialDislikes: number;
   initialViewerReaction: "LIKE" | "DISLIKE" | null;
-  initialSaved: boolean;
   isLoggedIn: boolean;
+  embedCode: string;
 }
 
-export function EngagementBar({ movieKey, initialLikes, initialDislikes, initialViewerReaction, initialSaved, isLoggedIn }: EngagementBarProps) {
+export function EngagementBar({ movieKey, initialLikes, initialDislikes, initialViewerReaction, isLoggedIn, embedCode }: EngagementBarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
   const [likes, setLikes] = useState(initialLikes);
   const [dislikes, setDislikes] = useState(initialDislikes);
   const [reaction, setReaction] = useState(initialViewerReaction);
-  const [saved, setSaved] = useState(initialSaved);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
 
   function requireLogin() {
@@ -46,17 +47,13 @@ export function EngagementBar({ movieKey, initialLikes, initialDislikes, initial
     }
   }
 
-  async function toggleSave() {
-    if (!isLoggedIn) return requireLogin();
-    if (busy) return;
-    setBusy(true);
+  async function copyEmbedCode() {
     try {
-      const res = await apiFetch<{ saved: boolean }>(`/api/public/movies/${movieKey}/watch-later`, { method: "POST" });
-      setSaved(res.saved);
-    } catch (err) {
-      if (err instanceof ApiClientError && err.status === 401) requireLogin();
-    } finally {
-      setBusy(false);
+      await navigator.clipboard.writeText(embedCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
     }
   }
 
@@ -77,12 +74,30 @@ export function EngagementBar({ movieKey, initialLikes, initialDislikes, initial
           <span>{dislikes}</span>
         </button>
       </div>
-      <button className={`pill ${saved ? "saved" : ""}`} onClick={toggleSave} disabled={busy}>
+
+      <button className="pill" onClick={() => setShareOpen((open) => !open)} type="button">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M6 4h12a1 1 0 0 1 1 1v16l-7-4-7 4V5a1 1 0 0 1 1-1z" />
+          <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+          <path d="M16 6l-4-4-4 4" />
+          <path d="M12 2v14" />
         </svg>
-        {saved ? "บันทึกแล้ว" : "บันทึก"}
+        แชร์
       </button>
+
+      {shareOpen && (
+        <div className="share-panel">
+          <div className="share-panel-head">
+            <strong>Embed iframe</strong>
+            <button type="button" onClick={() => setShareOpen(false)} aria-label="ปิด">
+              ×
+            </button>
+          </div>
+          <textarea value={embedCode} readOnly rows={4} />
+          <button className="btn btn-gold btn-block" type="button" onClick={copyEmbedCode}>
+            {copied ? "คัดลอกแล้ว" : "คัดลอก code"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

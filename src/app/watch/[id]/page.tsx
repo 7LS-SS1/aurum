@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { VideoPlayer } from "@/components/public/VideoPlayer";
@@ -42,12 +43,9 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
     }),
   ]);
 
-  const [viewerOwnReaction, viewerSaved] = viewer
-    ? await Promise.all([
-        prisma.movieReaction.findUnique({ where: { movieId_viewerId: { movieId: movie.id, viewerId: viewer.id } } }),
-        prisma.watchLater.findUnique({ where: { movieId_viewerId: { movieId: movie.id, viewerId: viewer.id } } }),
-      ])
-    : [null, null];
+  const viewerOwnReaction = viewer
+    ? await prisma.movieReaction.findUnique({ where: { movieId_viewerId: { movieId: movie.id, viewerId: viewer.id } } })
+    : null;
 
   const likes = reactionCounts.find((r) => r.type === "LIKE")?._count._all ?? 0;
   const dislikes = reactionCounts.find((r) => r.type === "DISLIKE")?._count._all ?? 0;
@@ -60,6 +58,12 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const duration = typeof meta.duration === "string" ? meta.duration : null;
   const movieKey = movie.slug ?? movie.id;
   const totalViewCount = movie.viewCount + movie.wpViewCount;
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "";
+  const protocol = headerList.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
+  const watchUrl = host ? `${protocol}://${host}/watch/${encodeURIComponent(movieKey)}` : `/watch/${encodeURIComponent(movieKey)}`;
+  const embedTitle = movie.title.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const embedCode = `<iframe src="${watchUrl}" title="${embedTitle}" width="100%" height="480" frameborder="0" allowfullscreen></iframe>`;
 
   return (
     <>
@@ -93,8 +97,8 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
               initialLikes={likes}
               initialDislikes={dislikes}
               initialViewerReaction={(viewerOwnReaction?.type ?? null) as "LIKE" | "DISLIKE" | null}
-              initialSaved={Boolean(viewerSaved)}
               isLoggedIn={Boolean(viewer)}
+              embedCode={embedCode}
             />
           </div>
 

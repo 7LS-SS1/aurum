@@ -116,6 +116,18 @@ model Movie {
   @@map("movies")
 }
 
+/// Admin-managed category taxonomy — the checkbox list in the video upload
+/// wizard. Movie.categories stores the chosen names directly (Json array),
+/// not a foreign key, so renaming/removing a Category here never touches
+/// already-published movies.
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("categories")
+}
+
 /// Destination WordPress site. Credentials are always AES-256-GCM encrypted
 /// (see src/lib/crypto.ts) — plaintext never touches the database.
 model TargetSite {

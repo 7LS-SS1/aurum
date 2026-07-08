@@ -146,6 +146,11 @@ export type UpdateWordpressThemeInput = z.infer<typeof updateWordpressThemeSchem
 
 const manageableRoleSchema = z.enum(["STAFF", "SENIOR", "MANAGER"]);
 
+export const createCategorySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
 export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(8).max(255),

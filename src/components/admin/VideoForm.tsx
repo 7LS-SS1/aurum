@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
@@ -10,6 +10,16 @@ interface SiteRow {
   name: string;
   baseUrl: string;
   healthStatus: "OK" | "ERROR" | "UNKNOWN";
+}
+
+interface CategoryRow {
+  id: string;
+  name: string;
+}
+
+interface PopularTag {
+  tag: string;
+  count: number;
 }
 
 interface InitialMovie {
@@ -45,7 +55,15 @@ function titleFromFilename(name: string) {
   return name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
 }
 
-export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMovie?: InitialMovie }) {
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+// Matches taxonomyList's z.array(...).max(50) in src/lib/validation.ts — the
+// wizard must not let a user build a tag list the API will then reject.
+const MAX_TAGS = 50;
+
+export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[]; categories: CategoryRow[]; initialMovie?: InitialMovie }) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(initialMovie?.videoUrl || initialMovie?.jwPlayerMediaId || initialMovie?.iframeUrl ? "details" : "upload");
 
@@ -61,6 +79,16 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [completedMovieId, setCompletedMovieId] = useState(initialMovie?.id ?? "");
+
+  const [categoryList, setCategoryList] = useState(categories);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => toStringArray(initialMovie?.categories));
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  const [tags, setTags] = useState<string[]>(() => toStringArray(initialMovie?.tags));
+  const [tagInput, setTagInput] = useState("");
+  const [popularTags, setPopularTags] = useState<PopularTag[] | null>(null);
 
   const videoInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
@@ -122,6 +150,67 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
     }
   }
 
+  useEffect(() => {
+    apiFetch<PopularTag[]>("/api/tags/popular")
+      .then(setPopularTags)
+      .catch(() => setPopularTags([]));
+  }, []);
+
+  function toggleCategory(name: string) {
+    setSelectedCategories((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
+  }
+
+  async function addNewCategory() {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setAddingCategory(true);
+    try {
+      const category = await apiFetch<CategoryRow>("/api/categories", { method: "POST", body: JSON.stringify({ name }) });
+      setCategoryList((prev) => (prev.some((c) => c.name.toLowerCase() === category.name.toLowerCase()) ? prev : [...prev, category].sort((a, b) => a.name.localeCompare(b.name, "th"))));
+      setSelectedCategories((prev) => (prev.includes(category.name) ? prev : [...prev, category.name]));
+      setNewCategoryName("");
+      setShowAddCategory(false);
+    } catch (err) {
+      notify(err instanceof ApiClientError ? err.message : "เพิ่มหมวดหมู่ไม่สำเร็จ");
+    } finally {
+      setAddingCategory(false);
+    }
+  }
+
+  function addTag(raw: string) {
+    const tag = raw.trim();
+    if (!tag) return;
+    setTags((prev) => {
+      if (prev.some((t) => t.toLowerCase() === tag.toLowerCase())) return prev;
+      if (prev.length >= MAX_TAGS) {
+        notify(`แท็กครบ ${MAX_TAGS} รายการแล้ว`);
+        return prev;
+      }
+      return [...prev, tag];
+    });
+  }
+
+  function removeTag(tag: string) {
+    setTags((prev) => prev.filter((t) => t !== tag));
+  }
+
+  function onTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    addTag(tagInput);
+    setTagInput("");
+  }
+
+  function onNewCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    addNewCategory();
+  }
+
+  function addAllPopularTags() {
+    for (const { tag } of popularTags ?? []) addTag(tag);
+  }
+
   function validate(): string | null {
     if (!videoUrl) return "กรุณาอัปโหลดวิดีโอก่อน";
     if (!thumbnailUrl) return "กรุณาอัปโหลดรูปหน้าปกก่อน";
@@ -138,6 +227,8 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
       previewUrl: previewUrl.trim() || undefined,
       videoUrl,
       videoProvider: "bunny",
+      categories: selectedCategories,
+      tags,
       targetSiteIds: sites.map((site) => site.id),
     };
   }
@@ -257,6 +348,71 @@ export function VideoForm({ sites, initialMovie }: { sites: SiteRow[]; initialMo
               <div className="field">
                 <label>เนื้อหาเพิ่มเติม</label>
                 <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="รายละเอียดเพิ่มเติมสำหรับ WordPress" />
+              </div>
+
+              <div className="field">
+                <label>หมวดหมู่</label>
+                <div className="category-grid">
+                  {categoryList.map((c) => (
+                    <label key={c.id} className="category-option">
+                      <input type="checkbox" checked={selectedCategories.includes(c.name)} onChange={() => toggleCategory(c.name)} />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+                {showAddCategory ? (
+                  <div className="thumb-picker-row" style={{ marginTop: 10 }}>
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={onNewCategoryKeyDown}
+                      placeholder="ชื่อหมวดหมู่ใหม่"
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className="btn btn-gold" disabled={addingCategory || !newCategoryName.trim()} onClick={addNewCategory}>
+                      เพิ่ม
+                    </button>
+                    <button type="button" className="btn-ghost" onClick={() => setShowAddCategory(false)}>
+                      ยกเลิก
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setShowAddCategory(true)}>
+                    + เพิ่มหมวดหมู่ใหม่
+                  </button>
+                )}
+              </div>
+
+              <div className="field">
+                <label>
+                  แท็ก <span style={{ color: "var(--muted)", fontWeight: 400 }}>({tags.length}/{MAX_TAGS})</span>
+                </label>
+                <div className="tagbox">
+                  {tags.map((t) => (
+                    <span key={t} className="tag">
+                      {t}
+                      <button type="button" onClick={() => removeTag(t)} aria-label={`ลบแท็ก ${t}`}>
+                        x
+                      </button>
+                    </span>
+                  ))}
+                  <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={onTagInputKeyDown} placeholder="พิมพ์แท็กแล้วกด Enter" />
+                </div>
+                {popularTags && popularTags.length > 0 && (
+                  <>
+                    <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={addAllPopularTags}>
+                      เพิ่ม Tag ยอดนิยม {popularTags.length} อันดับ
+                    </button>
+                    <div className="chipbar" style={{ padding: "10px 0 0" }}>
+                      {popularTags.map(({ tag }) => (
+                        <button key={tag} type="button" className={`chip ${tags.includes(tag) ? "active" : ""}`} onClick={() => (tags.includes(tag) ? removeTag(tag) : addTag(tag))}>
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="field">

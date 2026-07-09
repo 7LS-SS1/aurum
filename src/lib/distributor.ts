@@ -34,6 +34,46 @@ function buildContent(text: string, movie: Movie, iframeUrl?: string): string {
   return html;
 }
 
+function firstString(values: string[]): string {
+  return values.find((value) => value.trim())?.trim() ?? "";
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function truncate(value: string, max: number): string {
+  if (value.length <= max) return value;
+  return value.slice(0, max - 3).trimEnd() + "...";
+}
+
+function buildSeoDescription(excerpt: string, content: string, title: string): string {
+  return truncate(stripHtml(excerpt || content || title), 155);
+}
+
+function buildYoastMeta(merged: ReturnType<typeof mergeContent>, movie: Movie): Record<string, string> {
+  const title = stripHtml(merged.title);
+  const description = buildSeoDescription(merged.excerpt, merged.content, title);
+  const focusKeyword = firstString([movie.mainCategory ?? "", ...merged.tags, ...merged.categories, title]);
+  const thumbnail = movie.thumbnailUrl ?? "";
+
+  return {
+    _yoast_wpseo_title: title,
+    _yoast_wpseo_metadesc: description,
+    _yoast_wpseo_focuskw: focusKeyword,
+    "_yoast_wpseo_opengraph-title": title,
+    "_yoast_wpseo_opengraph-description": description,
+    "_yoast_wpseo_twitter-title": title,
+    "_yoast_wpseo_twitter-description": description,
+    ...(thumbnail
+      ? {
+          "_yoast_wpseo_opengraph-image": thumbnail,
+          "_yoast_wpseo_twitter-image": thumbnail,
+        }
+      : {}),
+  };
+}
+
 function mergeContent(movie: Movie, draft: MovieSiteDraft | undefined) {
   const extraMeta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const draftExtraMeta = (draft?.extraMeta as Record<string, unknown> | null) ?? {};
@@ -64,6 +104,7 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
     excerpt: merged.excerpt,
     status: site.defaultStatus || "publish",
     meta: {
+      ...buildYoastMeta(merged, movie),
       aurum_provider: movie.videoProvider ?? "",
       aurum_video_url: movie.videoUrl ?? "",
       aurum_iframe_url: iframeUrl ?? "",
@@ -84,9 +125,20 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
   const mainCategory = movie.mainCategory ?? "";
   if (mainCategory || merged.categories.length) {
     payload.categories = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
+    const primaryCategory = Array.isArray(payload.categories) ? payload.categories[0] : undefined;
+    if (typeof primaryCategory === "number") {
+      (payload.meta as Record<string, unknown>)._yoast_wpseo_primary_category = String(primaryCategory);
+    }
   }
   if (merged.tags.length) {
     payload.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
+  }
+  if (movie.thumbnailUrl) {
+    try {
+      payload.featured_media = await client.uploadMediaFromUrl(movie.thumbnailUrl);
+    } catch {
+      // Keep publishing even if the remote poster cannot be imported.
+    }
   }
 
   return payload;

@@ -42,11 +42,12 @@ interface InitialMovie {
   rejectionReason: string | null;
 }
 
-type WizardStep = "upload" | "details" | "processing" | "complete";
+type WizardStep = "upload" | "details" | "taxonomy" | "processing" | "complete";
 
 const STEPS: Array<{ key: WizardStep; label: string }> = [
   { key: "upload", label: "อัปโหลดวิดีโอ" },
   { key: "details", label: "รายละเอียด" },
+  { key: "taxonomy", label: "หมวดหมู่/แท็ก" },
   { key: "processing", label: "ประมวลผล" },
   { key: "complete", label: "เสร็จสิ้น" },
 ];
@@ -272,7 +273,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
       setStep("complete");
       window.setTimeout(() => router.push(`/admin/videos/${id}/preview`), 650);
     } catch (err) {
-      setStep("details");
+      setStep("taxonomy");
       notify(err instanceof ApiClientError ? err.message : "ประมวลผลไม่สำเร็จ");
     } finally {
       setSaving(false);
@@ -351,6 +352,66 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               </div>
 
               <div className="field">
+                <label>
+                  รูปหน้าปก <span className="req">*</span>
+                </label>
+                <div className="thumb-picker-row">
+                  {thumbnailUrl ? (
+                    <div className="thumb-preview-card">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
+                    </div>
+                  ) : (
+                    <div className="thumb-empty">ยังไม่มีรูปหน้าปก</div>
+                  )}
+                  <label className="btn btn-ghost">
+                    เลือกรูปหน้าปก
+                    <input ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} style={{ display: "none" }} />
+                  </label>
+                </div>
+                {thumbProgress !== null && (
+                  <div className="upload-wizard-progress compact">
+                    <div style={{ width: `${Math.round(thumbProgress)}%` }} />
+                    <span>{Math.round(thumbProgress)}%</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="field">
+                <label>Preview URL (hover clip)</label>
+                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://cdn.example.com/previews/video-preview.mp4" />
+              </div>
+            </div>
+
+            <aside className="upload-preview-side">
+              <div className="video-preview-box">
+                {thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumbnailUrl} alt="ตัวอย่างวิดีโอ" />
+                ) : (
+                  <span>ระบบจะแสดงรูปหน้าปกที่นี่</span>
+                )}
+              </div>
+              <div className="upload-copy-field">
+                <span>ลิงก์วิดีโอ</span>
+                <b>{videoUrl || "กำลังรอวิดีโอ"}</b>
+              </div>
+              <div className="upload-copy-field">
+                <span>ชื่อไฟล์</span>
+                <b>{sourceFileName || "ไฟล์ที่อัปโหลดแล้ว"}</b>
+              </div>
+              <div className="upload-copy-field">
+                <span>ปลายทาง</span>
+                <b>{sites.length ? `ทุกโดเมนที่เปิดใช้งาน (${sites.length} เว็บ)` : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
+              </div>
+            </aside>
+          </div>
+        )}
+
+        {step === "taxonomy" && (
+          <div className="upload-details-grid">
+            <div className="upload-details-main">
+              <div className="field">
                 <label>หมวดหมู่</label>
                 <div className="category-grid">
                   {categoryList.map((c) => (
@@ -414,55 +475,16 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                   </>
                 )}
               </div>
-
-              <div className="field">
-                <label>
-                  รูปหน้าปก <span className="req">*</span>
-                </label>
-                <div className="thumb-picker-row">
-                  {thumbnailUrl ? (
-                    <div className="thumb-preview-card">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
-                    </div>
-                  ) : (
-                    <div className="thumb-empty">ยังไม่มีรูปหน้าปก</div>
-                  )}
-                  <label className="btn btn-ghost">
-                    เลือกรูปหน้าปก
-                    <input ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} style={{ display: "none" }} />
-                  </label>
-                </div>
-                {thumbProgress !== null && (
-                  <div className="upload-wizard-progress compact">
-                    <div style={{ width: `${Math.round(thumbProgress)}%` }} />
-                    <span>{Math.round(thumbProgress)}%</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="field">
-                <label>Preview URL (hover clip)</label>
-                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://cdn.example.com/previews/video-preview.mp4" />
-              </div>
             </div>
 
             <aside className="upload-preview-side">
-              <div className="video-preview-box">
-                {thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumbnailUrl} alt="ตัวอย่างวิดีโอ" />
-                ) : (
-                  <span>ระบบจะแสดงรูปหน้าปกที่นี่</span>
-                )}
+              <div className="upload-copy-field">
+                <span>หมวดหมู่ที่เลือก</span>
+                <b>{selectedCategories.length ? selectedCategories.join(", ") : "ยังไม่ได้เลือกหมวดหมู่"}</b>
               </div>
               <div className="upload-copy-field">
-                <span>ลิงก์วิดีโอ</span>
-                <b>{videoUrl || "กำลังรอวิดีโอ"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>ชื่อไฟล์</span>
-                <b>{sourceFileName || "ไฟล์ที่อัปโหลดแล้ว"}</b>
+                <span>จำนวนแท็ก</span>
+                <b>{tags.length}/{MAX_TAGS}</b>
               </div>
               <div className="upload-copy-field">
                 <span>ปลายทาง</span>
@@ -500,13 +522,25 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               : thumbProgress !== null
                 ? "กำลังอัปโหลดรูปหน้าปก..."
                 : canStartProcessing
-                  ? "พร้อมประมวลผล"
+                  ? step === "taxonomy"
+                    ? "พร้อมประมวลผล"
+                    : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
                   : "ต้องมีวิดีโอ รูปหน้าปก และชื่อเรื่อง"}
           </div>
           <div className="upload-foot-actions">
             {step === "details" && (
               <>
                 <button type="button" className="btn btn-ghost" onClick={() => setStep("upload")} disabled={saving}>
+                  กลับ
+                </button>
+                <button type="button" className="btn btn-gold" onClick={() => setStep("taxonomy")} disabled={saving || !canStartProcessing}>
+                  ถัดไป
+                </button>
+              </>
+            )}
+            {step === "taxonomy" && (
+              <>
+                <button type="button" className="btn btn-ghost" onClick={() => setStep("details")} disabled={saving}>
                   กลับ
                 </button>
                 {canProcessStatus ? (

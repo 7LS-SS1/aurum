@@ -34,6 +34,16 @@ function aurum_video_meta_field_map() {
 		'thumbnail_url'           => 'url',
 		'preview_url'             => 'url',
 		'jwplayer_media_id'       => 'text',
+		'_yoast_wpseo_title'      => 'text',
+		'_yoast_wpseo_metadesc'   => 'text',
+		'_yoast_wpseo_focuskw'    => 'text',
+		'_yoast_wpseo_opengraph-title'       => 'text',
+		'_yoast_wpseo_opengraph-description' => 'text',
+		'_yoast_wpseo_opengraph-image'       => 'url',
+		'_yoast_wpseo_twitter-title'         => 'text',
+		'_yoast_wpseo_twitter-description'   => 'text',
+		'_yoast_wpseo_twitter-image'         => 'url',
+		'_yoast_wpseo_primary_category'      => 'text',
 	);
 }
 

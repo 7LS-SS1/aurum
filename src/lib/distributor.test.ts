@@ -10,6 +10,7 @@ const decryptMock = vi.fn();
 const createPostMock = vi.fn();
 const resolveCategoryTreeMock = vi.fn();
 const resolveTermsMock = vi.fn();
+const uploadMediaFromUrlMock = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -27,6 +28,7 @@ vi.mock("@/lib/wordpress-client", () => ({
     createPost: createPostMock,
     resolveCategoryTree: resolveCategoryTreeMock,
     resolveTerms: resolveTermsMock,
+    uploadMediaFromUrl: uploadMediaFromUrlMock,
   })),
 }));
 
@@ -77,6 +79,7 @@ beforeEach(() => {
   decryptMock.mockReturnValue("decrypted-credential");
   resolveCategoryTreeMock.mockResolvedValue([]);
   resolveTermsMock.mockResolvedValue([]);
+  uploadMediaFromUrlMock.mockResolvedValue(321);
 });
 
 describe("distributeToSite", () => {
@@ -134,6 +137,58 @@ describe("distributeToSite", () => {
     await distributeToSite(fakeMovie({ content: "" }) as never, fakeSite() as never, undefined);
     const payload = createPostMock.mock.calls[0]?.[0];
     expect(payload.content).toContain('<a href="https://cdn.example.com/v.mp4"');
+  });
+
+  it("sends Yoast SEO meta from the movie content and taxonomy", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    resolveCategoryTreeMock.mockResolvedValue([44, 45]);
+
+    await distributeToSite(
+      fakeMovie({
+        title: "SEO Title",
+        excerpt: "This is the SEO description.",
+        mainCategory: "Drama",
+        categories: ["Indie"],
+        tags: ["feature"],
+        thumbnailUrl: "https://cdn.example.com/poster.jpg",
+      }) as never,
+      fakeSite() as never,
+      undefined,
+    );
+
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(payload.meta).toEqual(
+      expect.objectContaining({
+        _yoast_wpseo_title: "SEO Title",
+        _yoast_wpseo_metadesc: "This is the SEO description.",
+        _yoast_wpseo_focuskw: "Drama",
+        "_yoast_wpseo_opengraph-image": "https://cdn.example.com/poster.jpg",
+        "_yoast_wpseo_twitter-image": "https://cdn.example.com/poster.jpg",
+        _yoast_wpseo_primary_category: "44",
+      }),
+    );
+  });
+
+  it("imports the thumbnail as featured media when possible", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    uploadMediaFromUrlMock.mockResolvedValue(777);
+
+    await distributeToSite(fakeMovie({ thumbnailUrl: "https://cdn.example.com/poster.jpg" }) as never, fakeSite() as never, undefined);
+
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(uploadMediaFromUrlMock).toHaveBeenCalledWith("https://cdn.example.com/poster.jpg");
+    expect(payload.featured_media).toBe(777);
+  });
+
+  it("still publishes when featured media import fails", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    uploadMediaFromUrlMock.mockRejectedValue(new Error("image blocked"));
+
+    await distributeToSite(fakeMovie({ thumbnailUrl: "https://cdn.example.com/poster.jpg" }) as never, fakeSite() as never, undefined);
+
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(payload.featured_media).toBeUndefined();
+    expect(createPostMock).toHaveBeenCalled();
   });
 
   it("decrypts the site's stored credential before constructing the WordPress client", async () => {

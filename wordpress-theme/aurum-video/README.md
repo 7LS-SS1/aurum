@@ -36,6 +36,22 @@ saved, regardless of how nicely a theme tries to display it.
 `inc/template-tags.php`'s `aurum_get_video_meta( $post_id )` reads the `aurum_*` key first and falls
 back to the legacy unprefixed one, so either naming works.
 
+## Yoast SEO integration
+
+When a video is distributed, AURUM also sends Yoast SEO post meta through the WordPress REST API:
+
+| Field | Meaning |
+|---|---|
+| `_yoast_wpseo_title` | SEO title, based on the AURUM title or per-site draft title |
+| `_yoast_wpseo_metadesc` | SEO description, based on excerpt/content |
+| `_yoast_wpseo_focuskw` | Focus keyphrase, preferring main category, tags, categories, then title |
+| `_yoast_wpseo_opengraph-*` | Open Graph title/description/image |
+| `_yoast_wpseo_twitter-*` | Twitter title/description/image |
+| `_yoast_wpseo_primary_category` | Yoast primary category ID when a category is resolved |
+
+These meta keys are registered in `inc/meta.php` with `show_in_rest => true`; keep this theme active
+on destination sites that receive posts from AURUM.
+
 ## Video rendering logic (`aurum_render_video_player()`)
 
 1. If an iframe URL is present → render it directly in a 16:9 `<iframe>`.

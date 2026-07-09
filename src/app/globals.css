@@ -516,31 +516,34 @@ select {
 .upload-wizard-shell {
   display: grid;
   place-items: start center;
-  padding: 10px 0 40px;
+  padding: 18px 0 48px;
 }
 
 .upload-wizard {
-  width: min(960px, 100%);
-  min-height: 640px;
-  background: #1f1f1f;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  width: min(1040px, 100%);
+  min-height: 620px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 150px),
+    #1b1b1b;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 14px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.54);
   overflow: hidden;
 }
 
 .upload-wizard-head {
-  min-height: 74px;
-  padding: 18px 24px;
+  min-height: 76px;
+  padding: 18px 24px 16px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09);
 }
 
 .upload-wizard-head h2 {
-  font-size: 18px;
+  color: var(--text);
+  font-size: 20px;
   line-height: 1.25;
   margin: 0 0 5px;
   max-width: 720px;
@@ -554,10 +557,10 @@ select {
 }
 
 .upload-close {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -571,15 +574,17 @@ select {
 
 .upload-wizard-steps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 16px 28px 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 18px 30px 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .upload-step {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 7px;
   color: var(--muted-2);
   font-size: 12px;
   min-width: 0;
@@ -588,9 +593,9 @@ select {
 .upload-step::before {
   content: "";
   position: absolute;
-  top: 11px;
-  left: calc(-50% + 15px);
-  width: calc(100% - 30px);
+  top: 13px;
+  left: calc(-50% + 18px);
+  width: calc(100% - 36px);
   height: 2px;
   background: rgba(255, 255, 255, 0.16);
 }
@@ -605,13 +610,13 @@ select {
 }
 
 .upload-step span {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: #303030;
-  border: 2px solid #565656;
+  background: #2b2b2b;
+  border: 1px solid #5d5d5d;
   color: var(--muted-2);
   font-size: 10px;
   font-weight: 800;
@@ -620,9 +625,10 @@ select {
 
 .upload-step.done span,
 .upload-step.current span {
-  background: var(--gold);
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
   border-color: var(--gold);
   color: #181300;
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.12);
 }
 
 .upload-step b {
@@ -639,22 +645,32 @@ select {
 }
 
 .upload-first-panel {
-  min-height: 455px;
+  min-height: 430px;
   display: grid;
   place-items: center;
-  padding: 26px;
+  padding: 34px 28px;
 }
 
 .youtube-upload-zone {
-  width: min(480px, 100%);
-  min-height: 310px;
+  width: min(560px, 100%);
+  min-height: 300px;
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 13px;
+  gap: 14px;
   text-align: center;
   position: relative;
   cursor: pointer;
+  padding: 36px;
+  border: 1px dashed rgba(212, 175, 55, 0.38);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(212, 175, 55, 0.075), rgba(255, 255, 255, 0.025)),
+    rgba(0, 0, 0, 0.16);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
 }
 
 .youtube-upload-zone input {
@@ -664,20 +680,33 @@ select {
   cursor: pointer;
 }
 
+.youtube-upload-zone:hover {
+  border-color: rgba(255, 220, 116, 0.75);
+  background:
+    linear-gradient(180deg, rgba(212, 175, 55, 0.12), rgba(255, 255, 255, 0.035)),
+    rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
 .upload-cloud {
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
+  width: 88px;
+  height: 88px;
+  border-radius: 18px;
   display: grid;
   place-items: center;
-  background: #303030;
-  color: var(--muted);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  color: var(--gold-bright);
   font-size: 20px;
   font-weight: 800;
 }
 
 .youtube-upload-zone strong {
-  font-size: 18px;
+  color: var(--text);
+  font-size: 19px;
+  line-height: 1.35;
 }
 
 .youtube-upload-zone small {
@@ -689,10 +718,11 @@ select {
   margin-top: 12px;
   font-style: normal;
   font-weight: 800;
-  background: #f1f1f1;
-  color: #111;
-  border-radius: 999px;
-  padding: 9px 18px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: #181300;
+  border-radius: 8px;
+  padding: 10px 18px;
+  box-shadow: 0 10px 26px rgba(212, 175, 55, 0.2);
 }
 
 .upload-wizard-progress {
@@ -727,28 +757,59 @@ select {
 
 .upload-details-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 22px;
-  padding: 24px 28px 96px;
+  padding: 24px 28px 92px;
 }
 
 .upload-details-main {
   min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.upload-wizard .field {
+  margin-bottom: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.upload-wizard .field label {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.upload-wizard .field input[type="text"],
+.upload-wizard .field input[type="url"],
+.upload-wizard .field textarea {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+.upload-wizard .field textarea {
+  min-height: 92px;
 }
 
 .upload-preview-side {
   position: sticky;
   top: 16px;
   align-self: start;
-  background: #2a2a2a;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 10px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .video-preview-box {
   aspect-ratio: 16 / 9;
-  background: #4a4a4a;
+  background:
+    linear-gradient(135deg, rgba(212, 175, 55, 0.12), transparent 45%),
+    #2f2f2f;
   display: grid;
   place-items: center;
   color: var(--muted-2);
@@ -763,7 +824,7 @@ select {
 }
 
 .upload-copy-field {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -791,7 +852,7 @@ select {
 
 .thumb-preview-card,
 .thumb-empty {
-  width: 190px;
+  width: 220px;
   aspect-ratio: 16 / 9;
   border-radius: 8px;
   overflow: hidden;
@@ -803,6 +864,49 @@ select {
   font-size: 12px;
 }
 
+.upload-wizard .category-grid {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 9px;
+}
+
+.upload-wizard .category-option {
+  min-height: 42px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.upload-wizard .category-option:hover {
+  background: rgba(212, 175, 55, 0.08);
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.upload-wizard .category-option:has(input:checked) {
+  background: rgba(212, 175, 55, 0.14);
+  border-color: rgba(212, 175, 55, 0.68);
+  color: var(--gold-bright);
+}
+
+.upload-wizard .tagbox {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 9px;
+}
+
+.upload-wizard .tag {
+  background: rgba(212, 175, 55, 0.13);
+  border-color: rgba(212, 175, 55, 0.26);
+  color: var(--gold-bright);
+  font-weight: 800;
+}
+
+.upload-wizard .chipbar {
+  gap: 7px;
+}
+
 .thumb-preview-card img {
   width: 100%;
   height: 100%;
@@ -810,7 +914,7 @@ select {
 }
 
 .upload-processing-panel {
-  min-height: 455px;
+  min-height: 430px;
   display: grid;
   place-items: center;
   align-content: center;
@@ -852,8 +956,9 @@ select {
 .upload-wizard-foot {
   position: sticky;
   bottom: 0;
-  min-height: 68px;
-  background: #1f1f1f;
+  min-height: 70px;
+  background: rgba(31, 31, 31, 0.96);
+  backdrop-filter: blur(10px);
   border-top: 1px solid rgba(255, 255, 255, 0.09);
   display: flex;
   align-items: center;
@@ -865,6 +970,8 @@ select {
 .upload-foot-status {
   color: var(--muted-2);
   font-size: 12.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .upload-foot-actions {
@@ -890,7 +997,8 @@ select {
   }
 
   .upload-wizard-steps {
-    padding-inline: 12px;
+    padding: 14px 12px 12px;
+    gap: 2px;
   }
 
   .upload-step b {

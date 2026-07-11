@@ -78,6 +78,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
   const [sourceFileName, setSourceFileName] = useState("");
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
   const [thumbProgress, setThumbProgress] = useState<number | null>(null);
+  const [previewProgress, setPreviewProgress] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [completedMovieId, setCompletedMovieId] = useState(initialMovie?.id ?? "");
@@ -94,6 +95,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
 
   const videoInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
+  const previewInput = useRef<HTMLInputElement>(null);
 
   const mediaReady = Boolean(videoUrl);
   const detailsReady = Boolean(title.trim() && thumbnailUrl);
@@ -149,6 +151,23 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
     } finally {
       setThumbProgress(null);
       if (thumbInput.current) thumbInput.current.value = "";
+    }
+  }
+
+  async function onPreviewPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPreviewProgress(0);
+    try {
+      const url = await presignAndUpload(file, "r2", setPreviewProgress);
+      setPreviewUrl(url);
+      notify("อัปโหลดวิดีโอพรีวิวเสร็จ");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "อัปโหลดวิดีโอพรีวิวไม่สำเร็จ");
+    } finally {
+      setPreviewProgress(null);
+      if (previewInput.current) previewInput.current.value = "";
     }
   }
 
@@ -386,8 +405,32 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               </div>
 
               <div className="field">
-                <label>Preview URL (hover clip)</label>
-                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="https://cdn.example.com/previews/video-preview.mp4" />
+                <label>วิดีโอพรีวิวตอน hover</label>
+                <div className="preview-picker-row">
+                  {previewUrl ? (
+                    <video className="preview-clip-card" src={previewUrl} muted loop playsInline controls preload="metadata" />
+                  ) : (
+                    <div className="preview-clip-empty">ยังไม่มีวิดีโอพรีวิว</div>
+                  )}
+                  <div className="preview-picker-actions">
+                    <label className="btn btn-ghost">
+                      เลือกไฟล์พรีวิว
+                      <input ref={previewInput} type="file" accept="video/*" onChange={onPreviewPick} style={{ display: "none" }} />
+                    </label>
+                    {previewUrl && (
+                      <button type="button" className="btn-ghost" onClick={() => setPreviewUrl("")}>
+                        ลบพรีวิว
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {previewProgress !== null && (
+                  <div className="upload-wizard-progress compact">
+                    <div style={{ width: `${Math.round(previewProgress)}%` }} />
+                    <span>{Math.round(previewProgress)}%</span>
+                  </div>
+                )}
+                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="หรือวาง URL วิดีโอพรีวิว .mp4/.webm" />
               </div>
             </div>
 
@@ -407,6 +450,10 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               <div className="upload-copy-field">
                 <span>ชื่อไฟล์</span>
                 <b>{sourceFileName || "ไฟล์ที่อัปโหลดแล้ว"}</b>
+              </div>
+              <div className="upload-copy-field">
+                <span>วิดีโอพรีวิว</span>
+                <b>{previewUrl || "ยังไม่มีวิดีโอพรีวิว"}</b>
               </div>
               <div className="upload-copy-field">
                 <span>ปลายทาง</span>
@@ -562,6 +609,10 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                 <b>{tags.length}/{MAX_TAGS}</b>
               </div>
               <div className="upload-copy-field">
+                <span>วิดีโอพรีวิว</span>
+                <b>{previewUrl || "ยังไม่มีวิดีโอพรีวิว"}</b>
+              </div>
+              <div className="upload-copy-field">
                 <span>ปลายทาง</span>
                 <b>{sites.length ? `ทุกโดเมนที่เปิดใช้งาน (${sites.length} เว็บ)` : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
               </div>
@@ -596,13 +647,15 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               ? "กำลังอัปโหลดวิดีโอ..."
               : thumbProgress !== null
                 ? "กำลังอัปโหลดรูปหน้าปก..."
-                : canStartProcessing
-                  ? step === "review"
-                    ? "พร้อมประมวลผล"
-                    : step === "taxonomy"
-                      ? "พร้อมไปขั้นตอนตรวจสอบข้อมูล"
-                      : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
-                  : "ต้องมีวิดีโอ รูปหน้าปก และชื่อเรื่อง"}
+                : previewProgress !== null
+                  ? "กำลังอัปโหลดวิดีโอพรีวิว..."
+                  : canStartProcessing
+                    ? step === "review"
+                      ? "พร้อมประมวลผล"
+                      : step === "taxonomy"
+                        ? "พร้อมไปขั้นตอนตรวจสอบข้อมูล"
+                        : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
+                    : "ต้องมีวิดีโอ รูปหน้าปก และชื่อเรื่อง"}
           </div>
           <div className="upload-foot-actions">
             {step === "details" && (

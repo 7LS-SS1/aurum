@@ -864,8 +864,25 @@ select {
   flex-wrap: wrap;
 }
 
+.preview-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.preview-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .thumb-preview-card,
-.thumb-empty {
+.thumb-empty,
+.preview-clip-card,
+.preview-clip-empty {
   width: 220px;
   aspect-ratio: 16 / 9;
   border-radius: 8px;
@@ -876,6 +893,10 @@ select {
   place-items: center;
   color: var(--muted-2);
   font-size: 12px;
+}
+
+.preview-clip-card {
+  object-fit: cover;
 }
 
 .upload-wizard .category-grid {

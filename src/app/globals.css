@@ -574,7 +574,7 @@ select {
 
 .upload-wizard-steps {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 18px 30px 14px;
   background: rgba(255, 255, 255, 0.025);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -762,9 +762,14 @@ select {
   padding: 24px 28px 92px;
 }
 
+.upload-details-grid.single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .upload-details-main {
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -795,14 +800,23 @@ select {
 }
 
 .upload-preview-side {
-  position: sticky;
-  top: 16px;
   align-self: start;
+  min-width: 0;
   background: rgba(255, 255, 255, 0.045);
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.11);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.upload-summary-head {
+  padding: 12px 14px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-bright);
+  background: rgba(212, 175, 55, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .video-preview-box {
@@ -894,6 +908,24 @@ select {
   border-color: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   padding: 9px;
+  max-height: 168px;
+  overflow-y: auto;
+  align-content: flex-start;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.4) transparent;
+}
+
+.upload-wizard .tagbox::-webkit-scrollbar {
+  width: 8px;
+}
+
+.upload-wizard .tagbox::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 8px;
+}
+
+.upload-wizard .tagbox.review-only {
+  min-height: 0;
 }
 
 .upload-wizard .tag {
@@ -984,10 +1016,6 @@ select {
 @media (max-width: 900px) {
   .upload-details-grid {
     grid-template-columns: 1fr;
-  }
-
-  .upload-preview-side {
-    position: static;
   }
 }
 
@@ -1678,8 +1706,7 @@ select {
   display: flex;
   gap: 12px;
   padding: 12px 24px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-flow: wrap;
 }
 .chipbar::-webkit-scrollbar {
   display: none;

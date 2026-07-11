@@ -42,12 +42,13 @@ interface InitialMovie {
   rejectionReason: string | null;
 }
 
-type WizardStep = "upload" | "details" | "taxonomy" | "processing" | "complete";
+type WizardStep = "upload" | "details" | "taxonomy" | "review" | "processing" | "complete";
 
 const STEPS: Array<{ key: WizardStep; label: string }> = [
   { key: "upload", label: "อัปโหลดวิดีโอ" },
   { key: "details", label: "รายละเอียด" },
   { key: "taxonomy", label: "หมวดหมู่/แท็ก" },
+  { key: "review", label: "ตรวจสอบข้อมูล" },
   { key: "processing", label: "ประมวลผล" },
   { key: "complete", label: "เสร็จสิ้น" },
 ];
@@ -179,15 +180,22 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
   }
 
   function addTag(raw: string) {
-    const tag = raw.trim();
-    if (!tag) return;
+    const parts = raw
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (!parts.length) return;
     setTags((prev) => {
-      if (prev.some((t) => t.toLowerCase() === tag.toLowerCase())) return prev;
-      if (prev.length >= MAX_TAGS) {
-        notify(`แท็กครบ ${MAX_TAGS} รายการแล้ว`);
-        return prev;
+      let next = prev;
+      for (const tag of parts) {
+        if (next.some((t) => t.toLowerCase() === tag.toLowerCase())) continue;
+        if (next.length >= MAX_TAGS) {
+          notify(`แท็กครบ ${MAX_TAGS} รายการแล้ว`);
+          break;
+        }
+        next = [...next, tag];
       }
-      return [...prev, tag];
+      return next;
     });
   }
 
@@ -196,7 +204,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
   }
 
   function onTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter") return;
+    if (e.key !== "Enter" && e.key !== ",") return;
     e.preventDefault();
     addTag(tagInput);
     setTagInput("");
@@ -273,7 +281,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
       setStep("complete");
       window.setTimeout(() => router.push(`/admin/videos/${id}/preview`), 650);
     } catch (err) {
-      setStep("taxonomy");
+      setStep("review");
       notify(err instanceof ApiClientError ? err.message : "ประมวลผลไม่สำเร็จ");
     } finally {
       setSaving(false);
@@ -409,7 +417,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
         )}
 
         {step === "taxonomy" && (
-          <div className="upload-details-grid">
+          <div className="upload-details-grid single">
             <div className="upload-details-main">
               <div className="field">
                 <label>หมวดหมู่</label>
@@ -458,7 +466,13 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                       </button>
                     </span>
                   ))}
-                  <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={onTagInputKeyDown} placeholder="พิมพ์แท็กแล้วกด Enter" />
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={onTagInputKeyDown}
+                    placeholder="พิมพ์แท็กแล้วกด Enter (ใช้ , คั่นได้หลายแท็ก)"
+                  />
                 </div>
                 {popularTags && popularTags.length > 0 && (
                   <>
@@ -476,8 +490,69 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {step === "review" && (
+          <div className="upload-details-grid">
+            <div className="upload-details-main">
+              <div className="field">
+                <label>รูปหน้าปกและชื่อเรื่อง</label>
+                <div className="thumb-picker-row">
+                  {thumbnailUrl ? (
+                    <div className="thumb-preview-card">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
+                    </div>
+                  ) : (
+                    <div className="thumb-empty">ยังไม่มีรูปหน้าปก</div>
+                  )}
+                  <div>
+                    <b style={{ display: "block", color: "var(--text)", fontSize: 15 }}>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
+                    {excerpt && <p style={{ color: "var(--muted-2)", fontSize: 12.5, marginTop: 6 }}>{excerpt}</p>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>หมวดหมู่ที่เลือก</label>
+                {selectedCategories.length ? (
+                  <div className="chipbar" style={{ padding: "10px 0 0", overflowX: "visible", flexWrap: "wrap" }}>
+                    {selectedCategories.map((c) => (
+                      <span key={c} className="chip active">
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: "var(--muted-2)", fontSize: 13, marginTop: 8 }}>ยังไม่ได้เลือกหมวดหมู่</p>
+                )}
+              </div>
+
+              <div className="field">
+                <label>
+                  แท็กที่เลือก <span style={{ color: "var(--muted)", fontWeight: 400 }}>({tags.length}/{MAX_TAGS})</span>
+                </label>
+                <div className="tagbox review-only">
+                  {tags.length ? (
+                    tags.map((t) => (
+                      <span key={t} className="tag">
+                        {t}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: "var(--muted-2)", fontSize: 13 }}>ยังไม่มีแท็ก</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
             <aside className="upload-preview-side">
+              <div className="upload-summary-head">สรุปข้อมูลก่อนเผยแพร่</div>
+              <div className="upload-copy-field">
+                <span>ชื่อเรื่อง</span>
+                <b>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
+              </div>
               <div className="upload-copy-field">
                 <span>หมวดหมู่ที่เลือก</span>
                 <b>{selectedCategories.length ? selectedCategories.join(", ") : "ยังไม่ได้เลือกหมวดหมู่"}</b>
@@ -522,9 +597,11 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               : thumbProgress !== null
                 ? "กำลังอัปโหลดรูปหน้าปก..."
                 : canStartProcessing
-                  ? step === "taxonomy"
+                  ? step === "review"
                     ? "พร้อมประมวลผล"
-                    : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
+                    : step === "taxonomy"
+                      ? "พร้อมไปขั้นตอนตรวจสอบข้อมูล"
+                      : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
                   : "ต้องมีวิดีโอ รูปหน้าปก และชื่อเรื่อง"}
           </div>
           <div className="upload-foot-actions">
@@ -541,6 +618,16 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
             {step === "taxonomy" && (
               <>
                 <button type="button" className="btn btn-ghost" onClick={() => setStep("details")} disabled={saving}>
+                  กลับ
+                </button>
+                <button type="button" className="btn btn-gold" onClick={() => setStep("review")} disabled={saving || !canStartProcessing}>
+                  ถัดไป
+                </button>
+              </>
+            )}
+            {step === "review" && (
+              <>
+                <button type="button" className="btn btn-ghost" onClick={() => setStep("taxonomy")} disabled={saving}>
                   กลับ
                 </button>
                 {canProcessStatus ? (

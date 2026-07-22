@@ -22,6 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function aurum_video_meta_field_map() {
 	return array(
+		'aurum_movie_id'          => 'text',
 		'aurum_provider'          => 'text',
 		'aurum_video_url'         => 'url',
 		'aurum_iframe_url'        => 'url',

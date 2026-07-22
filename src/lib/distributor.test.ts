@@ -80,6 +80,7 @@ beforeEach(() => {
   resolveCategoryTreeMock.mockResolvedValue([]);
   resolveTermsMock.mockResolvedValue([]);
   uploadMediaFromUrlMock.mockResolvedValue(321);
+  distributionUpsert.mockResolvedValue({ id: "dist1" });
 });
 
 describe("distributeToSite", () => {
@@ -196,6 +197,7 @@ describe("distributeToSite", () => {
     await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
     expect(decryptMock).toHaveBeenCalledWith({ ciphertext: "enc", iv: "iv", tag: "tag" });
   });
+
 });
 
 describe("distributeMovie", () => {

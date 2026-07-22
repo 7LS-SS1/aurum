@@ -3667,3 +3667,207 @@ body.mside-open .scrim {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* ===== OLD-VIDEO-SYNC: icon trigger button ===== */
+.sync-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bg-3);
+  color: var(--gold-bright);
+  cursor: pointer;
+}
+.sync-icon-btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: var(--gold);
+}
+.sync-icon-btn:disabled {
+  cursor: default;
+}
+.sync-icon-btn.active {
+  color: var(--gold-bright);
+  background: rgba(212, 175, 55, 0.15);
+  border-color: var(--gold);
+}
+.sync-icon-spin {
+  animation: sync-icon-spin-rotate 1.1s linear infinite;
+}
+@keyframes sync-icon-spin-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== OLD-VIDEO-SYNC: per-site row controls ===== */
+.sync-row-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sync-job-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.sync-job-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sync-progress-track {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.sync-progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+  transition: width 0.4s var(--ease);
+}
+.sync-progress-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  flex: none;
+  min-width: 34px;
+  text-align: right;
+}
+.sync-log-toggle {
+  padding: 4px 10px !important;
+  border-radius: 8px !important;
+  font-size: 11.5px !important;
+  flex: none;
+}
+.sync-job-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.sync-counter-bad {
+  color: var(--red);
+  font-weight: 700;
+}
+.sync-job-error {
+  font-size: 12.5px;
+  color: var(--red);
+  background: rgba(255, 77, 77, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.sync-log-panel {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.sync-log-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.sync-log-time {
+  flex: none;
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.sync-log-level {
+  flex: none;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+}
+.sync-log-message {
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* ===== OLD-VIDEO-SYNC: persistent multi-job toast stack ===== */
+.sync-toast-stack {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 600;
+  width: min(340px, calc(100vw - 32px));
+}
+.sync-toast {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: sync-toast-in 0.25s var(--ease);
+}
+@keyframes sync-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.sync-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sync-toast-site {
+  font-size: 13.5px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sync-toast-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  flex: none;
+}
+.sync-toast-close:hover {
+  color: var(--text);
+}
+.sync-toast-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .sync-toast-stack {
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}

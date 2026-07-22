@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { can, type Role } from "@/lib/permissions";
+import { useSiteSyncJobs } from "@/components/admin/site-sync/useSiteSyncJobs";
+import { SiteSyncIconButton, SiteSyncDetailPanel } from "@/components/admin/site-sync/SiteSyncRowControls";
+import { SiteSyncToastStack, buildToastEntries } from "@/components/admin/site-sync/SiteSyncToastStack";
 
 interface SiteRow {
   id: string;
@@ -17,9 +20,32 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
   const [sites, setSites] = useState(initialSites);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
 
   const canManage = can(role, "site:manage");
   const canDelete = can(role, "site:delete");
+
+  const sync = useSiteSyncJobs(sites);
+  const siteNameById = Object.fromEntries(sites.map((s) => [s.id, s.name]));
+  const toastEntries = buildToastEntries(sync.jobsBySite, siteNameById, sync.toastDismissed);
+
+  function toggleSiteSelected(id: string) {
+    setSelectedSiteIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function syncSelectedSites() {
+    const ids = [...selectedSiteIds].filter((id) => {
+      const job = sync.jobsBySite[id];
+      return !job || job.status === "COMPLETED" || job.status === "PARTIAL" || job.status === "FAILED" || job.status === "CANCELLED";
+    });
+    if (ids.length === 0) return;
+    void sync.startSyncMany(ids);
+  }
 
   const [form, setForm] = useState({ name: "", baseUrl: "", wpUsername: "", credential: "" });
 
@@ -68,20 +94,6 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
     });
   }
 
-  function syncExistingMovies(id: string, name: string) {
-    if (!confirm(`ซิงก์วิดีโอเก่าที่เผยแพร่แล้วทั้งหมดเข้า "${name}"? ระบบจะทยอยส่งเข้าเว็บนี้ทีละชุดผ่าน cron ไม่ใช่ทันที`)) return;
-    startTransition(async () => {
-      try {
-        const result = await apiFetch<{ eligible: number; created: number; skipped: number }>(
-          `/api/sites/${id}/sync-existing`,
-          { method: "POST" },
-        );
-        notify(`สร้างงานซิงก์ใหม่ ${result.created} รายการ (ข้าม ${result.skipped} รายการที่มีอยู่แล้ว)`);
-      } catch (err) {
-        notify(err instanceof ApiClientError ? err.message : "ซิงก์ไม่สำเร็จ");
-      }
-    });
-  }
 
   function syncBunnyReferrers() {
     startTransition(async () => {
@@ -130,7 +142,18 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
       <div className="panel">
         <div className="panel-head">
           <h3>เว็บที่เชื่อมต่อ</h3>
-          <span className="sub">{sites.length} เว็บ</span>
+          <span className="sub">{sites.length} เว็บ{selectedSiteIds.size > 0 ? ` · เลือก ${selectedSiteIds.size}` : ""}</span>
+          {canManage && selectedSiteIds.size > 0 && (
+            <button
+              className="btn-ghost"
+              style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }}
+              disabled={pending}
+              onClick={syncSelectedSites}
+              title="เริ่มซิงก์วิดีโอเก่าให้ทุกเว็บที่เลือกพร้อมกัน แยก job และ progress ต่อเว็บ"
+            >
+              ซิงก์เว็บไซต์ที่เลือก ({selectedSiteIds.size})
+            </button>
+          )}
           {canManage && (
             <button
               className="btn-ghost"
@@ -145,41 +168,58 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
         </div>
         {sites.length === 0 && <div className="empty">ยังไม่มีเว็บปลายทาง{canManage ? " — เพิ่มจากฟอร์มด้านขวา" : ""}</div>}
         {sites.map((s) => (
-          <div key={s.id} className="site-row" style={{ cursor: "default" }}>
-            <span className={`health ${s.healthStatus}`} />
-            <div className="site-info">
-              <div className="nm">
-                {s.name} {!s.isActive && <span className="badge neutral">ปิดใช้งาน</span>}
+          <div key={s.id}>
+            <div className="site-row" style={{ cursor: "default" }}>
+              {canManage && s.isActive && (
+                <input
+                  type="checkbox"
+                  className="cbox"
+                  checked={selectedSiteIds.has(s.id)}
+                  onChange={() => toggleSiteSelected(s.id)}
+                  aria-label={`เลือก ${s.name} เพื่อซิงก์หลายเว็บพร้อมกัน`}
+                />
+              )}
+              <span className={`health ${s.healthStatus}`} />
+              <div className="site-info">
+                <div className="nm">
+                  {s.name} {!s.isActive && <span className="badge neutral">ปิดใช้งาน</span>}
+                </div>
+                <div className="url">
+                  {s.baseUrl} · {s.postType}
+                </div>
               </div>
-              <div className="url">
-                {s.baseUrl} · {s.postType}
-              </div>
+              {canManage && s.isActive && (
+                <SiteSyncIconButton job={sync.jobsBySite[s.id]} disabled={pending} onStart={() => sync.startSync(s.id)} />
+              )}
+              {canManage && (
+                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => pingSite(s.id)}>
+                  ตรวจสอบ
+                </button>
+              )}
+              {canManage && (
+                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => toggleActive(s)}>
+                  {s.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
+                </button>
+              )}
+              {canDelete && (
+                <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, color: "var(--red)" }} disabled={pending} onClick={() => deleteSite(s.id)}>
+                  ลบ
+                </button>
+              )}
             </div>
-            {canManage && (
-              <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => pingSite(s.id)}>
-                ตรวจสอบ
-              </button>
-            )}
             {canManage && s.isActive && (
-              <button
-                className="btn-ghost"
-                style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }}
-                disabled={pending}
-                onClick={() => syncExistingMovies(s.id, s.name)}
-                title="ส่งวิดีโอที่เผยแพร่แล้วทั้งหมดเข้าเว็บนี้ (สำหรับเว็บที่เพิ่งเพิ่มใหม่)"
-              >
-                ซิงก์วิดีโอเก่า
-              </button>
-            )}
-            {canManage && (
-              <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} disabled={pending} onClick={() => toggleActive(s)}>
-                {s.isActive ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-              </button>
-            )}
-            {canDelete && (
-              <button className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, color: "var(--red)" }} disabled={pending} onClick={() => deleteSite(s.id)}>
-                ลบ
-              </button>
+              <div style={{ padding: "0 12px 16px" }}>
+                <SiteSyncDetailPanel
+                  job={sync.jobsBySite[s.id]}
+                  logs={sync.jobsBySite[s.id] ? sync.logsByJob[sync.jobsBySite[s.id]!.id] ?? [] : []}
+                  expanded={sync.expandedSiteId === s.id}
+                  errorMessage={sync.errorsBySite[s.id]}
+                  disabled={pending}
+                  onCancel={() => sync.cancelSync(s.id)}
+                  onRetry={() => sync.retrySync(s.id)}
+                  onToggleLogs={() => sync.toggleLogPanel(s.id)}
+                />
+              </div>
             )}
           </div>
         ))}
@@ -225,6 +265,7 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
       )}
 
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
+      <SiteSyncToastStack toasts={toastEntries} onDismiss={sync.dismissToast} />
     </div>
   );
 }

@@ -64,6 +64,16 @@ export const distributeSchema = z.object({
   siteIds: z.array(z.string().min(1)).min(1).max(200),
 });
 
+export const syncJobsBatchSchema = z.object({
+  siteIds: z.array(z.string().min(1)).min(1).max(50),
+});
+export type SyncJobsBatchInput = z.infer<typeof syncJobsBatchSchema>;
+
+export const jobLogsQuerySchema = z.object({
+  afterId: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+});
+
 export const presignSchema = z.object({
   provider: z.enum(["r2", "bunny"]),
   filename: z

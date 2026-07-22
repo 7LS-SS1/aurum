@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { WordPressClient } from "./wordpress-client";
+import { WordPressClient, WordPressScanError } from "./wordpress-client";
 
 function jsonResponse(body: unknown, ok = true, status = 200) {
   return {
@@ -7,6 +7,17 @@ function jsonResponse(body: unknown, ok = true, status = 200) {
     status,
     statusText: ok ? "OK" : "Error",
     text: async () => JSON.stringify(body),
+    headers: { get: () => null },
+  };
+}
+
+function pageResponse(items: unknown[], totalPages: number, ok = true, status = 200) {
+  return {
+    ok,
+    status,
+    statusText: ok ? "OK" : "Error",
+    text: async () => JSON.stringify(items),
+    headers: { get: (name: string) => (name.toLowerCase() === "x-wp-totalpages" ? String(totalPages) : null) },
   };
 }
 
@@ -113,6 +124,98 @@ describe("resolveCategoryTree", () => {
     vi.stubGlobal("fetch", fetchMock);
     const ids = await client().resolveCategoryTree("categories", "Main", ["Broken"]);
     expect(ids).toEqual([1]);
+  });
+});
+
+describe("listAllPosts", () => {
+  it("extracts aurum meta fields and decodes the rendered title from a single page", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      pageResponse(
+        [
+          {
+            id: 1,
+            link: "https://example.com/?p=1",
+            slug: "my-video",
+            status: "publish",
+            title: { rendered: "My Video" },
+            meta: { aurum_movie_id: "m1", aurum_jwplayer_media_id: "jw1", aurum_video_url: "https://cdn/v.mp4" },
+          },
+        ],
+        1,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const posts = await client().listAllPosts(["publish"]);
+    expect(posts).toEqual([
+      { id: 1, link: "https://example.com/?p=1", slug: "my-video", title: "My Video", status: "publish", aurumMovieId: "m1", jwPlayerMediaId: "jw1", videoUrl: "https://cdn/v.mp4" },
+    ]);
+  });
+
+  it("follows every page reported by X-WP-TotalPages, not just the first", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(pageResponse([{ id: 1, link: "l1", slug: "s1", status: "publish", title: "T1" }], 3))
+      .mockResolvedValueOnce(pageResponse([{ id: 2, link: "l2", slug: "s2", status: "publish", title: "T2" }], 3))
+      .mockResolvedValueOnce(pageResponse([{ id: 3, link: "l3", slug: "s3", status: "publish", title: "T3" }], 3));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const posts = await client().listAllPosts(["publish"]);
+    expect(posts.map((p) => p.id)).toEqual([1, 2, 3]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("page=2");
+  });
+
+  it("throws WordPressScanError (never returns a partial list) when a page request fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(pageResponse([{ id: 1, link: "l1", slug: "s1", status: "publish", title: "T1" }], 2))
+      .mockRejectedValueOnce(new Error("network down"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client().listAllPosts(["publish"])).rejects.toThrow(WordPressScanError);
+  });
+
+  it("aborts with WordPressScanError instead of looping forever when maxPages is exceeded", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse([{ id: 1, link: "l1", slug: "s1", status: "publish", title: "T1" }], 999));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client().listAllPosts(["publish"], { maxPages: 2 })).rejects.toThrow(WordPressScanError);
+  });
+});
+
+describe("getWithRetry (via listAllPosts)", () => {
+  it("retries a transient 500 and succeeds on the next attempt", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(pageResponse([], 1, false, 500))
+      .mockResolvedValueOnce(pageResponse([{ id: 1, link: "l1", slug: "s1", status: "publish", title: "T1" }], 1));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const posts = await client().listAllPosts(["publish"]);
+    expect(posts).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a non-transient 401", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse([], 1, false, 401));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(client().listAllPosts(["publish"])).rejects.toThrow(WordPressScanError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("updatePostMeta", () => {
+  it("POSTs the given meta fields to the post's own endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client().updatePostMeta(5, { aurum_movie_id: "m1" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.com/wp-json/wp/v2/posts/5",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ meta: { aurum_movie_id: "m1" } }) }),
+    );
   });
 });
 

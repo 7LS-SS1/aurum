@@ -34,6 +34,42 @@ interface WpTerm {
   parent?: number;
 }
 
+/** Minimal shape pulled from `GET /wp/v2/{postType}` for old-video sync scanning — see listAllPosts(). */
+export interface WpScannedPost {
+  id: number;
+  link: string;
+  slug: string;
+  title: string;
+  status: string;
+  aurumMovieId: string | null;
+  jwPlayerMediaId: string | null;
+  videoUrl: string | null;
+}
+
+interface WpRawPostListItem {
+  id: number;
+  link: string;
+  slug: string;
+  status: string;
+  title?: { rendered?: string } | string;
+  meta?: Record<string, unknown>;
+}
+
+export class WordPressScanError extends Error {}
+
+class WordPressHttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function metaString(meta: Record<string, unknown> | undefined, key: string): string | null {
+  const value = meta?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 export class WordPressClient {
   private readonly baseUrl: string;
   private readonly authType: "APP_PASSWORD" | "JWT";
@@ -67,7 +103,7 @@ export class WordPressClient {
     return `Basic ${token}`;
   }
 
-  private async json<T>(url: string, init: RequestInit = {}): Promise<T> {
+  private async requestWithHeaders<T>(url: string, init: RequestInit = {}): Promise<{ data: T; status: number; headers: Headers }> {
     const res = await fetch(url, {
       ...init,
       headers: { Authorization: this.authHeader(), ...(init.headers ?? {}) },
@@ -87,14 +123,124 @@ export class WordPressClient {
         typeof data === "object" && data && "message" in data
           ? String((data as { message: unknown }).message)
           : `HTTP ${res.status} ${res.statusText}`;
-      throw new Error(`[${this.baseUrl}] ${message}`);
+      throw new WordPressHttpError(res.status, `[${this.baseUrl}] ${message}`);
     }
-    return data as T;
+    return { data: data as T, status: res.status, headers: res.headers };
+  }
+
+  private async json<T>(url: string, init: RequestInit = {}): Promise<T> {
+    const { data } = await this.requestWithHeaders<T>(url, init);
+    return data;
+  }
+
+  /**
+   * GET-only retry wrapper — reads are idempotent so a transient network
+   * error/timeout/5xx/429 is safe to retry, unlike createPost() which never
+   * retries (a retried POST could create a second WordPress post). Used by
+   * listAllPosts() during old-video-sync scanning so one flaky page fetch
+   * doesn't fail the whole scan (and, per the sync design, a failed scan must
+   * never fall back to blind-publishing every movie).
+   */
+  private async getWithRetry<T>(url: string, maxAttempts = 3): Promise<{ data: T; headers: Headers }> {
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const { data, headers } = await this.requestWithHeaders<T>(url, { method: "GET" });
+        return { data, headers };
+      } catch (err) {
+        lastErr = err;
+        const status = err instanceof WordPressHttpError ? err.status : undefined;
+        const retriable = status === undefined || status === 429 || status >= 500;
+        if (!retriable || attempt === maxAttempts) break;
+        await new Promise((resolve) => setTimeout(resolve, 300 * 2 ** (attempt - 1)));
+      }
+    }
+    throw lastErr;
   }
 
   /** `/users/me` 401s on bad credentials — used for the site health check. */
   async ping(): Promise<{ id: number; name: string }> {
     return this.json(`${this.api}/users/me?context=edit`);
+  }
+
+  /**
+   * Reads every page of this site's posts (per_page=100, following
+   * X-WP-TotalPages) so old-video-sync can build a complete remote index
+   * before deciding what still needs to be published — never just the first
+   * page. `statuses` should include every status a legitimate AURUM-created
+   * post could be in (draft/pending/private/publish/future) so an
+   * unpublished draft doesn't look like a "missing" video and get duplicated.
+   * Bounded by `maxPages` (default 500 = up to 50,000 posts) and an overall
+   * wall-clock budget — if either is exceeded the scan throws
+   * WordPressScanError instead of returning a partial list, because the
+   * caller's contract is "never publish off an incomplete/unreliable scan."
+   */
+  async listAllPosts(statuses: string[], opts: { maxPages?: number; budgetMs?: number } = {}): Promise<WpScannedPost[]> {
+    const maxPages = opts.maxPages ?? 500;
+    const budgetMs = opts.budgetMs ?? 90_000;
+    const deadline = Date.now() + budgetMs;
+    const perPage = 100;
+    const statusParam = encodeURIComponent(statuses.join(","));
+    const fields = encodeURIComponent("id,link,slug,title,status,meta");
+
+    const results: WpScannedPost[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+      if (Date.now() > deadline) {
+        throw new WordPressScanError(`[${this.baseUrl}] scan exceeded time budget of ${budgetMs}ms at page ${page}/${totalPages}`);
+      }
+      if (page > maxPages) {
+        throw new WordPressScanError(`[${this.baseUrl}] scan exceeded max page cap of ${maxPages} (${totalPages} pages reported)`);
+      }
+
+      let data: WpRawPostListItem[];
+      let headers: Headers;
+      try {
+        const url = `${this.api}/${this.postType}?per_page=${perPage}&page=${page}&status=${statusParam}&context=edit&_fields=${fields}`;
+        ({ data, headers } = await this.getWithRetry<WpRawPostListItem[]>(url));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown WordPress scan error";
+        throw new WordPressScanError(`[${this.baseUrl}] failed to scan posts at page ${page}: ${message}`);
+      }
+
+      const reportedTotalPages = Number(headers.get("x-wp-totalpages"));
+      if (Number.isFinite(reportedTotalPages) && reportedTotalPages > 0) totalPages = reportedTotalPages;
+
+      for (const raw of Array.isArray(data) ? data : []) {
+        const title = typeof raw.title === "string" ? raw.title : raw.title?.rendered ?? "";
+        results.push({
+          id: raw.id,
+          link: raw.link,
+          slug: raw.slug ?? "",
+          title,
+          status: raw.status,
+          aurumMovieId: metaString(raw.meta, "aurum_movie_id"),
+          jwPlayerMediaId: metaString(raw.meta, "aurum_jwplayer_media_id") ?? metaString(raw.meta, "jwplayer_media_id"),
+          videoUrl: metaString(raw.meta, "aurum_video_url") ?? metaString(raw.meta, "video_url"),
+        });
+      }
+
+      page += 1;
+    } while (page <= totalPages);
+
+    return results;
+  }
+
+  /**
+   * Patches meta on an already-existing remote post — used to backfill
+   * `aurum_movie_id` onto legacy posts that old-video-sync reconciles by
+   * jwplayer-media-id/video-url/slug/title so the next sync matches them via
+   * the fast, unambiguous movie-id path. Best-effort: callers should not fail
+   * the whole reconciliation if this throws.
+   */
+  async updatePostMeta(postId: number, meta: Record<string, string>): Promise<void> {
+    await this.json(`${this.api}/${this.postType}/${postId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meta }),
+    });
   }
 
   /**

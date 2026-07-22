@@ -1,17 +1,31 @@
 
 > aurum-project@2.0.0 dev
-> next dev
+> next dev --hostname localhost --port 3000
 
    ▲ Next.js 15.5.19
    - Local:        http://localhost:3000
-   - Network:      http://192.168.1.103:3000
+   - Network:      http://localhost:3000
    - Environments: .env
 
  ✓ Starting...
- ✓ Ready in 3.8s
+ ✓ Ready in 3.3s
  ○ Compiling /middleware ...
- ✓ Compiled /middleware in 551ms (232 modules)
- ○ Compiling /admin/login ...
- ✓ Compiled /admin/login in 2.2s (744 modules)
- GET /admin/login?callbackUrl=%2Fadmin%2Fvideos%2Fnew 200 in 3307ms
-[?25h
+ ✓ Compiled /middleware in 1304ms (232 modules)
+ ○ Compiling /admin ...
+ ✓ Compiled /admin in 7s (781 modules)
+ GET /admin 200 in 9891ms
+ ○ Compiling /admin/social ...
+ ✓ Compiled /admin/social in 677ms (751 modules)
+ GET /admin/social 200 in 1349ms
+ ○ Compiling /api/socials/facebook/oauth/start ...
+ ✓ Compiled /api/socials/facebook/oauth/start in 1111ms (765 modules)
+ GET /api/socials/facebook/oauth/start 307 in 2011ms
+ GET /api/socials/facebook/oauth/start 307 in 232ms
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }
+prisma:error Error in PostgreSQL connection: Error { kind: Io, cause: Some(Os { code: 10054, kind: ConnectionReset, message: "An existing connection was forcibly closed by the remote host." }) }

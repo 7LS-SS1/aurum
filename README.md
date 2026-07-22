@@ -40,7 +40,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"       #
   (`src/lib/rate-limit.ts`), and never leaks internal error details (`src/lib/api-response.ts`).
 - `src/lib/distributor.ts` + `src/lib/wordpress-client.ts` — the distribution engine. Fans out to all
   selected sites with `Promise.allSettled` (one failing site never blocks the others) and records
-  per-site status in the `distributions` table.
+  per-site status in the `distributions` table. Every published post carries an `aurum_movie_id` meta
+  field (registered for REST read/write by `wordpress-theme/aurum-video/inc/meta.php`) — the stable
+  identity `src/lib/site-sync` matches back against when checking what's already live on a site.
+- `src/lib/site-sync/` — "sync old videos to a site" as a persistent, resumable, per-site background
+  job (`SiteSyncJob`/`SiteSyncJobLog` in the schema): scans every post on the destination WordPress
+  site (full pagination, never just page 1), matches each AURUM movie against that scan
+  (`aurum_movie_id` → jwplayer media id → canonical video URL → slug/title, never fuzzy — see
+  `match.ts`), reconciles anything already published, and only pushes what's genuinely missing by
+  reusing `distributeToSite()`. Driven entirely by `/api/cron/site-sync-worker`, not by the browser —
+  see the Coolify section below and `job-runner.ts`'s own doc comments for the concurrency/locking design.
 - `prisma/schema.prisma` — `Movie` is the single source of truth for the video; `MovieSiteDraft` holds
   optional per-site title/excerpt/content/tag overrides so the same video can be described differently
   per destination without duplicating the video itself.
@@ -83,6 +92,14 @@ the server — so schema changes ship automatically on every deploy, no manual m
 5. Point an external scheduler (Coolify's own cron jobs, or any hourly job) at
    `POST /api/cron/publish-approved` with header `X-System-Key: <SYSTEM_API_KEY>` — this is what
    actually pushes `APPROVED` movies out to WordPress; nothing publishes automatically without it.
+6. Also point a scheduler at `POST /api/cron/site-sync-worker` (same `X-System-Key` header) — **every
+   1 minute** is recommended. This drives every "ซิงก์วิดีโอเก่า" (sync old videos) job started from
+   the Sites admin page: each call claims a bounded number of in-progress jobs and advances each by one
+   scan/compare step or one push batch, then returns immediately. Starting a sync also fires a
+   best-effort immediate call to this same endpoint so a job usually begins within a second or two, but
+   that immediate call is *not* durable on its own (the Node process can die between accepting the
+   request and finishing the background work) — the cron schedule is what guarantees a job started
+   right before a deploy/restart still finishes afterwards. See `src/lib/site-sync/job-runner.ts`.
 
 Local sanity check before pushing: `docker build -t aurum . && docker run --env-file .env -p 3000:3000 aurum`,
 then hit `http://localhost:3000/api/health`.

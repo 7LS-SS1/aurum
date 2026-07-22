@@ -52,6 +52,22 @@ enum ReactionType {
   DISLIKE
 }
 
+enum SiteSyncJobStatus {
+  QUEUED
+  SCANNING
+  PROCESSING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum SiteSyncLogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
 /// Admin/editor accounts — every mutating API call is tied to one of these.
 /// SYSTEM is never used for interactive login; automation authenticates via
 /// the X-System-Key header instead (see src/lib/authz.ts).
@@ -64,10 +80,11 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  createdMovies  Movie[]    @relation("MovieCreatedBy")
-  reviewedMovies Movie[]    @relation("MovieReviewer")
-  auditLogs      AuditLog[]
+  createdMovies   Movie[]          @relation("MovieCreatedBy")
+  reviewedMovies  Movie[]          @relation("MovieReviewer")
+  auditLogs       AuditLog[]
   wordpressThemes WordpressTheme[] @relation("WordpressThemeCreatedBy")
+  siteSyncJobs    SiteSyncJob[]    @relation("SiteSyncJobRequestedBy")
 
   @@map("users")
 }
@@ -131,25 +148,26 @@ model Category {
 /// Destination WordPress site. Credentials are always AES-256-GCM encrypted
 /// (see src/lib/crypto.ts) — plaintext never touches the database.
 model TargetSite {
-  id                String       @id @default(cuid())
-  name              String
-  baseUrl           String       @map("base_url")
-  authType          SiteAuthType @default(APP_PASSWORD) @map("auth_type")
-  wpUsername        String?      @map("wp_username")
-  credentialEnc     String       @map("credential_enc")
-  credentialIv      String       @map("credential_iv")
-  credentialTag     String       @map("credential_tag")
-  postType          String       @default("posts") @map("post_type")
-  categoryRestBase  String       @default("categories") @map("category_rest_base")
-  tagRestBase       String       @default("tags") @map("tag_rest_base")
-  defaultStatus     String       @default("publish") @map("default_status")
-  isActive          Boolean      @default(true) @map("is_active")
-  healthStatus      SiteHealth   @default(UNKNOWN) @map("health_status")
-  lastCheckedAt     DateTime?    @map("last_checked_at")
-  createdAt         DateTime     @default(now()) @map("created_at")
+  id               String       @id @default(cuid())
+  name             String
+  baseUrl          String       @map("base_url")
+  authType         SiteAuthType @default(APP_PASSWORD) @map("auth_type")
+  wpUsername       String?      @map("wp_username")
+  credentialEnc    String       @map("credential_enc")
+  credentialIv     String       @map("credential_iv")
+  credentialTag    String       @map("credential_tag")
+  postType         String       @default("posts") @map("post_type")
+  categoryRestBase String       @default("categories") @map("category_rest_base")
+  tagRestBase      String       @default("tags") @map("tag_rest_base")
+  defaultStatus    String       @default("publish") @map("default_status")
+  isActive         Boolean      @default(true) @map("is_active")
+  healthStatus     SiteHealth   @default(UNKNOWN) @map("health_status")
+  lastCheckedAt    DateTime?    @map("last_checked_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
 
   siteDrafts    MovieSiteDraft[]
   distributions Distribution[]
+  syncJobs      SiteSyncJob[]
 
   @@map("target_sites")
 }
@@ -181,19 +199,19 @@ model MovieSiteDraft {
 /// Per-(movie, site) distribution status/history. Idempotent — one row per
 /// pair, updated in place on retry so it also doubles as an audit trail.
 model Distribution {
-  id            String             @id @default(cuid())
-  movieId       String             @map("movie_id")
-  siteId        String             @map("site_id")
-  status        DistributionStatus @default(PENDING)
-  remotePostId  String?            @map("remote_post_id")
-  remotePostUrl String?            @map("remote_post_url")
-  remoteViewCount Int               @default(0) @map("remote_view_count")
-  engagementSyncedAt DateTime?      @map("engagement_synced_at")
-  errorMessage  String?            @map("error_message")
-  attempts      Int                @default(0)
-  distributedAt DateTime?          @map("distributed_at")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
+  id                 String             @id @default(cuid())
+  movieId            String             @map("movie_id")
+  siteId             String             @map("site_id")
+  status             DistributionStatus @default(PENDING)
+  remotePostId       String?            @map("remote_post_id")
+  remotePostUrl      String?            @map("remote_post_url")
+  remoteViewCount    Int                @default(0) @map("remote_view_count")
+  engagementSyncedAt DateTime?          @map("engagement_synced_at")
+  errorMessage       String?            @map("error_message")
+  attempts           Int                @default(0)
+  distributedAt      DateTime?          @map("distributed_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   movie Movie      @relation(fields: [movieId], references: [id], onDelete: Cascade)
   site  TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -204,6 +222,84 @@ model Distribution {
   @@index([status])
   @@map("distributions")
 }
+
+/// Persistent, resumable "sync old videos" job for one TargetSite — survives
+/// page refresh/browser close because it's driven entirely by
+/// src/app/api/cron/site-sync-worker (external cron / Coolify), not by any
+/// client-held state or setInterval/in-memory Promise. `activeSiteId` mirrors
+/// `siteId` only while the job is still QUEUED/SCANNING/PROCESSING and is
+/// reset to null once it settles; the column's own @unique constraint is a
+/// database-level "at most one active job per site" guard (Postgres treats
+/// distinct NULLs as non-conflicting, so any number of finished jobs can
+/// coexist, but only one row may hold a given siteId at a time) — this is
+/// deliberately representable in schema.prisma (unlike a raw partial/filtered
+/// unique index) so `prisma migrate dev` never treats it as drift to revert.
+/// `lockedUntil` is the separate claim lease used by the worker so multiple
+/// worker processes can never process the same job at the same time (an
+/// atomic `UPDATE ... WHERE lockedUntil IS NULL OR lockedUntil < now()` is
+/// Postgres's own row-lock providing the same guarantee as `FOR UPDATE SKIP
+/// LOCKED` for a single-row claim). `cursor` holds the resumable
+/// scan/compare/push checkpoint (see src/lib/site-sync/job-runner.ts).
+model SiteSyncJob {
+  id              String            @id @default(cuid())
+  siteId          String            @map("site_id")
+  requestedById   String?           @map("requested_by_id")
+  status          SiteSyncJobStatus @default(QUEUED)
+  phase           String            @default("queued")
+  totalMovies     Int               @default(0) @map("total_movies")
+  scannedMovies   Int               @default(0) @map("scanned_movies")
+  matchedMovies   Int               @default(0) @map("matched_movies")
+  skippedMovies   Int               @default(0) @map("skipped_movies")
+  queuedMovies    Int               @default(0) @map("queued_movies")
+  processedMovies Int               @default(0) @map("processed_movies")
+  successCount    Int               @default(0) @map("success_count")
+  failedCount     Int               @default(0) @map("failed_count")
+  progress        Int               @default(0)
+  errorMessage    String?           @map("error_message")
+  cursor          Json              @default("{}")
+  activeSiteId    String?           @unique @map("active_site_id")
+  lockedBy        String?           @map("locked_by")
+  lockedUntil     DateTime?         @map("locked_until")
+  startedAt       DateTime?         @map("started_at")
+  finishedAt      DateTime?         @map("finished_at")
+  heartbeatAt     DateTime?         @map("heartbeat_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  site        TargetSite       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  requestedBy User?            @relation("SiteSyncJobRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  logs        SiteSyncJobLog[]
+
+  @@index([siteId])
+  @@index([status])
+  @@index([heartbeatAt])
+  @@index([lockedUntil])
+  @@map("site_sync_jobs")
+}
+
+/// Append-only event trail for one SiteSyncJob — paginated in the API (never
+/// dumped whole on every poll) so a job with thousands of per-movie log lines
+/// stays cheap to read. `metadata` is Json but must never contain credentials
+/// (job-runner.ts only ever puts movie/post identifiers and match strategy in
+/// it, same "no secrets in logs" rule as src/lib/audit.ts).
+model SiteSyncJobLog {
+  id            String           @id @default(cuid())
+  jobId         String           @map("job_id")
+  level         SiteSyncLogLevel @default(INFO)
+  event         String
+  message       String
+  movieId       String?          @map("movie_id")
+  remotePostId  String?          @map("remote_post_id")
+  remotePostUrl String?          @map("remote_post_url")
+  metadata      Json             @default("{}")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  job SiteSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@map("site_sync_job_logs")
+}
+
 
 /// Immutable trail of every sensitive admin action — who did what to which
 /// resource. actorId is nullable/SetNull because SYSTEM-role calls (internal

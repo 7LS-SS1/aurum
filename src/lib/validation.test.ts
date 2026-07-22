@@ -8,6 +8,8 @@ import {
   assertThemeUploadAllowed,
   assertUploadAllowedAuto,
   ValidationError,
+  syncJobsBatchSchema,
+  jobLogsQuerySchema,
 } from "./validation";
 
 describe("createMovieSchema", () => {
@@ -128,5 +130,37 @@ describe("assertUploadAllowedAuto", () => {
 
   it("throws for a content-type that is neither", () => {
     expect(() => assertUploadAllowedAuto("application/pdf")).toThrow(ValidationError);
+  });
+});
+
+describe("syncJobsBatchSchema", () => {
+  it("accepts a list of site ids", () => {
+    const result = syncJobsBatchSchema.parse({ siteIds: ["s1", "s2"] });
+    expect(result.siteIds).toEqual(["s1", "s2"]);
+  });
+
+  it("rejects an empty list — must select at least one site", () => {
+    expect(() => syncJobsBatchSchema.parse({ siteIds: [] })).toThrow();
+  });
+
+  it("rejects more than 50 site ids in a single request", () => {
+    const siteIds = Array.from({ length: 51 }, (_, i) => `s${i}`);
+    expect(() => syncJobsBatchSchema.parse({ siteIds })).toThrow();
+  });
+});
+
+describe("jobLogsQuerySchema", () => {
+  it("accepts an omitted afterId/limit (both optional)", () => {
+    const result = jobLogsQuerySchema.parse({});
+    expect(result).toEqual({});
+  });
+
+  it("coerces a string limit query param into a number", () => {
+    const result = jobLogsQuerySchema.parse({ limit: "25" });
+    expect(result.limit).toBe(25);
+  });
+
+  it("rejects a limit above the 200-row page cap", () => {
+    expect(() => jobLogsQuerySchema.parse({ limit: "500" })).toThrow();
   });
 });

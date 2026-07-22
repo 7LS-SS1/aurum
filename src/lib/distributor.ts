@@ -105,6 +105,10 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
     status: site.defaultStatus || "publish",
     meta: {
       ...buildYoastMeta(merged, movie),
+      // Stable identity written to every post so old-video-sync can match
+      // this exact AURUM movie back to its WordPress post later — never
+      // derived from title/slug, which can change. See src/lib/site-sync/match.ts.
+      aurum_movie_id: movie.id,
       aurum_provider: movie.videoProvider ?? "",
       aurum_video_url: movie.videoUrl ?? "",
       aurum_iframe_url: iframeUrl ?? "",
@@ -149,7 +153,7 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
  * row only — unlike distributeMovie(), it never touches Movie.status, so
  * callers that need to sync a single movie to a single additional site (e.g.
  * backfilling a newly-added TargetSite) can reuse this without disturbing a
- * movie's overall DONE/PARTIAL/FAILED state. Exported for src/lib/site-backfill.ts.
+ * movie's overall DONE/PARTIAL/FAILED state. Exported for src/lib/site-sync/job-runner.ts.
  */
 export async function distributeToSite(
   movie: Movie,

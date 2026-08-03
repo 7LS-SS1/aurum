@@ -38,6 +38,9 @@ export function VideoPlayer({
     "--aurum-accent": controller?.accentColor,
   } as CSSProperties;
 
+  const trackerUrls = process.env.NEXT_PUBLIC_P2P_TRACKER_URLS;
+  const p2pEnabled = process.env.NEXT_PUBLIC_P2P_ENABLED !== "false";
+
   return (
     <aurum-video-player
       src={src}
@@ -45,6 +48,8 @@ export function VideoPlayer({
       title={title}
       muted={controller?.defaultMuted ? true : undefined}
       preload={controller?.preload ?? "metadata"}
+      p2p={p2pEnabled ? true : undefined}
+      tracker-urls={trackerUrls}
       style={style}
     />
   );

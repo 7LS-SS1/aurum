@@ -10,6 +10,9 @@ declare module "react" {
         autoplay?: boolean;
         muted?: boolean;
         preload?: "none" | "metadata" | "auto";
+        p2p?: boolean;
+        "tracker-urls"?: string;
+        "swarm-id"?: string;
       };
     }
   }

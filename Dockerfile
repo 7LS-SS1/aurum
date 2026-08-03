@@ -67,3 +67,14 @@ EXPOSE 3000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
+
+FROM node:20-slim AS p2p-tracker
+WORKDIR /app
+ENV NODE_ENV=production
+ENV TRACKER_PORT=8000
+RUN groupadd --system --gid 1001 tracker && useradd --system --uid 1001 --gid tracker tracker
+COPY --from=deps /app/node_modules ./node_modules
+COPY scripts/p2p-tracker.mjs ./scripts/p2p-tracker.mjs
+USER tracker
+EXPOSE 8000
+CMD ["node", "scripts/p2p-tracker.mjs"]

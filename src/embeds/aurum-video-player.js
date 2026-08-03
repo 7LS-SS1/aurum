@@ -35,15 +35,40 @@
     host.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true, detail: detail || {} }));
   }
 
+  function splitUrls(value) {
+    return String(value || "").split(/[\s,]+/).map(function (url) { return url.trim(); }).filter(Boolean);
+  }
+
+  function p2pConfig(host, src) {
+    var globalConfig = window.AURUM_P2P_CONFIG || {};
+    var enabled = host.hasAttribute("p2p") ? boolAttr(host, "p2p") : globalConfig.enabled !== false;
+    var trackers = splitUrls(host.getAttribute("tracker-urls") || globalConfig.trackerUrls);
+    var swarmId = host.getAttribute("swarm-id") || globalConfig.swarmId;
+    return {
+      enabled: enabled && isHlsUrl(src) && !!(window.p2pml && window.p2pml.hlsjs),
+      core: {
+        announceTrackers: trackers.length ? trackers : undefined,
+        swarmId: swarmId || undefined,
+        rtcConfig: globalConfig.rtcConfig,
+        highDemandTimeWindow: 15,
+        httpDownloadTimeWindow: 30,
+        p2pDownloadTimeWindow: 60,
+        httpErrorRetries: 3,
+        p2pErrorRetries: 2
+      }
+    };
+  }
+
   class AurumVideoPlayer extends HTMLElement {
     static get observedAttributes() {
-      return ["src", "poster", "title", "autoplay", "muted", "preload"];
+      return ["src", "poster", "title", "autoplay", "muted", "preload", "p2p", "tracker-urls", "swarm-id"];
     }
 
     constructor() {
       super();
       this.attachShadow({ mode: "open" });
       this.hls = null;
+      this.p2pStats = { peers: 0, httpBytes: 0, p2pBytes: 0, uploadedBytes: 0 };
       this.lastTap = { time: 0, x: 0 };
       this.onKeyDown = this.onKeyDown.bind(this);
     }
@@ -86,6 +111,7 @@
         '      <div class="avp-volume"><button class="avp-btn avp-mute" type="button" aria-label="Mute">' + ICONS.volume + '</button><input class="avp-volume-range" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume"></div>' +
         '      <span class="avp-time"><span class="avp-current">0:00</span> / <span class="avp-duration">0:00</span></span>' +
         '      <span class="avp-title"></span>' +
+        '      <span class="avp-p2p" part="p2p-status" title="Hybrid CDN status" hidden>CDN</span>' +
         '      <div class="avp-menu"><button class="avp-btn avp-speed" type="button" aria-label="Playback speed">' + ICONS.speed + '</button><div class="avp-menu-pop"><span>Speed</span>' +
         SPEEDS.map(function (speed) {
           return '<button type="button" data-speed="' + speed + '" class="' + (speed === 1 ? "is-selected" : "") + '">' + (speed === 1 ? "Normal" : speed + "x") + "</button>";
@@ -110,6 +136,7 @@
       this.current = this.shadowRoot.querySelector(".avp-current");
       this.duration = this.shadowRoot.querySelector(".avp-duration");
       this.titleEl = this.shadowRoot.querySelector(".avp-title");
+      this.p2pStatus = this.shadowRoot.querySelector(".avp-p2p");
       this.speedMenu = this.shadowRoot.querySelector(".avp-menu-pop");
       this.syncAttributes();
       this.updatePoster();
@@ -213,12 +240,23 @@
         this.showState("No video source");
         return;
       }
-      if (!isHlsUrl(src) || this.video.canPlayType("application/vnd.apple.mpegurl")) {
+      var config = p2pConfig(this, src);
+      // Native HLS cannot expose segment requests to the P2P engine. Prefer
+      // Hls.js whenever MSE is available; native playback remains the final fallback.
+      if (!isHlsUrl(src)) {
         this.video.src = src;
         return;
       }
       if (window.Hls && window.Hls.isSupported()) {
-        this.hls = new window.Hls();
+        if (config.enabled) {
+          var HlsWithP2P = window.p2pml.hlsjs.HlsJsP2PEngine.injectMixin(window.Hls);
+          this.hls = new HlsWithP2P({ p2p: { core: config.core } });
+          this.bindP2PEvents(this.hls.p2pEngine);
+          this.p2pStatus.hidden = false;
+        } else {
+          this.hls = new window.Hls();
+          this.p2pStatus.hidden = true;
+        }
         this.hls.loadSource(src);
         this.hls.attachMedia(this.video);
         return;
@@ -226,11 +264,48 @@
       this.video.src = src;
     }
 
+    bindP2PEvents(engine) {
+      this.p2pStats = { peers: 0, httpBytes: 0, p2pBytes: 0, uploadedBytes: 0 };
+      engine.addEventListener("onPeerConnect", () => {
+        this.p2pStats.peers += 1;
+        this.updateP2PStatus();
+      });
+      engine.addEventListener("onPeerClose", () => {
+        this.p2pStats.peers = Math.max(0, this.p2pStats.peers - 1);
+        this.updateP2PStatus();
+      });
+      engine.addEventListener("onChunkDownloaded", (bytes, source) => {
+        if (source === "p2p") this.p2pStats.p2pBytes += bytes;
+        else this.p2pStats.httpBytes += bytes;
+        this.updateP2PStatus();
+      });
+      engine.addEventListener("onChunkUploaded", (bytes) => {
+        this.p2pStats.uploadedBytes += bytes;
+        this.updateP2PStatus();
+      });
+      engine.addEventListener("onTrackerError", (details) => {
+        // Segment loading continues over HTTP; surface the degradation for monitoring.
+        emit(this, "aurum:p2p-error", { error: details, fallback: "cdn" });
+        this.updateP2PStatus();
+      });
+      this.updateP2PStatus();
+    }
+
+    updateP2PStatus() {
+      if (!this.p2pStatus) return;
+      var stats = this.p2pStats;
+      this.p2pStatus.textContent = stats.peers ? "P2P " + stats.peers : "CDN";
+      this.p2pStatus.classList.toggle("is-connected", stats.peers > 0);
+      this.p2pStatus.title = "Peers: " + stats.peers + " · P2P: " + Math.round(stats.p2pBytes / 1024) + " KB · CDN: " + Math.round(stats.httpBytes / 1024) + " KB";
+      emit(this, "aurum:p2p-stats", Object.assign({}, stats));
+    }
+
     destroyHls() {
       if (this.hls) {
         this.hls.destroy();
         this.hls = null;
       }
+      if (this.p2pStatus) this.p2pStatus.hidden = true;
     }
 
     togglePlay() {

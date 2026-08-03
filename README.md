@@ -6,6 +6,50 @@ WordPress REST API, with a public AURUM-themed display site.
 Stack: **Next.js 15 (App Router)** · **Prisma + NeonDB (PostgreSQL)** · **Auth.js (credentials/JWT)**
 · **Cloudflare R2** (images) · **Bunny.net Stream** (video: transcode + HLS delivery)
 
+## Hybrid HLS CDN + P2P delivery
+
+The shared AURUM player uses `hls.js` plus P2P Media Loader for HLS streams. It
+starts segments over HTTP(S), discovers viewers in the same stream through a
+WebTorrent-compatible WebSocket tracker, and exchanges cached segments over
+WebRTC. If the tracker, WebRTC, or all peers are unavailable, the same loader
+continues from the original HLS CDN automatically. Direct MP4 sources and
+browsers without Media Source Extensions keep their normal native path.
+
+Start a local tracker:
+
+```bash
+npm run tracker:start
+# tracker: ws://localhost:8000, health: http://localhost:8000/health
+```
+
+For Docker/Coolify, deploy the `p2p-tracker` target in `Dockerfile`, or run:
+
+```bash
+TRACKER_ALLOWED_ORIGINS=https://aurum.example.com docker compose -f docker-compose.p2p.yml up -d --build
+```
+
+Production requirements:
+
+- Put the tracker behind a reverse proxy with WebSocket upgrade enabled and a
+  TLS certificate. HTTPS pages must use a `wss://` tracker URL.
+- Configure `NEXT_PUBLIC_P2P_TRACKER_URLS=wss://tracker.example.com` on AURUM
+  and set `TRACKER_ALLOWED_ORIGINS` to every AURUM/WordPress site allowed to
+  join swarms. Multiple values are comma-separated.
+- Bunny/CDN must allow cross-origin `GET`, `HEAD`, and byte-range requests and
+  expose `Content-Length`/`Content-Range`. The original HLS URL remains the CDN
+  fallback; no separate fallback URL is required.
+- For the bundled WordPress theme, add
+  `define('AURUM_P2P_TRACKER_URLS', 'wss://tracker.example.com');` to
+  `wp-config.php`. Set `AURUM_P2P_ENABLED` to `false` for an emergency kill
+  switch.
+- The tracker is signaling-only: video bytes never pass through it. `/health`
+  is the liveness endpoint and `/stats.json` exposes aggregate swarm counts.
+
+The custom element emits `aurum:p2p-stats` with `peers`, `httpBytes`,
+`p2pBytes`, and `uploadedBytes`; it emits `aurum:p2p-error` when the tracker
+degrades and CDN fallback remains active. A small `P2P n`/`CDN` badge in the
+player shows the active path.
+
 > The previous Express/static-HTML prototype is preserved untouched under [`legacy/`](legacy/) for
 > reference — it is no longer part of the running application.
 

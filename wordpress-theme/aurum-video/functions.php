@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 // Bump this on every theme.zip re-upload — it's the cache-busting query
 // string (?ver=...) on style.css/player assets, so browsers/host caches
 // keep serving the old file after an update until this value changes.
-define( 'AURUM_VIDEO_VERSION', '2.0.1' );
+define( 'AURUM_VIDEO_VERSION', '2.1.0' );
 
 /**
  * Theme support + nav menu registration.
@@ -56,6 +56,20 @@ function aurum_video_enqueue_assets() {
 			array(),
 			AURUM_VIDEO_VERSION,
 			true
+		);
+
+		// Define AURUM_P2P_TRACKER_URLS in wp-config.php as a comma-separated
+		// list (for example: wss://tracker.example.com).
+		$tracker_urls = defined( 'AURUM_P2P_TRACKER_URLS' ) ? AURUM_P2P_TRACKER_URLS : '';
+		wp_add_inline_script(
+			'aurum-video-player',
+			'window.AURUM_P2P_CONFIG=' . wp_json_encode(
+				array(
+					'enabled'     => ! defined( 'AURUM_P2P_ENABLED' ) || AURUM_P2P_ENABLED,
+					'trackerUrls' => $tracker_urls,
+				)
+			) . ';',
+			'before'
 		);
 	}
 

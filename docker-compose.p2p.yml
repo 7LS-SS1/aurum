@@ -1,0 +1,17 @@
+services:
+  p2p-tracker:
+    build:
+      context: .
+      target: p2p-tracker
+    restart: unless-stopped
+    environment:
+      TRACKER_PORT: "8000"
+      TRACKER_TRUST_PROXY: "true"
+      TRACKER_ALLOWED_ORIGINS: "${TRACKER_ALLOWED_ORIGINS:-}"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/health').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

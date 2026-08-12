@@ -86,7 +86,23 @@ export async function rateLimit(
   { limit = 20, windowMs = 60_000 }: { limit?: number; windowMs?: number } = {},
 ): Promise<RateLimitResult> {
   const client = await getUpstash();
-  if (client) return client.limit(identifier, { limit, windowMs });
+  if (client) {
+    try {
+      return await client.limit(identifier, { limit, windowMs });
+    } catch (err) {
+      // Configured but unreachable/unauthorized (bad token, network outage,
+      // etc.) — a broken Redis credential must never take down every
+      // rate-limited route (including login) for the whole app. Log once,
+      // fall back in-memory for the rest of this process's life so we don't
+      // keep round-tripping to a Redis that's already known to be failing; a
+      // redeploy with a fixed token clears this via a fresh process.
+      if (upstash !== null) {
+        console.error("[rate-limit] Upstash request failed — falling back to in-memory limiter for this process:", err);
+        upstash = null;
+      }
+      return inMemoryLimit(identifier, limit, windowMs);
+    }
+  }
   return inMemoryLimit(identifier, limit, windowMs);
 }
 

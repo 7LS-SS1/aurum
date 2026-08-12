@@ -1,5 +1,6 @@
 import type { Movie, MovieSiteDraft, TargetSite } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
 import { WordPressClient } from "@/lib/wordpress-client";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
@@ -230,6 +231,7 @@ export async function distributeMovie(movieId: string, siteIds: string[]): Promi
   const successCount = results.filter((r) => r.status === "success").length;
   const finalStatus = successCount === 0 ? "failed" : successCount === results.length ? "done" : "partial";
   await prisma.movie.update({ where: { id: movieId }, data: { status: finalStatus.toUpperCase() as "DONE" | "PARTIAL" | "FAILED" } });
+  await invalidatePublicMovieCaches();
 
   return { movieId, status: finalStatus, summary: { total: results.length, success: successCount }, results };
 }

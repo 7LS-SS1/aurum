@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { cachePublic } from "@/lib/cache";
 
 export interface VideoControllerConfig {
   accentColor?: string;
@@ -21,6 +22,10 @@ function asControllerConfig(value: unknown): VideoControllerConfig {
 }
 
 export async function getDefaultVideoControllerConfig(): Promise<VideoControllerConfig> {
+  return cachePublic("player", ["native-controller"], 300, queryDefaultVideoControllerConfig);
+}
+
+async function queryDefaultVideoControllerConfig(): Promise<VideoControllerConfig> {
   const nativeConfig = await prisma.playerConfig.findFirst({
     where: { provider: "AURUM_NATIVE", isActive: true },
     orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],

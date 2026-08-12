@@ -48,6 +48,9 @@ const envSchema = z.object({
 
   UPSTASH_REDIS_REST_URL: optionalUrl(),
   UPSTASH_REDIS_REST_TOKEN: optionalString(),
+  // Standard Redis connection URL (Redis Cloud, self-hosted, etc.). Use
+  // rediss:// when the provider supports TLS.
+  REDIS_URL: optionalString(),
 
   // Shared secret for the SYSTEM role — internal automation/API jobs send
   // this in an X-System-Key header instead of ever logging in interactively.

@@ -127,6 +127,9 @@ model Movie {
   comments      Comment[]
 
   @@index([status])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([status, mainCategory, createdAt(sort: Desc)])
+  @@index([status, updatedAt(sort: Desc)])
   @@index([mainCategory])
   @@index([createdAt])
   @@index([createdById])
@@ -145,6 +148,19 @@ model Category {
   @@map("categories")
 }
 
+/// Admin-managed top-level category taxonomy (e.g. "คลิปหลุด", "AV") — one is
+/// required per Movie before upload, separate from the free-form Category
+/// checkbox list above. Movie.mainCategory and TargetSite.mainCategories both
+/// store the chosen name(s) directly (not a foreign key), same rationale as
+/// Category: renaming/removing a row here never touches existing movies/sites.
+model MainCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("main_categories")
+}
+
 /// Destination WordPress site. Credentials are always AES-256-GCM encrypted
 /// (see src/lib/crypto.ts) — plaintext never touches the database.
 model TargetSite {
@@ -160,6 +176,16 @@ model TargetSite {
   categoryRestBase String       @default("categories") @map("category_rest_base")
   tagRestBase      String       @default("tags") @map("tag_rest_base")
   defaultStatus    String       @default("publish") @map("default_status")
+  /// Which MainCategory name(s) this domain accepts, by name (Json string
+  /// array, same non-FK pattern as Movie.categories). Empty array = no
+  /// restriction — receives movies of every main category, which is the
+  /// pre-existing behavior and stays the default for sites nobody has
+  /// configured yet. Drives both the new-movie default targetSiteIds
+  /// selection (src/app/api/movies/route.ts) and the "sync existing videos"
+  /// eligibility filter (src/lib/site-sync/job-runner.ts) so assigning a
+  /// category here and re-running sync is how old matching movies get
+  /// retroactively linked to a newly-categorized domain.
+  mainCategories   Json         @default("[]") @map("main_categories")
   isActive         Boolean      @default(true) @map("is_active")
   healthStatus     SiteHealth   @default(UNKNOWN) @map("health_status")
   lastCheckedAt    DateTime?    @map("last_checked_at")

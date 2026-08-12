@@ -6,6 +6,7 @@ import { updatePlayerConfigSchema } from "@/lib/validation";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole, requireRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { invalidatePublicCache } from "@/lib/cache";
 
 const PLAYER_PUBLIC_SELECT = {
   id: true,
@@ -65,6 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
 
     await logAudit({ actor, action: "update_player_config", resourceType: "player_config", resourceId: id });
+    await invalidatePublicCache("player");
 
     return jsonOk(config);
   } catch (err) {
@@ -82,6 +84,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     await prisma.playerConfig.delete({ where: { id } });
 
     await logAudit({ actor, action: "delete_player_config", resourceType: "player_config", resourceId: id, metadata: { name: existing.name } });
+    await invalidatePublicCache("player");
 
     return jsonOk({ ok: true });
   } catch (err) {

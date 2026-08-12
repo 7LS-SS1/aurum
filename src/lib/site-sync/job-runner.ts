@@ -28,6 +28,10 @@ function truncateMessage(message: string, max = 1000): string {
   return message.length <= max ? message : `${message.slice(0, max - 3).trimEnd()}...`;
 }
 
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.length > 0) : [];
+}
+
 async function writeLog(
   jobId: string,
   level: "INFO" | "WARN" | "ERROR",
@@ -175,8 +179,15 @@ export async function runScanAndCompare(job: JobWithSite): Promise<void> {
   });
 
   const index = buildWpMatchIndex(posts);
+  // Empty mainCategories = unrestricted (legacy/unconfigured site, matches every
+  // movie); a non-empty list is how "assign AV to this domain, then sync" pulls
+  // in only the matching old movies instead of everything ever approved.
+  const siteMainCategories = asStringArray(job.site.mainCategories);
   const eligibleMovies = await prisma.movie.findMany({
-    where: { status: { in: ELIGIBLE_SYNC_STATUSES } },
+    where: {
+      status: { in: ELIGIBLE_SYNC_STATUSES },
+      ...(siteMainCategories.length ? { mainCategory: { in: siteMainCategories } } : {}),
+    },
     select: { id: true, slug: true, title: true, videoUrl: true, jwPlayerMediaId: true },
   });
   const existingDistributions = await prisma.distribution.findMany({

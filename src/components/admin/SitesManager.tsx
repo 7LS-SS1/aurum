@@ -12,11 +12,21 @@ interface SiteRow {
   name: string;
   baseUrl: string;
   postType: string;
+  mainCategories: unknown;
   isActive: boolean;
   healthStatus: "OK" | "ERROR" | "UNKNOWN";
 }
 
-export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; role: Role }) {
+interface MainCategoryRow {
+  id: string;
+  name: string;
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+export function SitesManager({ initialSites, mainCategories, role }: { initialSites: SiteRow[]; mainCategories: MainCategoryRow[]; role: Role }) {
   const [sites, setSites] = useState(initialSites);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -125,6 +135,23 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
     });
   }
 
+  function toggleSiteMainCategory(site: SiteRow, name: string) {
+    const current = toStringArray(site.mainCategories);
+    const next = current.includes(name) ? current.filter((c) => c !== name) : [...current, name];
+    startTransition(async () => {
+      try {
+        const updated = await apiFetch<SiteRow>(`/api/sites/${site.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ mainCategories: next }),
+        });
+        setSites((prev) => prev.map((s) => (s.id === site.id ? updated : s)));
+        notify(next.length ? "ตั้งค่าหมวดหมู่หลักแล้ว — กด \"ซิงก์วิดีโอเก่า\" เพื่อดึงคลิปหมวดหมู่นี้ที่มีอยู่แล้วเข้าเว็บนี้" : "ตั้งเป็นรับทุกหมวดหมู่แล้ว");
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "อัปเดตหมวดหมู่ไม่สำเร็จ");
+      }
+    });
+  }
+
   function deleteSite(id: string) {
     if (!confirm("ลบเว็บนี้? ประวัติการกระจายที่เชื่อมกับเว็บนี้จะถูกลบด้วย")) return;
     startTransition(async () => {
@@ -207,6 +234,27 @@ export function SitesManager({ initialSites, role }: { initialSites: SiteRow[]; 
                 </button>
               )}
             </div>
+            {canManage && (
+              <div style={{ padding: "0 12px 12px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>หมวดหมู่หลักที่รับ:</span>
+                {mainCategories.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีหมวดหมู่หลักในระบบ</span>}
+                {mainCategories.map((mc) => {
+                  const active = toStringArray(s.mainCategories).includes(mc.name);
+                  return (
+                    <button
+                      key={mc.id}
+                      type="button"
+                      className={`chip ${active ? "active" : ""}`}
+                      disabled={pending}
+                      onClick={() => toggleSiteMainCategory(s, mc.name)}
+                    >
+                      {mc.name}
+                    </button>
+                  );
+                })}
+                {toStringArray(s.mainCategories).length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>(ไม่จำกัด — รับทุกหมวดหมู่)</span>}
+              </div>
+            )}
             {canManage && s.isActive && (
               <div style={{ padding: "0 12px 16px" }}>
                 <SiteSyncDetailPanel

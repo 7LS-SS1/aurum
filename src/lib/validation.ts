@@ -16,7 +16,7 @@ export const createMovieSchema = z.object({
     .optional(),
   excerpt: longText,
   content: longText,
-  mainCategory: z.string().trim().min(1).max(120).optional(),
+  mainCategory: z.string().trim().min(1).max(120),
   categories: taxonomyList.default([]),
   tags: taxonomyList.default([]),
   thumbnailUrl: urlField.optional(),
@@ -53,6 +53,7 @@ export const createSiteSchema = z.object({
   categoryRestBase: z.string().trim().min(1).max(100).default("categories"),
   tagRestBase: z.string().trim().min(1).max(100).default("tags"),
   defaultStatus: z.enum(["publish", "draft", "pending"]).default("publish"),
+  mainCategories: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
 });
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 
@@ -160,6 +161,11 @@ export const createCategorySchema = z.object({
   name: z.string().trim().min(1).max(120),
 });
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
+export const createMainCategorySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export type CreateMainCategoryInput = z.infer<typeof createMainCategorySchema>;
 
 export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),

@@ -110,8 +110,8 @@ export function VideoCatalog({
           <div className="empty">ยังไม่มีเนื้อหา</div>
         ) : (
           <div className="grid">
-            {movies.map((m) => (
-              <VideoCard key={m.id} movie={m} />
+            {movies.map((m, index) => (
+              <VideoCard key={m.id} movie={m} priority={index === 0} />
             ))}
           </div>
         )}

@@ -7,6 +7,7 @@ import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 import { cleanupMovieMedia } from "@/lib/storage/media-cleanup";
+import { invalidatePublicMovieCaches } from "@/lib/cache";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -47,6 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
 
     await logAudit({ actor, action: "update_movie", resourceType: "movie", resourceId: movie.id });
+    await invalidatePublicMovieCaches();
 
     return jsonOk(movie);
   } catch (err) {
@@ -81,6 +83,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       }),
       prisma.movie.delete({ where: { id } }),
     ]);
+    await invalidatePublicMovieCaches();
 
     return jsonOk({ deleted: true, id, mediaCleanup });
   } catch (err) {

@@ -14,7 +14,7 @@ import {
 
 describe("createMovieSchema", () => {
   it("accepts a minimal valid payload and fills in defaults", () => {
-    const result = createMovieSchema.parse({ title: "My Movie" });
+    const result = createMovieSchema.parse({ title: "My Movie", mainCategory: "AV" });
     expect(result.title).toBe("My Movie");
     expect(result.categories).toEqual([]);
     expect(result.tags).toEqual([]);
@@ -23,20 +23,24 @@ describe("createMovieSchema", () => {
   });
 
   it("rejects an empty title", () => {
-    expect(() => createMovieSchema.parse({ title: "" })).toThrow();
+    expect(() => createMovieSchema.parse({ title: "", mainCategory: "AV" })).toThrow();
+  });
+
+  it("rejects a missing mainCategory", () => {
+    expect(() => createMovieSchema.parse({ title: "x" })).toThrow();
   });
 
   it("rejects a slug with uppercase or spaces", () => {
-    expect(() => createMovieSchema.parse({ title: "x", slug: "Not Valid Slug" })).toThrow();
+    expect(() => createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "Not Valid Slug" })).toThrow();
   });
 
   it("accepts a proper lowercase-hyphen slug", () => {
-    const result = createMovieSchema.parse({ title: "x", slug: "my-movie-2024" });
+    const result = createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "my-movie-2024" });
     expect(result.slug).toBe("my-movie-2024");
   });
 
   it("rejects a malformed thumbnailUrl", () => {
-    expect(() => createMovieSchema.parse({ title: "x", thumbnailUrl: "not-a-url" })).toThrow();
+    expect(() => createMovieSchema.parse({ title: "x", mainCategory: "AV", thumbnailUrl: "not-a-url" })).toThrow();
   });
 });
 

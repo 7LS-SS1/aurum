@@ -18,6 +18,7 @@ const SITE_PUBLIC_SELECT = {
   categoryRestBase: true,
   tagRestBase: true,
   defaultStatus: true,
+  mainCategories: true,
   isActive: true,
   healthStatus: true,
   lastCheckedAt: true,
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
         categoryRestBase: input.categoryRestBase,
         tagRestBase: input.tagRestBase,
         defaultStatus: input.defaultStatus,
+        mainCategories: input.mainCategories,
       },
       select: SITE_PUBLIC_SELECT,
     });

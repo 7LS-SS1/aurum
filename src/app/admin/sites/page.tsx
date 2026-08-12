@@ -4,17 +4,21 @@ import { SitesManager } from "@/components/admin/SitesManager";
 
 export default async function SitesPage() {
   const session = await auth();
-  const sites = await prisma.targetSite.findMany({
-    select: {
-      id: true,
-      name: true,
-      baseUrl: true,
-      postType: true,
-      isActive: true,
-      healthStatus: true,
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const [sites, mainCategories] = await Promise.all([
+    prisma.targetSite.findMany({
+      select: {
+        id: true,
+        name: true,
+        baseUrl: true,
+        postType: true,
+        mainCategories: true,
+        isActive: true,
+        healthStatus: true,
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.mainCategory.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <section>
@@ -24,7 +28,7 @@ export default async function SitesPage() {
         </h1>
         <p>จัดการเว็บ WordPress ปลายทาง — กุญแจ (Application Password / JWT) ถูกเข้ารหัส AES-256-GCM ก่อนบันทึก ไม่มีการเก็บ plaintext</p>
       </div>
-      <SitesManager initialSites={sites} role={session!.user.role} />
+      <SitesManager initialSites={sites} mainCategories={mainCategories} role={session!.user.role} />
     </section>
   );
 }

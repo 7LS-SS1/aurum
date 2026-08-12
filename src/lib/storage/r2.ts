@@ -51,7 +51,12 @@ export async function presignR2Upload(opts: {
 
   const uploadUrl = await getSignedUrl(
     r2Client(),
-    new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key, ContentType: opts.contentType }),
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      ContentType: opts.contentType,
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
     { expiresIn: 3600 },
   );
 
@@ -60,7 +65,10 @@ export async function presignR2Upload(opts: {
     method: "PUT",
     uploadUrl,
     publicUrl: `${publicBaseUrl(R2_PUBLIC_HOSTNAME)}/${key}`,
-    headers: { "Content-Type": opts.contentType },
+    headers: {
+      "Content-Type": opts.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
   };
 }
 

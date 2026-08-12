@@ -44,6 +44,17 @@ async function main() {
     create: { email: "staff@aurum.local", passwordHash, name: "Demo Staff", role: "STAFF" },
   });
 
+  await prisma.mainCategory.upsert({
+    where: { name: "คลิปหลุด" },
+    update: {},
+    create: { name: "คลิปหลุด" },
+  });
+  await prisma.mainCategory.upsert({
+    where: { name: "AV" },
+    update: {},
+    create: { name: "AV" },
+  });
+
   const demoCred = encrypt("demo-app-password-0000-0000-0000");
   const site = await prisma.targetSite.upsert({
     where: { id: "seed-site-demo" },
@@ -69,7 +80,7 @@ async function main() {
       title: "ตัวอย่างเรื่องทดสอบ",
       slug: "demo-title",
       excerpt: "เนื้อเรื่องย่อสำหรับทดสอบ Product Test",
-      mainCategory: "หนัง",
+      mainCategory: "คลิปหลุด",
       categories: ["ดราม่า"],
       tags: ["2026", "HD"],
       thumbnailUrl: null,

@@ -7,6 +7,7 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
+import { invalidatePublicCache } from "@/lib/cache";
 
 // Fields intentionally excluded: apiKeyEnc/Iv/Tag, apiSecretEnc/Iv/Tag.
 const PLAYER_PUBLIC_SELECT = {
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
     });
 
     await logAudit({ actor, action: "create_player_config", resourceType: "player_config", resourceId: config.id, metadata: { name: config.name } });
+    await invalidatePublicCache("player");
 
     return jsonOk(config, 201);
   } catch (err) {

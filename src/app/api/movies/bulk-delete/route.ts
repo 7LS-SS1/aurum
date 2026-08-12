@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { cleanupMovieMedia } from "@/lib/storage/media-cleanup";
+import { invalidatePublicMovieCaches } from "@/lib/cache";
 
 const bulkDeleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(100),
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
       }),
       prisma.movie.deleteMany({ where: { id: { in: uniqueIds } } }),
     ]);
+    await invalidatePublicMovieCaches();
 
     return jsonOk({ deleted: movies.length, ids: uniqueIds, mediaCleanup });
   } catch (err) {

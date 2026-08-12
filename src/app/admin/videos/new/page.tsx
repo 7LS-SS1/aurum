@@ -1,14 +1,15 @@
 import { prisma } from "@/lib/prisma";
-import { VideoForm } from "@/components/admin/VideoForm";
+import { NewVideosWizard } from "@/components/admin/NewVideosWizard";
 
 export default async function NewVideoPage() {
-  const [sites, categories] = await Promise.all([
+  const [sites, categories, mainCategories] = await Promise.all([
     prisma.targetSite.findMany({
       where: { isActive: true },
       select: { id: true, name: true, baseUrl: true, healthStatus: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.mainCategory.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -17,9 +18,9 @@ export default async function NewVideoPage() {
         <h1>
           <span className="g">เพิ่มวิดีโอ</span>ใหม่
         </h1>
-        <p>อัปโหลดวิดีโอและหน้าปก กรอกรายละเอียด แล้วเริ่มประมวลผลเพื่อดูตัวอย่าง</p>
+        <p>เลือกหมวดหมู่หลัก ลากวางวิดีโอได้หลายไฟล์ กรอกรายละเอียดทีละคลิป แล้วเริ่มประมวลผลเพื่อดูตัวอย่าง</p>
       </div>
-      <VideoForm sites={sites} categories={categories} />
+      <NewVideosWizard sites={sites} categories={categories} mainCategories={mainCategories} />
     </section>
   );
 }

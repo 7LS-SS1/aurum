@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
@@ -17,6 +18,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     if (!ARCHIVABLE_FROM.includes(movie.status)) throw new ApiError(`cannot_archive_from_${movie.status.toLowerCase()}`, 409);
 
     const updated = await prisma.movie.update({ where: { id }, data: { status: "ARCHIVED" } });
+    await invalidatePublicMovieCaches();
 
     await logAudit({ actor, action: "archive", resourceType: "movie", resourceId: id });
 

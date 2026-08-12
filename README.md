@@ -50,6 +50,27 @@ The custom element emits `aurum:p2p-stats` with `peers`, `httpBytes`,
 degrades and CDN fallback remains active. A small `P2P n`/`CDN` badge in the
 player shows the active path.
 
+## Public read cache and mobile delivery
+
+When either `REDIS_URL` (Redis Cloud/self-hosted) or the
+`UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` pair is configured,
+public catalog pages, public movie lookups, and the native player controller
+use a Redis read-through cache. Upstash takes precedence if both are present.
+Prefer a `rediss://` URL for encrypted Redis connections. Redis is optional:
+failures fall back to a
+short process-local cache and then PostgreSQL, so a cache outage never makes
+the site unavailable. Concurrent misses in one app instance are coalesced,
+and movie/player mutations invalidate their related namespaces. Viewer
+sessions, personal reactions/watch-later state, and comments are deliberately
+not cached with shared public keys.
+
+The public catalog renders 20 cards per page on both `/` and `/videos`. This
+keeps mobile DOM, image requests, and memory bounded while preserving access
+through pagination. The first thumbnail is eager/high-priority; remaining
+thumbnails are lazy. Newly uploaded immutable R2 assets carry a one-year
+browser cache policy. Existing R2 objects retain their old metadata until
+they are re-uploaded or their `Cache-Control` metadata is updated in R2.
+
 > The previous Express/static-HTML prototype is preserved untouched under [`legacy/`](legacy/) for
 > reference — it is no longer part of the running application.
 
@@ -127,8 +148,9 @@ the server — so schema changes ship automatically on every deploy, no manual m
    - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`,
      `R2_PUBLIC_HOSTNAME`, `NEXT_PUBLIC_R2_PUBLIC_URL`
    - `BUNNY_LIBRARY_ID`, `BUNNY_API_KEY`, `BUNNY_CDN_HOST` (optional fallback video path)
-   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (shared rate limiting across instances —
-     required once you run more than one container)
+   - `REDIS_URL` for Redis Cloud/shared response caching; or
+     `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` for both shared
+     response caching and distributed rate limiting. Prefer TLS in production.
    - `SYSTEM_API_KEY` (internal automation / the publish cron, see below)
    - `NODE_ENV=production`
 4. **Never commit real values** — `.dockerignore` already excludes `.env*` so secrets are only ever

@@ -11,7 +11,7 @@ export interface VideoCardMovie {
   createdAt: Date | string;
 }
 
-export function VideoCard({ movie }: { movie: VideoCardMovie }) {
+export function VideoCard({ movie, priority = false }: { movie: VideoCardMovie; priority?: boolean }) {
   const meta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const createdAt = typeof movie.createdAt === "string" ? new Date(movie.createdAt) : movie.createdAt;
 
@@ -20,9 +20,9 @@ export function VideoCard({ movie }: { movie: VideoCardMovie }) {
       <div className="vthumb">
         {movie.thumbnailUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- external CDN hosts vary per env
-          <img src={movie.thumbnailUrl} alt={movie.title} loading="lazy" />
+          <img src={movie.thumbnailUrl} alt={movie.title} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} />
         )}
-        {movie.previewUrl && <video className="vpreview" src={movie.previewUrl} muted loop playsInline autoPlay preload="metadata" />}
+        {movie.previewUrl && <video className="vpreview" src={movie.previewUrl} muted loop playsInline autoPlay preload="none" />}
         <span className="hover-play">
           <span className="pp">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">

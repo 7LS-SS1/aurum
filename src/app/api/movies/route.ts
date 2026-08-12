@@ -7,6 +7,7 @@ import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
+import { invalidatePublicMovieCaches } from "@/lib/cache";
 
 const MOVIE_STATUSES = [
   "DRAFT",
@@ -21,6 +22,10 @@ const MOVIE_STATUSES = [
   "FAILED",
   "ARCHIVED",
 ] as const;
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.length > 0) : [];
+}
 
 function slugifyTitle(title: string) {
   const slug = title
@@ -110,14 +115,22 @@ export async function POST(req: NextRequest) {
     const iframeUrl = input.iframeUrl ?? buildJwPlayerIframeUrl(input.jwPlayerMediaId, defaultPlayer);
     const slug = await getUniqueMovieSlug(input.title, input.slug);
 
-    // The upload wizard doesn't expose a per-site picker anymore — it publishes
-    // to every currently-active destination, so default targetSiteIds here
-    // when the caller didn't explicitly choose a subset (e.g. a future admin
-    // tool). Without this, movies would sit at APPROVED forever: the publish
-    // cron only picks up movies that already have a non-empty targetSiteIds.
+    // The upload wizard doesn't expose a per-site picker — it publishes to
+    // every active destination that accepts this movie's main category, so
+    // default targetSiteIds here when the caller didn't explicitly choose a
+    // subset (e.g. a future admin tool). Without this, movies would sit at
+    // APPROVED forever: the publish cron only picks up movies that already
+    // have a non-empty targetSiteIds. A site with an empty mainCategories
+    // list is unrestricted (legacy/unconfigured behavior — receives every
+    // main category); one with entries only receives matching movies.
     const targetSiteIds = input.targetSiteIds.length
       ? input.targetSiteIds
-      : (await prisma.targetSite.findMany({ where: { isActive: true }, select: { id: true } })).map((s) => s.id);
+      : (await prisma.targetSite.findMany({ where: { isActive: true }, select: { id: true, mainCategories: true } }))
+          .filter((s) => {
+            const accepted = asStringArray(s.mainCategories);
+            return accepted.length === 0 || accepted.includes(input.mainCategory);
+          })
+          .map((s) => s.id);
 
     const movie = await prisma.movie.create({
       data: {
@@ -141,6 +154,7 @@ export async function POST(req: NextRequest) {
     });
 
     await logAudit({ actor, action: "create_movie", resourceType: "movie", resourceId: movie.id, metadata: { title: movie.title } });
+    await invalidatePublicMovieCaches();
 
     return jsonOk(movie, 201);
   } catch (err) {

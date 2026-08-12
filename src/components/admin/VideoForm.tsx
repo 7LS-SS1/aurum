@@ -17,6 +17,11 @@ interface CategoryRow {
   name: string;
 }
 
+interface MainCategoryRow {
+  id: string;
+  name: string;
+}
+
 interface PopularTag {
   tag: string;
   count: number;
@@ -65,7 +70,17 @@ function toStringArray(value: unknown): string[] {
 // wizard must not let a user build a tag list the API will then reject.
 const MAX_TAGS = 50;
 
-export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[]; categories: CategoryRow[]; initialMovie?: InitialMovie }) {
+export function VideoForm({
+  sites,
+  categories,
+  mainCategories,
+  initialMovie,
+}: {
+  sites: SiteRow[];
+  categories: CategoryRow[];
+  mainCategories: MainCategoryRow[];
+  initialMovie?: InitialMovie;
+}) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>(initialMovie?.videoUrl || initialMovie?.jwPlayerMediaId || initialMovie?.iframeUrl ? "details" : "upload");
 
@@ -88,6 +103,12 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
+
+  const [mainCategoryList, setMainCategoryList] = useState(mainCategories);
+  const [mainCategory, setMainCategory] = useState(initialMovie?.mainCategory ?? "");
+  const [showAddMainCategory, setShowAddMainCategory] = useState(false);
+  const [newMainCategoryName, setNewMainCategoryName] = useState("");
+  const [addingMainCategory, setAddingMainCategory] = useState(false);
 
   const [tags, setTags] = useState<string[]>(() => toStringArray(initialMovie?.tags));
   const [tagInput, setTagInput] = useState("");
@@ -235,6 +256,29 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
     addNewCategory();
   }
 
+  async function addNewMainCategory() {
+    const name = newMainCategoryName.trim();
+    if (!name) return;
+    setAddingMainCategory(true);
+    try {
+      const category = await apiFetch<MainCategoryRow>("/api/main-categories", { method: "POST", body: JSON.stringify({ name }) });
+      setMainCategoryList((prev) => (prev.some((c) => c.name.toLowerCase() === category.name.toLowerCase()) ? prev : [...prev, category].sort((a, b) => a.name.localeCompare(b.name, "th"))));
+      setMainCategory(category.name);
+      setNewMainCategoryName("");
+      setShowAddMainCategory(false);
+    } catch (err) {
+      notify(err instanceof ApiClientError ? err.message : "เพิ่มหมวดหมู่หลักไม่สำเร็จ");
+    } finally {
+      setAddingMainCategory(false);
+    }
+  }
+
+  function onNewMainCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    addNewMainCategory();
+  }
+
   function addAllPopularTags() {
     for (const { tag } of popularTags ?? []) addTag(tag);
   }
@@ -243,6 +287,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
     if (!videoUrl) return "กรุณาอัปโหลดวิดีโอก่อน";
     if (!thumbnailUrl) return "กรุณาอัปโหลดรูปหน้าปกก่อน";
     if (!title.trim()) return "กรุณากรอกชื่อเรื่อง";
+    if (!mainCategory) return "กรุณาเลือกหมวดหมู่หลัก";
     return null;
   }
 
@@ -251,13 +296,13 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
       title: title.trim(),
       excerpt: excerpt.trim() || undefined,
       content: content.trim() || undefined,
+      mainCategory,
       thumbnailUrl,
       previewUrl: previewUrl.trim() || undefined,
       videoUrl,
       videoProvider: "bunny",
       categories: selectedCategories,
       tags,
-      targetSiteIds: sites.map((site) => site.id),
     };
   }
 
@@ -457,7 +502,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               </div>
               <div className="upload-copy-field">
                 <span>ปลายทาง</span>
-                <b>{sites.length ? `ทุกโดเมนที่เปิดใช้งาน (${sites.length} เว็บ)` : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
+                <b>{sites.length ? "ตามหมวดหมู่หลักที่เลือก (เฉพาะโดเมนที่รับหมวดหมู่นี้)" : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
               </div>
             </aside>
           </div>
@@ -466,6 +511,42 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
         {step === "taxonomy" && (
           <div className="upload-details-grid single">
             <div className="upload-details-main">
+              <div className="field">
+                <label>
+                  หมวดหมู่หลัก <span className="req">*</span>
+                </label>
+                <div className="category-grid">
+                  {mainCategoryList.map((c) => (
+                    <label key={c.id} className="category-option">
+                      <input type="radio" name="mainCategory" checked={mainCategory === c.name} onChange={() => setMainCategory(c.name)} />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+                {showAddMainCategory ? (
+                  <div className="thumb-picker-row" style={{ marginTop: 10 }}>
+                    <input
+                      type="text"
+                      value={newMainCategoryName}
+                      onChange={(e) => setNewMainCategoryName(e.target.value)}
+                      onKeyDown={onNewMainCategoryKeyDown}
+                      placeholder="ชื่อหมวดหมู่หลักใหม่"
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className="btn btn-gold" disabled={addingMainCategory || !newMainCategoryName.trim()} onClick={addNewMainCategory}>
+                      เพิ่ม
+                    </button>
+                    <button type="button" className="btn-ghost" onClick={() => setShowAddMainCategory(false)}>
+                      ยกเลิก
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setShowAddMainCategory(true)}>
+                    + เพิ่มหมวดหมู่หลักใหม่
+                  </button>
+                )}
+              </div>
+
               <div className="field">
                 <label>หมวดหมู่</label>
                 <div className="category-grid">
@@ -601,6 +682,10 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                 <b>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
               </div>
               <div className="upload-copy-field">
+                <span>หมวดหมู่หลัก</span>
+                <b>{mainCategory || "ยังไม่ได้เลือกหมวดหมู่หลัก"}</b>
+              </div>
+              <div className="upload-copy-field">
                 <span>หมวดหมู่ที่เลือก</span>
                 <b>{selectedCategories.length ? selectedCategories.join(", ") : "ยังไม่ได้เลือกหมวดหมู่"}</b>
               </div>
@@ -614,7 +699,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
               </div>
               <div className="upload-copy-field">
                 <span>ปลายทาง</span>
-                <b>{sites.length ? `ทุกโดเมนที่เปิดใช้งาน (${sites.length} เว็บ)` : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
+                <b>{sites.length ? "ตามหมวดหมู่หลักที่เลือก (เฉพาะโดเมนที่รับหมวดหมู่นี้)" : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
               </div>
             </aside>
           </div>
@@ -673,7 +758,7 @@ export function VideoForm({ sites, categories, initialMovie }: { sites: SiteRow[
                 <button type="button" className="btn btn-ghost" onClick={() => setStep("details")} disabled={saving}>
                   กลับ
                 </button>
-                <button type="button" className="btn btn-gold" onClick={() => setStep("review")} disabled={saving || !canStartProcessing}>
+                <button type="button" className="btn btn-gold" onClick={() => setStep("review")} disabled={saving || !canStartProcessing || !mainCategory}>
                   ถัดไป
                 </button>
               </>

@@ -55,6 +55,15 @@ function titleFromFilename(name: string) {
   return name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
 }
 
+// crypto.randomUUID() is spec'd as secure-context-only — it's undefined (not
+// just risky) on a plain-HTTP deployment without TLS, which would otherwise
+// throw synchronously inside addFilesToQueue's map() and silently abort the
+// whole drop/pick before setQueue ever runs. This fallback works everywhere.
+function makeQueueKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `q-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function statusLabel(status: QueueStatus) {
   switch (status) {
     case "queued":
@@ -136,28 +145,35 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
   // presign endpoint's real content-type check (assertUploadAllowedAuto)
   // reject unsupported files instead, visibly, per queue item.
   function addFilesToQueue(files: FileList | File[]) {
-    const incoming = Array.from(files);
-    if (!incoming.length) return;
+    try {
+      const incoming = Array.from(files);
+      if (!incoming.length) {
+        notify("ไม่พบไฟล์ที่เลือก");
+        return;
+      }
 
-    const newItems: QueueItem[] = incoming.map((file) => ({
-      key: crypto.randomUUID(),
-      file,
-      status: "queued",
-      progress: null,
-      videoUrl: "",
-      title: titleFromFilename(file.name),
-      excerpt: "",
-      content: "",
-      thumbnailUrl: "",
-      thumbProgress: null,
-      previewUrl: "",
-      previewProgress: null,
-      categories: [],
-      tags: [],
-    }));
+      const newItems: QueueItem[] = incoming.map((file) => ({
+        key: makeQueueKey(),
+        file,
+        status: "queued",
+        progress: null,
+        videoUrl: "",
+        title: titleFromFilename(file.name),
+        excerpt: "",
+        content: "",
+        thumbnailUrl: "",
+        thumbProgress: null,
+        previewUrl: "",
+        previewProgress: null,
+        categories: [],
+        tags: [],
+      }));
 
-    setQueue((prev) => [...prev, ...newItems]);
-    for (const item of newItems) void startUpload(item.key, item.file);
+      setQueue((prev) => [...prev, ...newItems]);
+      for (const item of newItems) void startUpload(item.key, item.file);
+    } catch (err) {
+      notify(err instanceof Error ? `เพิ่มไฟล์ไม่สำเร็จ: ${err.message}` : "เพิ่มไฟล์ไม่สำเร็จ");
+    }
   }
 
   function onDrop(e: React.DragEvent<HTMLLabelElement>) {

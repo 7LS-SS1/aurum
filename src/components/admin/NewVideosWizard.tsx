@@ -123,15 +123,23 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
       const url = await presignAndUpload(file, "bunny", (pct) => updateItem(key, { progress: pct }));
       updateItem(key, { status: "ready", progress: null, videoUrl: url });
     } catch (err) {
-      updateItem(key, { status: "error", progress: null, error: err instanceof Error ? err.message : "อัปโหลดวิดีโอไม่สำเร็จ" });
+      const message = err instanceof Error ? err.message : "อัปโหลดวิดีโอไม่สำเร็จ";
+      updateItem(key, { status: "error", progress: null, error: message });
+      notify(`${file.name}: ${message}`);
     }
   }
 
+  // Deliberately not filtered by File.type here — many browsers report an
+  // empty type for perfectly valid video files (e.g. .mkv/.ts on Windows,
+  // since it comes from the OS's extension-to-MIME mapping, not real content
+  // sniffing), which would silently drop the file with zero feedback. Let the
+  // presign endpoint's real content-type check (assertUploadAllowedAuto)
+  // reject unsupported files instead, visibly, per queue item.
   function addFilesToQueue(files: FileList | File[]) {
-    const videoFiles = Array.from(files).filter((f) => f.type.startsWith("video/"));
-    if (!videoFiles.length) return;
+    const incoming = Array.from(files);
+    if (!incoming.length) return;
 
-    const newItems: QueueItem[] = videoFiles.map((file) => ({
+    const newItems: QueueItem[] = incoming.map((file) => ({
       key: crypto.randomUUID(),
       file,
       status: "queued",
@@ -429,9 +437,12 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                       {item.status === "uploading" && item.progress !== null ? ` ${Math.round(item.progress)}%` : ""}
                     </div>
                     {item.status === "error" && (
-                      <button type="button" className="btn-ghost" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => retryUpload(item)}>
-                        ลองใหม่
-                      </button>
+                      <>
+                        <div style={{ fontSize: 10.5, color: "var(--red)", overflowWrap: "anywhere" }}>{item.error}</div>
+                        <button type="button" className="btn-ghost" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => retryUpload(item)}>
+                          ลองใหม่
+                        </button>
+                      </>
                     )}
                     <button type="button" className="uq-remove" onClick={() => removeQueueItem(item.key)}>
                       ลบออกจากคิว
@@ -458,6 +469,20 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     {statusLabel(item.status)}
                     {item.status === "uploading" && item.progress !== null ? ` ${Math.round(item.progress)}%` : ""}
                   </div>
+                  {item.status === "error" && <div style={{ fontSize: 10.5, color: "var(--red)", overflowWrap: "anywhere" }}>{item.error}</div>}
+                  {item.status === "error" && (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      style={{ fontSize: 11, padding: "3px 8px" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        retryUpload(item);
+                      }}
+                    >
+                      ลองใหม่
+                    </button>
+                  )}
                   {item.status !== "done" && item.status !== "saving" && (
                     <button
                       type="button"

@@ -54,11 +54,63 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               เพิ่มวิดีโอใหม่
             </Link>
           )}
-          {role && can(role, "comment:moderate") && (
-            <Link className="side-link" href="/admin/comments">
-              คอมเมนต์
-            </Link>
-          )}
+
+          <div className="side-subcat">จัดการนักแสดง</div>
+          <Link className="side-link side-link-sub" href="/admin/actors">
+            นักแสดงทั้งหมด
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/actors/new">
+            เพิ่มนักแสดงใหม่
+          </Link>
+
+          <div className="side-subcat">จัดการหมวดหมู่</div>
+          <Link className="side-link side-link-sub" href="/admin/categories">
+            หมวดหมู่ทั้งหมด
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/categories/new">
+            เพิ่มหมวดหมู่ใหม่
+          </Link>
+
+          <div className="side-subcat">จัดการแท็ก</div>
+          <Link className="side-link side-link-sub" href="/admin/tags">
+            จัดการแท็ก
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/tags/new">
+            เพิ่มแท็กใหม่
+          </Link>
+        </div>
+        <div className="side-sec">
+          <div className="side-cat">Doujin/Comic</div>
+          <Link className="side-link" href="/admin/comics">
+            คอมมิคทั้งหมด
+          </Link>
+          <Link className="side-link" href="/admin/comics/new">
+            เพิ่มคอมมิคใหม่
+          </Link>
+
+          <div className="side-subcat">จัดการซีรีส์</div>
+          <Link className="side-link side-link-sub" href="/admin/comic-series">
+            ซีรีส์ทั้งหมด
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/comic-series/new">
+            เพิ่มซีรีส์ใหม่
+          </Link>
+
+          <div className="side-subcat">จัดการหมวดหมู่</div>
+          <Link className="side-link side-link-sub" href="/admin/comic-categories">
+            หมวดหมู่ทั้งหมด
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/comic-categories/new">
+            เพิ่มหมวดหมู่ใหม่
+          </Link>
+
+          <div className="side-subcat">จัดการแท็ก</div>
+          <Link className="side-link side-link-sub" href="/admin/comic-tags">
+            จัดการแท็ก
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/comic-tags/new">
+            เพิ่มแท็กใหม่
+          </Link>
         </div>
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>

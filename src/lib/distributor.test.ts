@@ -8,6 +8,7 @@ const distributionUpsert = vi.fn();
 const distributionUpdate = vi.fn();
 const decryptMock = vi.fn();
 const createPostMock = vi.fn();
+const verifyVideoMetaMock = vi.fn();
 const resolveCategoryTreeMock = vi.fn();
 const resolveTermsMock = vi.fn();
 const uploadMediaFromUrlMock = vi.fn();
@@ -24,8 +25,24 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/crypto", () => ({ decrypt: decryptMock }));
 
 vi.mock("@/lib/wordpress-client", () => ({
+  AURUM_VIDEO_META_KEYS: [
+    "aurum_movie_id",
+    "aurum_provider",
+    "aurum_video_url",
+    "aurum_iframe_url",
+    "aurum_thumbnail_url",
+    "aurum_preview_url",
+    "aurum_jwplayer_media_id",
+    "video_provider",
+    "video_url",
+    "iframe_url",
+    "thumbnail_url",
+    "preview_url",
+    "jwplayer_media_id",
+  ],
   WordPressClient: vi.fn().mockImplementation(() => ({
     createPost: createPostMock,
+    verifyVideoMeta: verifyVideoMetaMock,
     resolveCategoryTree: resolveCategoryTreeMock,
     resolveTerms: resolveTermsMock,
     uploadMediaFromUrl: uploadMediaFromUrlMock,
@@ -81,6 +98,7 @@ beforeEach(() => {
   resolveTermsMock.mockResolvedValue([]);
   uploadMediaFromUrlMock.mockResolvedValue(321);
   distributionUpsert.mockResolvedValue({ id: "dist1" });
+  verifyVideoMetaMock.mockResolvedValue(undefined);
 });
 
 describe("distributeToSite", () => {
@@ -108,6 +126,34 @@ describe("distributeToSite", () => {
       }),
     );
     expect(result).toEqual({ siteId: "s1", site: "Site One", status: "success", postId: 10, url: "https://wp.example.com/?p=10" });
+    expect(verifyVideoMetaMock).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({
+        aurum_movie_id: "m1",
+        aurum_video_url: "https://cdn.example.com/v.mp4",
+        video_url: "https://cdn.example.com/v.mp4",
+      }),
+    );
+  });
+
+  it("fails closed and preserves the created post id when WordPress silently drops video meta", async () => {
+    createPostMock.mockResolvedValue({ id: 48, link: "https://wp.example.com/?p=48" });
+    verifyVideoMetaMock.mockRejectedValue(
+      new Error("AURUM Video Core integration is not ready: aurum_movie_id, aurum_video_url"),
+    );
+
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+
+    expect(result.status).toBe("failed");
+    expect(distributionUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "FAILED",
+          remotePostId: "48",
+          remotePostUrl: "https://wp.example.com/?p=48",
+        }),
+      }),
+    );
   });
 
   it("on failure, updates the distribution to FAILED with a truncated error message and returns a failed result", async () => {
@@ -140,7 +186,7 @@ describe("distributeToSite", () => {
     expect(payload.content).toContain('<a href="https://cdn.example.com/v.mp4"');
   });
 
-  it("sends Yoast SEO meta from the movie content and taxonomy", async () => {
+  it("keeps video identity authoritative and leaves Yoast private meta to Yoast public hooks", async () => {
     createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
     resolveCategoryTreeMock.mockResolvedValue([44, 45]);
 
@@ -150,7 +196,7 @@ describe("distributeToSite", () => {
         excerpt: "This is the SEO description.",
         mainCategory: "Drama",
         categories: ["Indie"],
-        tags: ["feature"],
+        tags: [{ name: "feature" }],
         thumbnailUrl: "https://cdn.example.com/poster.jpg",
       }) as never,
       fakeSite() as never,
@@ -158,16 +204,20 @@ describe("distributeToSite", () => {
     );
 
     const payload = createPostMock.mock.calls[0]?.[0];
-    expect(payload.meta).toEqual(
-      expect.objectContaining({
-        _yoast_wpseo_title: "SEO Title",
-        _yoast_wpseo_metadesc: "This is the SEO description.",
-        _yoast_wpseo_focuskw: "Drama",
-        "_yoast_wpseo_opengraph-image": "https://cdn.example.com/poster.jpg",
-        "_yoast_wpseo_twitter-image": "https://cdn.example.com/poster.jpg",
-        _yoast_wpseo_primary_category: "44",
-      }),
+    expect(payload.meta).toEqual(expect.objectContaining({ aurum_movie_id: "m1", aurum_thumbnail_url: "https://cdn.example.com/poster.jpg" }));
+    expect(payload.meta).not.toHaveProperty("_yoast_wpseo_title");
+    expect(payload.meta).not.toHaveProperty("_yoast_wpseo_primary_category");
+  });
+
+  it("does not allow draft extraMeta to override canonical video fields", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    await distributeToSite(
+      fakeMovie() as never,
+      fakeSite() as never,
+      { extraMeta: { aurum_video_url: "https://attacker.example/redirect.m3u8" } } as never,
     );
+
+    expect(createPostMock.mock.calls[0]?.[0].meta.aurum_video_url).toBe("https://cdn.example.com/v.mp4");
   });
 
   it("imports the thumbnail as featured media when possible", async () => {

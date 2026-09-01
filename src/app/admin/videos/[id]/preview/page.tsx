@@ -7,7 +7,7 @@ import { getDefaultVideoControllerConfig } from "@/lib/player-settings";
 
 export default async function AdminVideoPreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const movie = await prisma.movie.findUnique({ where: { id } });
+  const movie = await prisma.movie.findUnique({ where: { id }, include: { tags: { select: { name: true } } } });
 
   if (!movie || (!movie.videoUrl && !movie.jwPlayerMediaId && !movie.iframeUrl)) notFound();
 
@@ -15,7 +15,7 @@ export default async function AdminVideoPreviewPage({ params }: { params: Promis
     movie.iframeUrl ??
     (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig()) : undefined);
   const controller = await getDefaultVideoControllerConfig();
-  const tags = Array.isArray(movie.tags) ? (movie.tags as unknown[]).filter((tag): tag is string => typeof tag === "string") : [];
+  const tags = movie.tags.map((t) => t.name);
 
   return (
     <section>

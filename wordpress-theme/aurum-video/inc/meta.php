@@ -35,34 +35,34 @@ function aurum_video_meta_field_map() {
 		'thumbnail_url'           => 'url',
 		'preview_url'             => 'url',
 		'jwplayer_media_id'       => 'text',
-		'_yoast_wpseo_title'      => 'text',
-		'_yoast_wpseo_metadesc'   => 'text',
-		'_yoast_wpseo_focuskw'    => 'text',
-		'_yoast_wpseo_opengraph-title'       => 'text',
-		'_yoast_wpseo_opengraph-description' => 'text',
-		'_yoast_wpseo_opengraph-image'       => 'url',
-		'_yoast_wpseo_twitter-title'         => 'text',
-		'_yoast_wpseo_twitter-description'   => 'text',
-		'_yoast_wpseo_twitter-image'         => 'url',
-		'_yoast_wpseo_primary_category'      => 'text',
 	);
 }
 
 function aurum_video_register_post_meta() {
-	foreach ( aurum_video_meta_field_map() as $meta_key => $kind ) {
-		register_post_meta(
-			'post',
-			$meta_key,
-			array(
-				'type'              => 'string',
-				'single'            => true,
-				'show_in_rest'      => true,
-				'sanitize_callback' => 'url' === $kind ? 'esc_url_raw' : 'sanitize_text_field',
-				'auth_callback'     => function () {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
+	// The companion plugin owns registration when installed. This fallback
+	// keeps the legacy standalone theme usable without registering fields twice.
+	if ( function_exists( 'aurum_video_core_register_meta' ) ) {
+		return;
+	}
+
+	$post_types = get_post_types( array( 'public' => true, 'show_in_rest' => true ), 'names' );
+	foreach ( $post_types as $post_type ) {
+		foreach ( aurum_video_meta_field_map() as $meta_key => $kind ) {
+			register_post_meta(
+				$post_type,
+				$meta_key,
+				array(
+					'type'              => 'string',
+					'single'            => true,
+					'show_in_rest'      => true,
+					'sanitize_callback' => 'url' === $kind ? 'esc_url_raw' : 'sanitize_text_field',
+					'auth_callback'     => function ( $allowed = false, $key = '', $post_id = 0 ) {
+						unset( $allowed, $key );
+						return $post_id ? current_user_can( 'edit_post', (int) $post_id ) : current_user_can( 'edit_posts' );
+					},
+				)
+			);
+		}
 	}
 }
-add_action( 'init', 'aurum_video_register_post_meta' );
+add_action( 'init', 'aurum_video_register_post_meta', 100 );

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api-client";
+import { resolveUploadContentType } from "@/lib/upload-queue";
 import { Upload } from "tus-js-client";
 
 /**
@@ -12,9 +13,10 @@ export async function presignAndUpload(
   provider: "r2" | "bunny",
   onProgress: (pct: number) => void,
 ): Promise<string> {
+  const contentType = resolveUploadContentType(file);
   const presign = await apiFetch<Record<string, unknown>>("/api/uploads/presign", {
     method: "POST",
-    body: JSON.stringify({ provider, filename: file.name, contentType: file.type, size: file.size }),
+    body: JSON.stringify({ provider, filename: file.name, contentType, size: file.size }),
   });
 
   if (presign.strategy === "put") {
@@ -40,7 +42,7 @@ export async function presignAndUpload(
       endpoint: presign.uploadUrl as string,
       retryDelays: [0, 1000, 3000, 5000],
       headers: tus,
-      metadata: { filetype: file.type, title: file.name },
+      metadata: { filetype: contentType, title: file.name },
       onProgress: (loaded, total) => onProgress((loaded / total) * 100),
       onSuccess: () => resolve(presign.publicUrl as string),
       onError: (err) => reject(err),

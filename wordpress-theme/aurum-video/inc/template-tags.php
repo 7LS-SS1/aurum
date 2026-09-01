@@ -78,17 +78,16 @@ function aurum_render_video_player( $post_id ) {
 		return;
 	}
 
-	// Direct/HLS source — shared embeddable AURUM player. The custom element is
-	// built from src/embeds and bundled into assets/player for WordPress.
+	// Standard HTML is deliberately present in the first response. The theme's
+	// script attaches HLS.js on play intent only when native HLS is unavailable.
 	$poster = $meta['thumbnail_url'];
+	$is_hls = '.m3u8' === strtolower( substr( (string) wp_parse_url( $meta['video_url'], PHP_URL_PATH ), -5 ) );
 	?>
 	<div class="aurum-video-stage">
-		<aurum-video-player
-			src="<?php echo esc_url( $meta['video_url'] ); ?>"
-			<?php echo $poster ? 'poster="' . esc_url( $poster ) . '"' : ''; ?>
-			title="<?php echo esc_attr( get_the_title( $post_id ) ); ?>"
-			preload="metadata"
-		></aurum-video-player>
+		<video controls playsinline preload="metadata" width="1280" height="720" data-aurum-video="1" <?php echo $poster ? 'poster="' . esc_url( $poster ) . '"' : ''; ?>>
+			<source src="<?php echo esc_url( $meta['video_url'] ); ?>" type="<?php echo esc_attr( $is_hls ? 'application/vnd.apple.mpegurl' : 'video/mp4' ); ?>">
+			<?php esc_html_e( 'เบราว์เซอร์นี้ไม่รองรับการเล่นวิดีโอ', 'aurum-video' ); ?>
+		</video>
 	</div>
 	<?php
 }

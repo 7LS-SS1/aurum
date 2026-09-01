@@ -5,8 +5,11 @@ import { VideoForm } from "@/components/admin/VideoForm";
 export default async function EditVideoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [movie, sites, categories, mainCategories] = await Promise.all([
-    prisma.movie.findUnique({ where: { id } }),
+  const [movie, sites, categories, mainCategories, actors] = await Promise.all([
+    prisma.movie.findUnique({
+      where: { id },
+      include: { tags: { select: { name: true } }, actors: { select: { id: true } } },
+    }),
     prisma.targetSite.findMany({
       where: { isActive: true },
       select: { id: true, name: true, baseUrl: true, healthStatus: true },
@@ -14,9 +17,16 @@ export default async function EditVideoPage({ params }: { params: Promise<{ id: 
     }),
     prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
     prisma.mainCategory.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.actor.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   if (!movie) notFound();
+
+  const initialMovie = {
+    ...JSON.parse(JSON.stringify(movie)),
+    tags: movie.tags.map((t) => t.name),
+    actorIds: movie.actors.map((a) => a.id),
+  };
 
   return (
     <section>
@@ -26,7 +36,7 @@ export default async function EditVideoPage({ params }: { params: Promise<{ id: 
         </h1>
         <p>{movie.title}</p>
       </div>
-      <VideoForm sites={sites} categories={categories} mainCategories={mainCategories} initialMovie={JSON.parse(JSON.stringify(movie))} />
+      <VideoForm sites={sites} categories={categories} mainCategories={mainCategories} actors={actors} initialMovie={initialMovie} />
     </section>
   );
 }

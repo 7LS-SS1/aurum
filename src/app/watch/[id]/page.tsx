@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { VideoPlayer } from "@/components/public/VideoPlayer";
 import { EngagementBar } from "@/components/public/EngagementBar";
-import { CommentSection, type CommentRow } from "@/components/public/CommentSection";
 import { ViewBeacon } from "@/components/public/ViewBeacon";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 import { getDefaultVideoControllerConfig } from "@/lib/player-settings";
@@ -20,17 +19,11 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const movie = await resolvePublicMovie(id);
   if (!movie || (!movie.videoUrl && !movie.jwPlayerMediaId && !movie.iframeUrl)) notFound();
 
-  const [iframePlayer, controller, viewer, reactionCounts, comments, suggestions] = await Promise.all([
+  const [iframePlayer, controller, viewer, reactionCounts, suggestions] = await Promise.all([
     movie.videoProvider === "jwplayer" ? getDefaultJwPlayerConfig() : Promise.resolve(undefined),
     getDefaultVideoControllerConfig(),
     getViewerFromCookies(),
     prisma.movieReaction.groupBy({ by: ["type"], where: { movieId: movie.id }, _count: { _all: true } }),
-    prisma.comment.findMany({
-      where: { movieId: movie.id },
-      take: 20,
-      orderBy: { createdAt: "desc" },
-      include: { viewer: { select: { displayName: true } } },
-    }),
     prisma.movie.findMany({
       where: {
         id: { not: movie.id },
@@ -52,7 +45,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
 
   const iframeUrl = movie.iframeUrl ?? (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, iframePlayer) : undefined);
 
-  const tags = Array.isArray(movie.tags) ? (movie.tags as unknown[]).filter((t): t is string => typeof t === "string") : [];
+  const tags = movie.tags.map((t) => t.name);
   const meta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const quality = typeof meta.quality === "string" ? meta.quality : null;
   const duration = typeof meta.duration === "string" ? meta.duration : null;
@@ -116,13 +109,6 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
               )}
             </div>
           )}
-
-          <CommentSection
-            movieKey={movieKey}
-            initialComments={comments as unknown as CommentRow[]}
-            isLoggedIn={Boolean(viewer)}
-            viewerId={viewer?.id}
-          />
         </div>
 
         <aside className="rail">

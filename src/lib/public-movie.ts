@@ -9,6 +9,7 @@ export function resolvePublicMovie(idOrSlug: string) {
         status: { in: ["DONE", "PARTIAL"] },
         OR: [{ slug: idOrSlug }, { id: idOrSlug }],
       },
+      include: { tags: { select: { name: true } } },
     }),
   );
 }

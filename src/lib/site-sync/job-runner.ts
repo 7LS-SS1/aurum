@@ -299,7 +299,7 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
   const remaining = pushQueue.slice(PUSH_BATCH_SIZE);
 
   const [movies, drafts, distributions] = await Promise.all([
-    prisma.movie.findMany({ where: { id: { in: batchIds } } }),
+    prisma.movie.findMany({ where: { id: { in: batchIds } }, include: { tags: true } }),
     prisma.movieSiteDraft.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
     prisma.distribution.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
   ]);

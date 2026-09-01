@@ -25,6 +25,14 @@ Text Domain: aurum-video
   --line: rgba(255, 255, 255, 0.12);
   --red: #ff4d4d;
   --topbar-h: 60px;
+  /* Consolidated from repeated one-off values in this file — matches the
+     equivalent tokens in the AURUM Next.js app's globals.css. */
+  --on-gold: #1a1407; /* text/icon color sitting on a solid gold fill (buttons, badges) */
+  --stage-black: #000; /* video stage background — deliberately pure black, distinct from --bg */
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --field: #121212; /* input-like surface bg */
+  --field-line: #303030; /* input-like border */
+  --gradient-gold-text: linear-gradient(180deg, #fff, var(--gold-bright));
 }
 
 * {
@@ -93,13 +101,13 @@ h1, h2, h3, h4 {
   display: grid;
   place-items: center;
   background: conic-gradient(from 210deg, var(--gold-deep), var(--gold-bright), var(--gold), var(--gold-deep));
-  color: #1a1407;
+  color: var(--on-gold);
   font-weight: 900;
   font-size: 13px;
   font-style: italic;
 }
 .aurum-logo .word {
-  background: linear-gradient(180deg, #fff, var(--gold-bright));
+  background: var(--gradient-gold-text);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -134,8 +142,8 @@ h1, h2, h3, h4 {
   flex: none;
 }
 .aurum-search input {
-  background: #121212;
-  border: 1px solid #303030;
+  background: var(--field);
+  border: 1px solid var(--field-line);
   border-right: none;
   border-radius: 40px 0 0 40px;
   color: var(--text);
@@ -149,7 +157,7 @@ h1, h2, h3, h4 {
 }
 .aurum-search button {
   background: var(--bg-3);
-  border: 1px solid #303030;
+  border: 1px solid var(--field-line);
   border-radius: 0 40px 40px 0;
   color: var(--text);
   padding: 0 14px;
@@ -238,7 +246,7 @@ h1, h2, h3, h4 {
 }
 .aurum-pagination .current {
   background: linear-gradient(135deg, var(--gold-bright), var(--gold));
-  color: #1a1407;
+  color: var(--on-gold);
   font-weight: 700;
 }
 
@@ -247,7 +255,7 @@ h1, h2, h3, h4 {
   position: relative;
   width: 100%;
   aspect-ratio: 16/9;
-  background: #000;
+  background: var(--stage-black);
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 20px;
@@ -259,7 +267,7 @@ h1, h2, h3, h4 {
   height: 100%;
   border: 0;
   display: block;
-  background: #000;
+  background: var(--stage-black);
 }
 .aurum-video-missing {
   display: grid;
@@ -274,7 +282,7 @@ h1, h2, h3, h4 {
   position: relative;
   width: 100%;
   aspect-ratio: 16/9;
-  background: #000;
+  background: var(--stage-black);
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 20px;
@@ -284,7 +292,7 @@ h1, h2, h3, h4 {
   height: 100%;
   object-fit: contain;
   display: block;
-  background: #000;
+  background: var(--stage-black);
 }
 .video-stage.theater {
   position: fixed;
@@ -316,12 +324,12 @@ h1, h2, h3, h4 {
   height: 84px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--gold-bright), var(--gold));
-  color: #1a1407;
+  color: var(--on-gold);
   display: grid;
   place-items: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 36px var(--shadow-color);
   transition: transform 0.25s;
 }
 .big-play:hover {
@@ -366,7 +374,7 @@ h1, h2, h3, h4 {
   border-radius: 50%;
   background: var(--gold-bright);
   transform: translate(-50%, -50%);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 1px 6px var(--shadow-color);
 }
 .ctrl-row {
   display: flex;
@@ -424,7 +432,7 @@ h1, h2, h3, h4 {
   border-radius: 12px;
   padding: 6px;
   min-width: 140px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 30px var(--shadow-color);
   z-index: 5;
 }
 .menu-pop.open {
@@ -549,7 +557,7 @@ h1, h2, h3, h4 {
   border-radius: 10px;
   padding: 6px;
   min-width: 160px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 30px var(--shadow-color);
 }
 .aurum-share-menu a,
 .aurum-share-menu button {
@@ -663,7 +671,7 @@ h1, h2, h3, h4 {
 }
 #respond .form-submit input[type="submit"] {
   background: linear-gradient(135deg, var(--gold-bright), var(--gold));
-  color: #1a1407;
+  color: var(--on-gold);
   border: none;
   border-radius: 999px;
   padding: 10px 22px;

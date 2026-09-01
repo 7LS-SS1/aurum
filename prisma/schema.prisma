@@ -68,6 +68,17 @@ enum SiteSyncLogLevel {
   ERROR
 }
 
+enum ComicType {
+  MANGA
+  DOUJIN
+}
+
+enum ComicStatus {
+  ONGOING
+  COMPLETED
+  HIATUS
+}
+
 /// Admin/editor accounts — every mutating API call is tied to one of these.
 /// SYSTEM is never used for interactive login; automation authenticates via
 /// the X-System-Key header instead (see src/lib/authz.ts).
@@ -85,6 +96,7 @@ model User {
   auditLogs       AuditLog[]
   wordpressThemes WordpressTheme[] @relation("WordpressThemeCreatedBy")
   siteSyncJobs    SiteSyncJob[]    @relation("SiteSyncJobRequestedBy")
+  createdComics   Comic[]          @relation("ComicCreatedBy")
 
   @@map("users")
 }
@@ -99,7 +111,6 @@ model Movie {
   content         String?
   mainCategory    String?     @map("main_category")
   categories      Json        @default("[]")
-  tags            Json        @default("[]")
   thumbnailUrl    String?     @map("thumbnail_url")
   previewUrl      String?     @map("preview_url")
   iframeUrl       String?     @map("iframe_url")
@@ -124,7 +135,8 @@ model Movie {
   distributions Distribution[]
   reactions     MovieReaction[]
   watchLaters   WatchLater[]
-  comments      Comment[]
+  tags          Tag[]
+  actors        Actor[]
 
   @@index([status])
   @@index([status, createdAt(sort: Desc)])
@@ -159,6 +171,42 @@ model MainCategory {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("main_categories")
+}
+
+/// Real taxonomy table (unlike Category/MainCategory) — Movie.tags is a
+/// proper many-to-many relation, not a free-form Json array, so renaming or
+/// deleting a Tag here immediately affects every movie it's attached to.
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  movies Movie[]
+
+  @@map("tags")
+}
+
+/// Performer directory — linked to Movie many-to-many so a video can list
+/// every actor who appears in it. measurementBust/Waist/Hip are free-form
+/// strings (not numeric) so they can hold values like "34-24-36" or include
+/// units, matching how these are conventionally written.
+model Actor {
+  id               String   @id @default(cuid())
+  name             String
+  age              Int?
+  heightCm         Int?     @map("height_cm")
+  weightKg         Int?     @map("weight_kg")
+  measurementBust  String?  @map("measurement_bust")
+  measurementWaist String?  @map("measurement_waist")
+  measurementHip   String?  @map("measurement_hip")
+  bio              String?  @db.Text
+  profileImageUrl  String?  @map("profile_image_url")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  movies Movie[]
+
+  @@map("actors")
 }
 
 /// Destination WordPress site. Credentials are always AES-256-GCM encrypted
@@ -326,7 +374,6 @@ model SiteSyncJobLog {
   @@map("site_sync_job_logs")
 }
 
-
 /// Immutable trail of every sensitive admin action — who did what to which
 /// resource. actorId is nullable/SetNull because SYSTEM-role calls (internal
 /// automation via X-System-Key) have no backing User row.
@@ -410,7 +457,6 @@ model Viewer {
   sessions    ViewerSession[]
   reactions   MovieReaction[]
   watchLaters WatchLater[]
-  comments    Comment[]
 
   @@map("viewers")
 }
@@ -469,19 +515,119 @@ model WatchLater {
   @@map("watch_laters")
 }
 
-/// Flat viewer comments — no moderation queue/reply-threading in this phase.
-model Comment {
+/// Doujin/Comic system — deliberately separate from Movie/Category/Tag
+/// (different genre vocabulary) and, for now, with no WordPress
+/// distribution fields (TargetSite/Distribution): the push-to-WordPress
+/// path is a planned follow-up, not built yet. See wordpress-theme/aurum-video/inc/meta.php
+/// for the pattern it will eventually reuse (post_meta on native WP posts,
+/// no custom plugin/post type).
+
+/// Optional parent grouping for a Comic — e.g. every doujin from one artist
+/// circle. A Comic without a series is a standalone work.
+model ComicSeries {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  comics Comic[]
+
+  @@map("comic_series")
+}
+
+/// Master comic/doujin record. Chapters and their page images live on
+/// ComicChapter/ComicChapterImage; categories/tags are separate tables from
+/// Movie's (see schema-level doc comment above) so genre vocab never mixes.
+model Comic {
+  id             String      @id @default(cuid())
+  slug           String      @unique
+  title          String
+  altTitles      Json        @default("[]") @map("alt_titles")
+  description    String?
+  authorName     String?     @map("author_name")
+  comicType      ComicType   @default(DOUJIN) @map("comic_type")
+  status         ComicStatus @default(ONGOING)
+  isOneShot      Boolean     @default(false) @map("is_one_shot")
+  coverImageUrl  String?     @map("cover_image_url")
+  coverObjectKey String?     @map("cover_object_key")
+  seriesId       String?     @map("series_id")
+  createdById    String?     @map("created_by_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  series    ComicSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  createdBy User?        @relation("ComicCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  chapters   ComicChapter[]
+  categories ComicCategory[]
+  tags       ComicTag[]
+
+  @@index([comicType])
+  @@index([status])
+  @@index([seriesId])
+  @@index([createdAt])
+  @@map("comics")
+}
+
+/// One chapter/episode of a Comic. `number` is a string (not Int) because
+/// real-world chapter numbers include things like "1.5" or "ตอนพิเศษ".
+model ComicChapter {
+  id          String   @id @default(cuid())
+  comicId     String   @map("comic_id")
+  number      String
+  title       String?
+  publishedAt DateTime @default(now()) @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  comic  Comic               @relation(fields: [comicId], references: [id], onDelete: Cascade)
+  images ComicChapterImage[]
+
+  @@index([comicId])
+  @@map("comic_chapters")
+}
+
+/// One page image within a chapter. objectKey is stored directly (not
+/// derived from the URL) so delete-time R2 cleanup is exact, matching the
+/// stored-object-key approach used for cover images.
+model ComicChapterImage {
   id        String   @id @default(cuid())
-  movieId   String   @map("movie_id")
-  viewerId  String   @map("viewer_id")
-  body      String
+  chapterId String   @map("chapter_id")
+  imageUrl  String   @map("image_url")
+  objectKey String   @map("object_key")
+  sortOrder Int      @default(0) @map("sort_order")
+  width     Int?
+  height    Int?
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
 
-  movie  Movie  @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  chapter ComicChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
-  @@index([movieId, createdAt])
-  @@index([viewerId])
-  @@map("comments")
+  @@index([chapterId, sortOrder])
+  @@map("comic_chapter_images")
+}
+
+/// Comic-specific genre taxonomy — same shape as Category but a separate
+/// table so doujin/manga genres never share a dropdown with Movie's.
+model ComicCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comics Comic[]
+
+  @@map("comic_categories")
+}
+
+/// Comic-specific tag taxonomy — a real relation (like Movie's Tag), not a
+/// free-form Json array.
+model ComicTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comics Comic[]
+
+  @@map("comic_tags")
 }

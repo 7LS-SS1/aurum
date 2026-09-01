@@ -82,7 +82,7 @@ async function main() {
       excerpt: "เนื้อเรื่องย่อสำหรับทดสอบ Product Test",
       mainCategory: "คลิปหลุด",
       categories: ["ดราม่า"],
-      tags: ["2026", "HD"],
+      tags: { connectOrCreate: [{ where: { name: "2026" }, create: { name: "2026" } }, { where: { name: "HD" }, create: { name: "HD" } }] },
       thumbnailUrl: null,
       videoUrl: "https://example.com/demo.m3u8",
       videoProvider: "bunny",
@@ -110,7 +110,7 @@ async function main() {
     },
   });
 
-  // Demo public viewer account, for manually QA-ing likes/watch-later/comments.
+  // Demo public viewer account, for manually QA-ing likes/watch-later.
   const viewerPasswordHash = await bcrypt.hash("Viewer1234!", 12);
   const viewer = await prisma.viewer.upsert({
     where: { email: "viewer@aurum.local" },
@@ -121,11 +121,6 @@ async function main() {
     where: { movieId_viewerId: { movieId: "seed-movie-demo", viewerId: viewer.id } },
     update: {},
     create: { movieId: "seed-movie-demo", viewerId: viewer.id, type: "LIKE" },
-  });
-  await prisma.comment.upsert({
-    where: { id: "seed-comment-demo" },
-    update: {},
-    create: { id: "seed-comment-demo", movieId: "seed-movie-demo", viewerId: viewer.id, body: "ทดสอบระบบคอมเมนต์ — ดูดีมากครับ!" },
   });
 
   console.log("Seed complete:", { head: head.email, site: site.name, viewer: viewer.email });

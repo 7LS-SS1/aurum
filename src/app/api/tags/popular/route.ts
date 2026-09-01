@@ -2,29 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { apiError, jsonOk } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 
-interface PopularTagRow {
-  tag: string;
-  count: bigint;
-}
-
-/**
- * Ranks tags by real usage across every movie (not a curated list) —
- * jsonb_array_elements_text unnests each movie's `tags` array so COUNT(*)
- * reflects how often a tag has actually been applied.
- */
+/** Ranks tags by real usage across every movie (not a curated list) — Tag.movies is the real many-to-many relation now, so this is a plain count/orderBy. */
 export async function GET() {
   try {
     await requireMinRole("STAFF");
 
-    const rows = await prisma.$queryRaw<PopularTagRow[]>`
-      SELECT value AS tag, COUNT(*) AS count
-      FROM movies, jsonb_array_elements_text(tags) AS value
-      GROUP BY value
-      ORDER BY COUNT(*) DESC, value ASC
-      LIMIT 20
-    `;
+    const rows = await prisma.tag.findMany({
+      orderBy: [{ movies: { _count: "desc" } }, { name: "asc" }],
+      take: 20,
+      include: { _count: { select: { movies: true } } },
+    });
 
-    return jsonOk(rows.map((r) => ({ tag: r.tag, count: Number(r.count) })));
+    return jsonOk(rows.map((r) => ({ tag: r.name, count: r._count.movies })));
   } catch (err) {
     return apiError(err);
   }

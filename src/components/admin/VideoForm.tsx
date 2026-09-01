@@ -22,6 +22,11 @@ interface MainCategoryRow {
   name: string;
 }
 
+interface ActorRow {
+  id: string;
+  name: string;
+}
+
 interface PopularTag {
   tag: string;
   count: number;
@@ -45,6 +50,7 @@ interface InitialMovie {
   extraMeta: unknown;
   status: string;
   rejectionReason: string | null;
+  actorIds?: string[];
 }
 
 type WizardStep = "upload" | "details" | "taxonomy" | "review" | "processing" | "complete";
@@ -74,11 +80,13 @@ export function VideoForm({
   sites,
   categories,
   mainCategories,
+  actors,
   initialMovie,
 }: {
   sites: SiteRow[];
   categories: CategoryRow[];
   mainCategories: MainCategoryRow[];
+  actors: ActorRow[];
   initialMovie?: InitialMovie;
 }) {
   const router = useRouter();
@@ -113,6 +121,8 @@ export function VideoForm({
   const [tags, setTags] = useState<string[]>(() => toStringArray(initialMovie?.tags));
   const [tagInput, setTagInput] = useState("");
   const [popularTags, setPopularTags] = useState<PopularTag[] | null>(null);
+
+  const [selectedActorIds, setSelectedActorIds] = useState<string[]>(() => initialMovie?.actorIds ?? []);
 
   const videoInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
@@ -200,6 +210,10 @@ export function VideoForm({
 
   function toggleCategory(name: string) {
     setSelectedCategories((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
+  }
+
+  function toggleActor(id: string) {
+    setSelectedActorIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   }
 
   async function addNewCategory() {
@@ -303,6 +317,7 @@ export function VideoForm({
       videoProvider: "bunny",
       categories: selectedCategories,
       tags,
+      actorIds: selectedActorIds,
     };
   }
 
@@ -616,6 +631,19 @@ export function VideoForm({
                     </div>
                   </>
                 )}
+              </div>
+
+              <div className="field">
+                <label>นักแสดง</label>
+                <div className="category-grid">
+                  {actors.map((a) => (
+                    <label key={a.id} className="category-option">
+                      <input type="checkbox" checked={selectedActorIds.includes(a.id)} onChange={() => toggleActor(a.id)} />
+                      {a.name}
+                    </label>
+                  ))}
+                  {actors.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีนักแสดงในระบบ</span>}
+                </div>
               </div>
             </div>
           </div>

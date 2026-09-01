@@ -26,7 +26,9 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
           })
           .filter(Boolean)
       : [];
-    const message = issues[0] ?? (typeof data?.error === "string" ? data.error : `HTTP ${res.status}`);
+    // Preserve every server-side validation issue so multi-file forms can
+    // show the complete actionable error instead of hiding all but the first.
+    const message = (issues.length ? issues.join(" • ") : undefined) ?? (typeof data?.error === "string" ? data.error : `HTTP ${res.status}`);
     throw new ApiClientError(message, res.status);
   }
   return data as T;

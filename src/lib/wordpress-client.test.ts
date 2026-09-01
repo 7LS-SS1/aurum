@@ -219,6 +219,51 @@ describe("updatePostMeta", () => {
   });
 });
 
+describe("post-write video meta verification", () => {
+  const editablePost = {
+    id: 48,
+    link: "https://example.com/?p=48",
+    status: "publish",
+    slug: "snos-239",
+    title: { rendered: "SNOS-239" },
+    content: { raw: "<!-- aurum-video -->" },
+    meta: {
+      aurum_movie_id: "m1",
+      aurum_video_url: "https://cdn.example.com/playlist.m3u8",
+      video_url: "https://cdn.example.com/playlist.m3u8",
+    },
+  };
+
+  it("GETs the post with authenticated context=edit and accepts persisted fields", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(editablePost));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const post = await client().verifyVideoMeta(48, {
+      aurum_movie_id: "m1",
+      aurum_video_url: "https://cdn.example.com/playlist.m3u8",
+      video_url: "https://cdn.example.com/playlist.m3u8",
+    });
+
+    expect(post.id).toBe(48);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/posts/48?context=edit");
+  });
+
+  it("throws a clear integration error when WordPress silently drops meta", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ ...editablePost, meta: {} })));
+
+    await expect(
+      client().verifyVideoMeta(48, {
+        aurum_movie_id: "m1",
+        aurum_video_url: "https://cdn.example.com/playlist.m3u8",
+      }),
+    ).rejects.toMatchObject({
+      name: "WordPressIntegrationError",
+      postId: 48,
+      missingOrMismatched: ["aurum_movie_id", "aurum_video_url"],
+    });
+  });
+});
+
 describe("getAurumEngagement", () => {
   it("calls the aurum/v1 engagement endpoint for the given post id", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ postId: 5, views: 10, likes: 2, dislikes: 0 }));

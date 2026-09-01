@@ -6,27 +6,39 @@
  */
 (function () {
 	function attachSource(video) {
-		var src = video.getAttribute('data-src');
-		if (!src) return;
+		var source = video.querySelector('source[src]');
+		var src = source ? source.getAttribute('src') : '';
+		if (!src || src.indexOf('.m3u8') === -1) return;
 
-		var isHls = src.indexOf('.m3u8') !== -1;
 		var canPlayNative = video.canPlayType('application/vnd.apple.mpegurl');
+		if (canPlayNative || !window.Hls || !window.Hls.isSupported()) return;
 
-		if (!isHls || canPlayNative) {
-			video.src = src;
-			return;
-		}
-
-		if (window.Hls && window.Hls.isSupported()) {
-			var hls = new window.Hls();
-			hls.loadSource(src);
+		var activating = false;
+		function activate() {
+			if (activating || video.aurumHls) return;
+			activating = true;
+			var shouldPlay = !video.paused;
+			video.pause();
+			while (video.firstChild) video.removeChild(video.firstChild);
+			video.removeAttribute('src');
+			video.load();
+			var hls = new window.Hls({ startFragPrefetch: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
+			video.aurumHls = hls;
 			hls.attachMedia(video);
-		} else {
-			video.src = src; // last-resort fallback
+			hls.on(window.Hls.Events.MEDIA_ATTACHED, function () { hls.loadSource(src); });
+			hls.on(window.Hls.Events.MANIFEST_PARSED, function () {
+				if (shouldPlay) video.play().catch(function () {});
+			});
 		}
+
+		video.addEventListener('pointerdown', activate, { once: true, passive: true });
+		video.addEventListener('play', activate, { once: true });
+		video.addEventListener('keydown', function (event) {
+			if (event.key === 'Enter' || event.key === ' ') activate();
+		}, { once: true });
 	}
 
-	document.querySelectorAll('video[data-src]').forEach(attachSource);
+	document.querySelectorAll('video[data-aurum-video]').forEach(attachSource);
 
 	var toggle = document.querySelector('.aurum-nav-toggle');
 	var nav = document.querySelector('.aurum-nav');

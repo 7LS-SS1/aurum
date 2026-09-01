@@ -34,7 +34,7 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
   const { id } = await params;
 
   const [movie, suggestions] = await Promise.all([
-    prisma.movie.findUnique({ where: { id } }),
+    prisma.movie.findUnique({ where: { id }, include: { tags: { select: { name: true } } } }),
     prisma.movie.findMany({
       where: {
         id: { not: id },
@@ -61,7 +61,7 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
     (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig()) : undefined);
   const controller = await getDefaultVideoControllerConfig();
   const meta = getJsonRecord(movie.extraMeta);
-  const tags = getStringArray(movie.tags);
+  const tags = movie.tags.map((t) => t.name);
   const categories = getStringArray(movie.categories);
   const description = movie.content || movie.excerpt || "ยังไม่มีรายละเอียดเพิ่มเติม";
   const duration = typeof meta.duration === "string" ? meta.duration : null;

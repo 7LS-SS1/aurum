@@ -21,6 +21,32 @@ export interface WpPost {
   status: string;
 }
 
+export const AURUM_VIDEO_META_KEYS = [
+  "aurum_movie_id",
+  "aurum_provider",
+  "aurum_video_url",
+  "aurum_iframe_url",
+  "aurum_thumbnail_url",
+  "aurum_preview_url",
+  "aurum_jwplayer_media_id",
+  "video_provider",
+  "video_url",
+  "iframe_url",
+  "thumbnail_url",
+  "preview_url",
+  "jwplayer_media_id",
+] as const;
+
+export type AurumVideoMetaKey = (typeof AURUM_VIDEO_META_KEYS)[number];
+export type AurumVideoMeta = Record<AurumVideoMetaKey, string>;
+
+export interface WpEditablePost extends WpPost {
+  slug: string;
+  title: string;
+  content: string;
+  meta: Record<string, unknown>;
+}
+
 export interface WpEngagement {
   postId: number;
   views: number;
@@ -44,6 +70,8 @@ export interface WpScannedPost {
   aurumMovieId: string | null;
   jwPlayerMediaId: string | null;
   videoUrl: string | null;
+  content?: string;
+  meta?: Record<string, unknown>;
 }
 
 interface WpRawPostListItem {
@@ -52,10 +80,26 @@ interface WpRawPostListItem {
   slug: string;
   status: string;
   title?: { rendered?: string } | string;
+  content?: { raw?: string; rendered?: string } | string;
   meta?: Record<string, unknown>;
 }
 
 export class WordPressScanError extends Error {}
+
+export class WordPressIntegrationError extends Error {
+  readonly postId: number;
+  readonly missingOrMismatched: string[];
+
+  constructor(postId: number, baseUrl: string, fields: string[]) {
+    super(
+      `AURUM Video Core integration is not ready on ${baseUrl}: WordPress post ${postId} did not persist REST meta ` +
+        `${fields.join(", ")}. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.`,
+    );
+    this.name = "WordPressIntegrationError";
+    this.postId = postId;
+    this.missingOrMismatched = fields;
+  }
+}
 
 class WordPressHttpError extends Error {
   status: number;
@@ -175,13 +219,17 @@ export class WordPressClient {
    * WordPressScanError instead of returning a partial list, because the
    * caller's contract is "never publish off an incomplete/unreliable scan."
    */
-  async listAllPosts(statuses: string[], opts: { maxPages?: number; budgetMs?: number } = {}): Promise<WpScannedPost[]> {
+  async listAllPosts(
+    statuses: string[],
+    opts: { maxPages?: number; budgetMs?: number; includeContent?: boolean; includeIds?: number[] } = {},
+  ): Promise<WpScannedPost[]> {
     const maxPages = opts.maxPages ?? 500;
     const budgetMs = opts.budgetMs ?? 90_000;
     const deadline = Date.now() + budgetMs;
     const perPage = 100;
     const statusParam = encodeURIComponent(statuses.join(","));
-    const fields = encodeURIComponent("id,link,slug,title,status,meta");
+    const fields = encodeURIComponent(`id,link,slug,title,status,meta${opts.includeContent ? ",content" : ""}`);
+    const include = opts.includeIds?.length ? `&include=${encodeURIComponent(opts.includeIds.join(","))}` : "";
 
     const results: WpScannedPost[] = [];
     let page = 1;
@@ -198,7 +246,7 @@ export class WordPressClient {
       let data: WpRawPostListItem[];
       let headers: Headers;
       try {
-        const url = `${this.api}/${this.postType}?per_page=${perPage}&page=${page}&status=${statusParam}&context=edit&_fields=${fields}`;
+        const url = `${this.api}/${this.postType}?per_page=${perPage}&page=${page}&status=${statusParam}&context=edit&_fields=${fields}${include}`;
         ({ data, headers } = await this.getWithRetry<WpRawPostListItem[]>(url));
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown WordPress scan error";
@@ -210,6 +258,7 @@ export class WordPressClient {
 
       for (const raw of Array.isArray(data) ? data : []) {
         const title = typeof raw.title === "string" ? raw.title : raw.title?.rendered ?? "";
+        const content = typeof raw.content === "string" ? raw.content : raw.content?.raw ?? raw.content?.rendered ?? "";
         results.push({
           id: raw.id,
           link: raw.link,
@@ -219,6 +268,7 @@ export class WordPressClient {
           aurumMovieId: metaString(raw.meta, "aurum_movie_id"),
           jwPlayerMediaId: metaString(raw.meta, "aurum_jwplayer_media_id") ?? metaString(raw.meta, "jwplayer_media_id"),
           videoUrl: metaString(raw.meta, "aurum_video_url") ?? metaString(raw.meta, "video_url"),
+          ...(opts.includeContent ? { content, meta: raw.meta ?? {} } : {}),
         });
       }
 
@@ -241,6 +291,39 @@ export class WordPressClient {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ meta }),
     });
+  }
+
+  /** Reads a post back with authenticated edit context, including raw REST meta. */
+  async getPost(postId: number): Promise<WpEditablePost> {
+    const fields = encodeURIComponent("id,link,status,slug,title,content,meta");
+    const raw = await this.json<WpRawPostListItem>(
+      `${this.api}/${this.postType}/${postId}?context=edit&_fields=${fields}`,
+    );
+    return {
+      id: raw.id,
+      link: raw.link,
+      status: raw.status,
+      slug: raw.slug ?? "",
+      title: typeof raw.title === "string" ? raw.title : raw.title?.rendered ?? "",
+      content: typeof raw.content === "string" ? raw.content : raw.content?.raw ?? raw.content?.rendered ?? "",
+      meta: raw.meta ?? {},
+    };
+  }
+
+  /**
+   * Fails closed when WordPress silently drops unregistered meta. The caller
+   * must not mark a distribution successful until this authenticated read
+   * returns every canonical and compatibility field exactly as written.
+   */
+  async verifyVideoMeta(postId: number, expected: Partial<AurumVideoMeta>): Promise<WpEditablePost> {
+    const post = await this.getPost(postId);
+    const mismatches = Object.entries(expected)
+      .filter(([key]) => AURUM_VIDEO_META_KEYS.includes(key as AurumVideoMetaKey))
+      .filter(([key, value]) => String(post.meta[key] ?? "") !== String(value ?? ""))
+      .map(([key]) => key);
+
+    if (mismatches.length) throw new WordPressIntegrationError(postId, this.baseUrl, mismatches);
+    return post;
   }
 
   /**

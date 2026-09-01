@@ -1,8 +1,13 @@
-import type { Movie, MovieSiteDraft, TargetSite } from "@prisma/client";
+import type { Movie, MovieSiteDraft, Tag, TargetSite } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
-import { WordPressClient } from "@/lib/wordpress-client";
+import {
+  AURUM_VIDEO_META_KEYS,
+  WordPressClient,
+  type AurumVideoMeta,
+  type WpPost,
+} from "@/lib/wordpress-client";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 export interface DistributionResult {
@@ -21,11 +26,14 @@ export interface DistributeSummary {
   results: DistributionResult[];
 }
 
+/** Movie.tags is a real relation now — every caller that touches merged content needs it eagerly loaded. */
+export type MovieWithTags = Movie & { tags: Pick<Tag, "name">[] };
+
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
-function buildContent(text: string, movie: Movie, iframeUrl?: string): string {
+function buildContent(text: string, movie: MovieWithTags, iframeUrl?: string): string {
   let html = text;
   if (iframeUrl) {
     html += `\n\n<!-- aurum-video -->\n<div class="aurum-video"><iframe src="${iframeUrl}" loading="lazy" allowfullscreen></iframe></div>`;
@@ -35,47 +43,7 @@ function buildContent(text: string, movie: Movie, iframeUrl?: string): string {
   return html;
 }
 
-function firstString(values: string[]): string {
-  return values.find((value) => value.trim())?.trim() ?? "";
-}
-
-function stripHtml(value: string): string {
-  return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function truncate(value: string, max: number): string {
-  if (value.length <= max) return value;
-  return value.slice(0, max - 3).trimEnd() + "...";
-}
-
-function buildSeoDescription(excerpt: string, content: string, title: string): string {
-  return truncate(stripHtml(excerpt || content || title), 155);
-}
-
-function buildYoastMeta(merged: ReturnType<typeof mergeContent>, movie: Movie): Record<string, string> {
-  const title = stripHtml(merged.title);
-  const description = buildSeoDescription(merged.excerpt, merged.content, title);
-  const focusKeyword = firstString([movie.mainCategory ?? "", ...merged.tags, ...merged.categories, title]);
-  const thumbnail = movie.thumbnailUrl ?? "";
-
-  return {
-    _yoast_wpseo_title: title,
-    _yoast_wpseo_metadesc: description,
-    _yoast_wpseo_focuskw: focusKeyword,
-    "_yoast_wpseo_opengraph-title": title,
-    "_yoast_wpseo_opengraph-description": description,
-    "_yoast_wpseo_twitter-title": title,
-    "_yoast_wpseo_twitter-description": description,
-    ...(thumbnail
-      ? {
-          "_yoast_wpseo_opengraph-image": thumbnail,
-          "_yoast_wpseo_twitter-image": thumbnail,
-        }
-      : {}),
-  };
-}
-
-function mergeContent(movie: Movie, draft: MovieSiteDraft | undefined) {
+function mergeContent(movie: MovieWithTags, draft: MovieSiteDraft | undefined) {
   const extraMeta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const draftExtraMeta = (draft?.extraMeta as Record<string, unknown> | null) ?? {};
   return {
@@ -84,7 +52,7 @@ function mergeContent(movie: Movie, draft: MovieSiteDraft | undefined) {
     excerpt: draft?.excerpt ?? movie.excerpt ?? "",
     content: draft?.content ?? movie.content ?? "",
     categories: draft?.categories ? asStringArray(draft.categories) : asStringArray(movie.categories),
-    tags: draft?.tags ? asStringArray(draft.tags) : asStringArray(movie.tags),
+    tags: draft?.tags ? asStringArray(draft.tags) : movie.tags.map((t) => t.name),
     extraMeta: { ...extraMeta, ...draftExtraMeta },
   };
 }
@@ -95,7 +63,26 @@ async function resolveIframeUrl(movie: Movie): Promise<string | undefined> {
   return buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig());
 }
 
-async function buildPayload(client: WordPressClient, movie: Movie, site: TargetSite, draft: MovieSiteDraft | undefined) {
+/** The complete canonical + compatibility payload expected back from REST. */
+export function buildVideoMeta(movie: Movie, iframeUrl?: string): AurumVideoMeta {
+  return {
+    aurum_movie_id: movie.id,
+    aurum_provider: movie.videoProvider ?? "",
+    aurum_video_url: movie.videoUrl ?? "",
+    aurum_iframe_url: iframeUrl ?? "",
+    aurum_thumbnail_url: movie.thumbnailUrl ?? "",
+    aurum_preview_url: movie.previewUrl ?? "",
+    aurum_jwplayer_media_id: movie.jwPlayerMediaId ?? "",
+    video_url: movie.videoUrl ?? "",
+    video_provider: movie.videoProvider ?? "",
+    jwplayer_media_id: movie.jwPlayerMediaId ?? "",
+    iframe_url: iframeUrl ?? "",
+    thumbnail_url: movie.thumbnailUrl ?? "",
+    preview_url: movie.previewUrl ?? "",
+  };
+}
+
+async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, draft: MovieSiteDraft | undefined) {
   const merged = mergeContent(movie, draft);
   const iframeUrl = await resolveIframeUrl(movie);
 
@@ -105,24 +92,10 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
     excerpt: merged.excerpt,
     status: site.defaultStatus || "publish",
     meta: {
-      ...buildYoastMeta(merged, movie),
-      // Stable identity written to every post so old-video-sync can match
-      // this exact AURUM movie back to its WordPress post later — never
-      // derived from title/slug, which can change. See src/lib/site-sync/match.ts.
-      aurum_movie_id: movie.id,
-      aurum_provider: movie.videoProvider ?? "",
-      aurum_video_url: movie.videoUrl ?? "",
-      aurum_iframe_url: iframeUrl ?? "",
-      aurum_thumbnail_url: movie.thumbnailUrl ?? "",
-      aurum_preview_url: movie.previewUrl ?? "",
-      aurum_jwplayer_media_id: movie.jwPlayerMediaId ?? "",
-      video_url: movie.videoUrl ?? "",
-      video_provider: movie.videoProvider ?? "",
-      jwplayer_media_id: movie.jwPlayerMediaId ?? "",
-      iframe_url: iframeUrl ?? "",
-      thumbnail_url: movie.thumbnailUrl ?? "",
-      preview_url: movie.previewUrl ?? "",
       ...merged.extraMeta,
+      // Stable identity and playback fields always win over arbitrary draft
+      // extraMeta so a content override cannot redirect or detach a movie.
+      ...buildVideoMeta(movie, iframeUrl),
     },
   };
   if (merged.slug) payload.slug = merged.slug;
@@ -130,10 +103,6 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
   const mainCategory = movie.mainCategory ?? "";
   if (mainCategory || merged.categories.length) {
     payload.categories = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
-    const primaryCategory = Array.isArray(payload.categories) ? payload.categories[0] : undefined;
-    if (typeof primaryCategory === "number") {
-      (payload.meta as Record<string, unknown>)._yoast_wpseo_primary_category = String(primaryCategory);
-    }
   }
   if (merged.tags.length) {
     payload.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
@@ -157,7 +126,7 @@ async function buildPayload(client: WordPressClient, movie: Movie, site: TargetS
  * movie's overall DONE/PARTIAL/FAILED state. Exported for src/lib/site-sync/job-runner.ts.
  */
 export async function distributeToSite(
-  movie: Movie,
+  movie: MovieWithTags,
   site: TargetSite,
   draft: MovieSiteDraft | undefined,
 ): Promise<DistributionResult> {
@@ -167,6 +136,7 @@ export async function distributeToSite(
     create: { movieId: movie.id, siteId: site.id, status: "PROCESSING", attempts: 1 },
   });
 
+  let createdPost: WpPost | undefined;
   try {
     const credential = decrypt({
       ciphertext: site.credentialEnc,
@@ -185,7 +155,13 @@ export async function distributeToSite(
     });
 
     const payload = await buildPayload(client, movie, site, draft);
-    const post = await client.createPost(payload);
+    createdPost = await client.createPost(payload);
+    const sentMeta = payload.meta as Record<string, unknown>;
+    const expectedMeta = Object.fromEntries(
+      AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
+    ) as AurumVideoMeta;
+    await client.verifyVideoMeta(createdPost.id, expectedMeta);
+    const post = createdPost;
 
     await prisma.distribution.update({
       where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
@@ -203,14 +179,20 @@ export async function distributeToSite(
     const message = err instanceof Error ? err.message : "Unknown distribution error";
     await prisma.distribution.update({
       where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
-      data: { status: "FAILED", errorMessage: message.slice(0, 1000) },
+      data: {
+        status: "FAILED",
+        errorMessage: message.slice(0, 1000),
+        ...(createdPost
+          ? { remotePostId: String(createdPost.id), remotePostUrl: createdPost.link }
+          : {}),
+      },
     });
     return { siteId: site.id, site: site.name, status: "failed", error: message };
   }
 }
 
 export async function distributeMovie(movieId: string, siteIds: string[]): Promise<DistributeSummary> {
-  const movie = await prisma.movie.findUnique({ where: { id: movieId } });
+  const movie = await prisma.movie.findUnique({ where: { id: movieId }, include: { tags: true } });
   if (!movie) throw new Error("Movie not found");
 
   const [sites, drafts] = await Promise.all([

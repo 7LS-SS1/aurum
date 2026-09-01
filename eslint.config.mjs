@@ -13,6 +13,7 @@ const eslintConfig = [
       "dist/**",
       "public/embeds/**",
       "wordpress-theme/aurum-video/assets/player/**",
+      "wordpress-plugin/aurum-video-core/assets/hls.light.min.js",
     ],
   },
 ];

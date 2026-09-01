@@ -27,6 +27,7 @@ export const createMovieSchema = z.object({
   jwPlayerMediaId: z.string().trim().min(1).max(255).optional(),
   extraMeta: z.record(z.string(), z.unknown()).default({}),
   targetSiteIds: z.array(z.string().min(1)).max(200).default([]),
+  actorIds: z.array(z.string().min(1)).max(50).default([]),
 });
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 
@@ -91,6 +92,29 @@ export const presignSchema = z.object({
     .max(10 * 1024 * 1024 * 1024) // 10 GB hard ceiling
     .optional(),
 });
+
+/** Batch presign for comic chapter page uploads — a chapter can have 20-40 images, so one rate-limited request issues every URL instead of looping the single-file presign endpoint. */
+export const presignBatchSchema = z
+  .array(
+    z.object({
+      filename: z
+        .string()
+        .trim()
+        .min(1)
+        .max(255)
+        .regex(/^[^/\\]+$/, "filename must not contain path separators"),
+      contentType: z.string().trim().min(1).max(255),
+      size: z
+        .number()
+        .int()
+        .positive()
+        .max(10 * 1024 * 1024 * 1024)
+        .optional(),
+    }),
+  )
+  .min(1)
+  .max(60);
+export type PresignBatchInput = z.infer<typeof presignBatchSchema>;
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/mp2t"]);
@@ -162,6 +186,9 @@ export const createCategorySchema = z.object({
 });
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 
+export const updateCategorySchema = createCategorySchema;
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
+
 export const createMainCategorySchema = z.object({
   name: z.string().trim().min(1).max(120),
 });
@@ -222,10 +249,128 @@ export const reactionSchema = z.object({
 });
 export type ReactionInput = z.infer<typeof reactionSchema>;
 
-export const createCommentSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+export const createActorSchema = z.object({
+  name: shortText,
+  age: z.number().int().min(0).max(150).optional(),
+  heightCm: z.number().int().min(0).max(300).optional(),
+  weightKg: z.number().int().min(0).max(500).optional(),
+  measurementBust: z.string().trim().max(60).optional(),
+  measurementWaist: z.string().trim().max(60).optional(),
+  measurementHip: z.string().trim().max(60).optional(),
+  bio: longText,
+  profileImageUrl: urlField.optional(),
 });
-export type CreateCommentInput = z.infer<typeof createCommentSchema>;
+export type CreateActorInput = z.infer<typeof createActorSchema>;
+
+export const updateActorSchema = createActorSchema.partial();
+export type UpdateActorInput = z.infer<typeof updateActorSchema>;
+
+/** `name` accepts one tag or several comma-separated names in a single request (the "เพิ่มแท็กใหม่ ... ใช้ ," bulk-add requirement). */
+export const createTagSchema = z.object({
+  name: z.string().trim().min(1).max(500),
+});
+export type CreateTagInput = z.infer<typeof createTagSchema>;
+
+export const updateTagSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export type UpdateTagInput = z.infer<typeof updateTagSchema>;
+
+const slugField = z
+  .string()
+  .trim()
+  .max(500)
+  .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens")
+  .optional();
+
+export const createComicSeriesSchema = z.object({
+  title: shortText,
+  slug: slugField,
+  description: longText,
+});
+export type CreateComicSeriesInput = z.infer<typeof createComicSeriesSchema>;
+
+export const updateComicSeriesSchema = createComicSeriesSchema.partial();
+export type UpdateComicSeriesInput = z.infer<typeof updateComicSeriesSchema>;
+
+export const createComicCategorySchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export type CreateComicCategoryInput = z.infer<typeof createComicCategorySchema>;
+
+export const updateComicCategorySchema = createComicCategorySchema;
+export type UpdateComicCategoryInput = z.infer<typeof updateComicCategorySchema>;
+
+/** `name` accepts one tag or several comma-separated names in a single request, same bulk-add convention as createTagSchema. */
+export const createComicTagSchema = z.object({
+  name: z.string().trim().min(1).max(500),
+});
+export type CreateComicTagInput = z.infer<typeof createComicTagSchema>;
+
+export const updateComicTagSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+export type UpdateComicTagInput = z.infer<typeof updateComicTagSchema>;
+
+export const createComicSchema = z.object({
+  title: shortText,
+  slug: slugField,
+  altTitles: z.array(z.string().trim().min(1).max(500)).max(20).default([]),
+  description: longText,
+  authorName: z.string().trim().max(255).optional(),
+  comicType: z.enum(["MANGA", "DOUJIN"]).default("DOUJIN"),
+  status: z.enum(["ONGOING", "COMPLETED", "HIATUS"]).default("ONGOING"),
+  isOneShot: z.boolean().default(false),
+  coverImageUrl: urlField.optional(),
+  coverObjectKey: z.string().trim().max(1024).optional(),
+  seriesId: z.string().trim().min(1).optional().nullable(),
+  categoryIds: z.array(z.string().min(1)).max(50).default([]),
+  tags: taxonomyList.default([]),
+});
+export type CreateComicInput = z.infer<typeof createComicSchema>;
+
+export const updateComicSchema = createComicSchema.partial();
+
+export const createComicChapterSchema = z.object({
+  comicId: z.string().trim().min(1),
+  number: z.string().trim().min(1).max(50),
+  title: z.string().trim().max(500).optional(),
+  publishedAt: z.coerce.date().optional(),
+});
+export type CreateComicChapterInput = z.infer<typeof createComicChapterSchema>;
+
+export const updateComicChapterSchema = createComicChapterSchema.omit({ comicId: true }).partial();
+export type UpdateComicChapterInput = z.infer<typeof updateComicChapterSchema>;
+
+export const createComicImagesSchema = z.object({
+  chapterId: z.string().trim().min(1),
+  items: z
+    .array(
+      z.object({
+        objectKey: z.string().trim().min(1).max(1024),
+        publicUrl: urlField,
+        sortOrder: z.number().int().min(0),
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+      }),
+    )
+    .min(1)
+    .max(60),
+});
+export type CreateComicImagesInput = z.infer<typeof createComicImagesSchema>;
+
+export const reorderComicImagesSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1),
+        sortOrder: z.number().int().min(0),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+export type ReorderComicImagesInput = z.infer<typeof reorderComicImagesSchema>;
 
 export function assertUploadAllowed(kind: "image" | "video", contentType: string, size?: number) {
   const allowed = kind === "image" ? IMAGE_TYPES : VIDEO_TYPES;

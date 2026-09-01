@@ -37,13 +37,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const iframeUrl =
       input.iframeUrl ?? (input.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(input.jwPlayerMediaId ?? existing.jwPlayerMediaId, defaultPlayer) : undefined);
 
+    const { tags, actorIds, ...rest } = input;
+
     const movie = await prisma.movie.update({
       where: { id },
       data: {
-        ...input,
+        ...rest,
         ...(iframeUrl !== undefined ? { iframeUrl } : {}),
         extraMeta: input.extraMeta as Prisma.InputJsonValue | undefined,
         targetSiteIds: input.targetSiteIds as Prisma.InputJsonValue | undefined,
+        ...(tags !== undefined ? { tags: { set: [], connectOrCreate: tags.map((name) => ({ where: { name }, create: { name } })) } } : {}),
+        ...(actorIds !== undefined ? { actors: { set: actorIds.map((actorId) => ({ id: actorId })) } } : {}),
       },
     });
 

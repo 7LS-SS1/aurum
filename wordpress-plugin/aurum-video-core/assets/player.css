@@ -1,0 +1,25 @@
+/* Plain colors, not the AURUM theme's --bg/--gold token palette — this plugin
+   must render correctly even on a site without the AURUM theme active. */
+.aurum-video-core-player {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	overflow: hidden;
+	background: #000;
+}
+
+.aurum-video-core-player video,
+.aurum-video-core-player iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 0;
+	object-fit: contain;
+	background: #000;
+}
+
+.aurum-video-core-player video:focus-visible,
+.aurum-video-core-player iframe:focus-visible {
+	outline: 3px solid #fff;
+	outline-offset: -3px;
+}

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   createMovieSchema,
   presignSchema,
-  createCommentSchema,
   viewerRegisterSchema,
   assertUploadAllowed,
   assertThemeUploadAllowed,
@@ -60,20 +59,6 @@ describe("presignSchema", () => {
     expect(() =>
       presignSchema.parse({ provider: "bunny", filename: "v.mp4", contentType: "video/mp4", size: 11 * 1024 * 1024 * 1024 }),
     ).toThrow();
-  });
-});
-
-describe("createCommentSchema", () => {
-  it("trims whitespace and rejects an empty/whitespace-only body", () => {
-    expect(() => createCommentSchema.parse({ body: "   " })).toThrow();
-  });
-
-  it("rejects a body over 2000 characters", () => {
-    expect(() => createCommentSchema.parse({ body: "a".repeat(2001) })).toThrow();
-  });
-
-  it("accepts a normal comment", () => {
-    expect(createCommentSchema.parse({ body: "great video!" })).toEqual({ body: "great video!" });
   });
 });
 

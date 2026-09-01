@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
+import {
+  failurePhaseLabel,
+  formatUploadError,
+  retryActionLabel,
+  type UploadFailurePhase,
+  validateUploadQueueItem,
+} from "@/lib/upload-queue";
 
 interface SiteRow {
   id: string;
@@ -22,13 +29,18 @@ interface MainCategoryRow {
   name: string;
 }
 
+interface ActorRow {
+  id: string;
+  name: string;
+}
+
 interface PopularTag {
   tag: string;
   count: number;
 }
 
 type QueueStatus = "queued" | "uploading" | "ready" | "saving" | "done" | "error";
-type WizardStage = "category" | "files" | "queue" | "complete";
+type WizardStage = "category" | "files" | "queue" | "processing" | "complete";
 
 interface QueueItem {
   key: string;
@@ -37,16 +49,24 @@ interface QueueItem {
   progress: number | null;
   videoUrl: string;
   error?: string;
+  errorPhase?: UploadFailurePhase;
+  validationError?: string;
   title: string;
   excerpt: string;
   content: string;
   thumbnailUrl: string;
+  thumbnailFile?: File;
   thumbProgress: number | null;
+  thumbError?: string;
   previewUrl: string;
+  previewFile?: File;
   previewProgress: number | null;
+  previewError?: string;
   categories: string[];
   tags: string[];
+  actorIds: string[];
   movieId?: string;
+  publishStatus?: string;
 }
 
 const MAX_TAGS = 50;
@@ -71,9 +91,9 @@ function statusLabel(status: QueueStatus) {
     case "uploading":
       return "กำลังอัปโหลด";
     case "ready":
-      return "พร้อมกรอกรายละเอียด";
+      return "พร้อมประมวลผล";
     case "saving":
-      return "กำลังบันทึก";
+      return "กำลังบันทึกและเผยแพร่";
     case "done":
       return "เสร็จแล้ว";
     case "error":
@@ -81,7 +101,17 @@ function statusLabel(status: QueueStatus) {
   }
 }
 
-export function NewVideosWizard({ sites, categories, mainCategories }: { sites: SiteRow[]; categories: CategoryRow[]; mainCategories: MainCategoryRow[] }) {
+export function NewVideosWizard({
+  sites,
+  categories,
+  mainCategories,
+  actors,
+}: {
+  sites: SiteRow[];
+  categories: CategoryRow[];
+  mainCategories: MainCategoryRow[];
+  actors: ActorRow[];
+}) {
   const router = useRouter();
   const [stage, setStage] = useState<WizardStage>("category");
   const [toast, setToast] = useState<string | null>(null);
@@ -104,6 +134,7 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ completed: 0, total: 0 });
 
   const fileInput = useRef<HTMLInputElement>(null);
   const thumbInput = useRef<HTMLInputElement>(null);
@@ -126,15 +157,32 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
     setQueue((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }
 
-  async function startUpload(key: string, file: File) {
-    updateItem(key, { status: "uploading", progress: 0, error: undefined });
+  async function startUpload(item: QueueItem): Promise<QueueItem | null> {
+    updateItem(item.key, {
+      status: "uploading",
+      progress: 0,
+      error: undefined,
+      errorPhase: undefined,
+      validationError: undefined,
+    });
     try {
-      const url = await presignAndUpload(file, "bunny", (pct) => updateItem(key, { progress: pct }));
-      updateItem(key, { status: "ready", progress: null, videoUrl: url });
+      const url = await presignAndUpload(item.file, "bunny", (pct) => updateItem(item.key, { progress: pct }));
+      const uploaded = { ...item, status: "ready" as const, progress: null, videoUrl: url, error: undefined, errorPhase: undefined };
+      // Patch only upload-owned fields: the user may already be editing this
+      // item's title/metadata while a large video is still uploading.
+      updateItem(item.key, {
+        status: "ready",
+        progress: null,
+        videoUrl: url,
+        error: undefined,
+        errorPhase: undefined,
+      });
+      return uploaded;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "อัปโหลดวิดีโอไม่สำเร็จ";
-      updateItem(key, { status: "error", progress: null, error: message });
-      notify(`${file.name}: ${message}`);
+      const message = formatUploadError(err, "อัปโหลดวิดีโอหลักไม่สำเร็จ");
+      updateItem(item.key, { status: "error", progress: null, error: message, errorPhase: "upload" });
+      notify(`${item.file.name}: ${message}`);
+      return null;
     }
   }
 
@@ -167,10 +215,11 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
         previewProgress: null,
         categories: [],
         tags: [],
+        actorIds: [],
       }));
 
       setQueue((prev) => [...prev, ...newItems]);
-      for (const item of newItems) void startUpload(item.key, item.file);
+      for (const item of newItems) void startUpload(item);
     } catch (err) {
       notify(err instanceof Error ? `เพิ่มไฟล์ไม่สำเร็จ: ${err.message}` : "เพิ่มไฟล์ไม่สำเร็จ");
     }
@@ -193,7 +242,7 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
   }
 
   function retryUpload(item: QueueItem) {
-    void startUpload(item.key, item.file);
+    void startUpload(item);
   }
 
   async function addNewCategory() {
@@ -236,6 +285,12 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
     updateItem(current.key, { categories: next });
   }
 
+  function toggleItemActor(id: string) {
+    if (!current) return;
+    const next = current.actorIds.includes(id) ? current.actorIds.filter((a) => a !== id) : [...current.actorIds, id];
+    updateItem(current.key, { actorIds: next });
+  }
+
   function addTag(raw: string) {
     if (!current) return;
     const parts = raw.split(",").map((t) => t.trim()).filter(Boolean);
@@ -257,103 +312,163 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
     updateItem(current.key, { tags: current.tags.filter((t) => t !== tag) });
   }
 
+  async function uploadThumbnail(item: QueueItem, file: File) {
+    updateItem(item.key, { thumbnailFile: file, thumbProgress: 0, thumbError: undefined, validationError: undefined });
+    try {
+      const url = await presignAndUpload(file, "r2", (pct) => updateItem(item.key, { thumbProgress: pct }));
+      updateItem(item.key, { thumbnailUrl: url, thumbError: undefined, validationError: undefined });
+    } catch (err) {
+      const message = formatUploadError(err, "อัปโหลดรูปหน้าปกไม่สำเร็จ");
+      updateItem(item.key, { thumbError: message });
+      notify(message);
+    } finally {
+      updateItem(item.key, { thumbProgress: null });
+    }
+  }
+
   async function onItemThumbPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !current) return;
-    const key = current.key;
-    updateItem(key, { thumbProgress: 0 });
+    await uploadThumbnail(current, file);
+    if (thumbInput.current) thumbInput.current.value = "";
+  }
+
+  async function uploadPreview(item: QueueItem, file: File) {
+    updateItem(item.key, { previewFile: file, previewProgress: 0, previewError: undefined, validationError: undefined });
     try {
-      const url = await presignAndUpload(file, "r2", (pct) => updateItem(key, { thumbProgress: pct }));
-      updateItem(key, { thumbnailUrl: url });
+      const url = await presignAndUpload(file, "r2", (pct) => updateItem(item.key, { previewProgress: pct }));
+      updateItem(item.key, { previewUrl: url, previewError: undefined, validationError: undefined });
     } catch (err) {
-      notify(err instanceof Error ? err.message : "อัปโหลดรูปไม่สำเร็จ");
+      const message = formatUploadError(err, "อัปโหลดวิดีโอพรีวิวไม่สำเร็จ");
+      updateItem(item.key, { previewError: message });
+      notify(message);
     } finally {
-      updateItem(key, { thumbProgress: null });
-      if (thumbInput.current) thumbInput.current.value = "";
+      updateItem(item.key, { previewProgress: null });
     }
   }
 
   async function onItemPreviewPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !current) return;
-    const key = current.key;
-    updateItem(key, { previewProgress: 0 });
+    await uploadPreview(current, file);
+    if (previewInput.current) previewInput.current.value = "";
+  }
+
+  async function persistQueueItem(item: QueueItem): Promise<boolean> {
+    let movieId = item.movieId;
+    updateItem(item.key, { status: "saving", error: undefined, errorPhase: undefined, validationError: undefined });
     try {
-      const url = await presignAndUpload(file, "r2", (pct) => updateItem(key, { previewProgress: pct }));
-      updateItem(key, { previewUrl: url });
-    } catch (err) {
-      notify(err instanceof Error ? err.message : "อัปโหลดวิดีโอพรีวิวไม่สำเร็จ");
-    } finally {
-      updateItem(key, { previewProgress: null });
-      if (previewInput.current) previewInput.current.value = "";
-    }
-  }
-
-  function validateCurrent(): string | null {
-    if (!current) return "ไม่มีคลิปในคิว";
-    if (current.status !== "ready" && current.status !== "error") return "กรุณารอวิดีโออัปโหลดให้เสร็จก่อน";
-    if (!current.videoUrl) return "วิดีโอยังอัปโหลดไม่สำเร็จ";
-    if (!current.title.trim()) return "กรุณากรอกชื่อเรื่อง";
-    if (!current.thumbnailUrl) return "กรุณาอัปโหลดรูปหน้าปกก่อน";
-    return null;
-  }
-
-  function nextPendingIndex(afterKey: string): number {
-    const idx = queue.findIndex((item) => item.status !== "done" && item.key !== afterKey);
-    return idx;
-  }
-
-  async function saveCurrentAndAdvance() {
-    if (!current) return;
-    const err = validateCurrent();
-    if (err) return notify(err);
-
-    const item = current;
-    updateItem(item.key, { status: "saving" });
-    setSaving(true);
-    try {
-      const movie = await apiFetch<{ id: string }>("/api/movies", {
-        method: "POST",
-        body: JSON.stringify({
-          title: item.title.trim(),
-          excerpt: item.excerpt.trim() || undefined,
-          content: item.content.trim() || undefined,
-          mainCategory,
-          thumbnailUrl: item.thumbnailUrl,
-          previewUrl: item.previewUrl.trim() || undefined,
-          videoUrl: item.videoUrl,
-          videoProvider: "bunny",
-          categories: item.categories,
-          tags: item.tags,
-        }),
-      });
-      await apiFetch(`/api/movies/${movie.id}/submit-review`, { method: "POST" });
-      updateItem(item.key, { status: "done", movieId: movie.id });
-      notify(`บันทึก "${item.title}" แล้ว`);
-
-      const remaining = queue.filter((q) => q.key !== item.key && q.status !== "done");
-      if (remaining.length === 0) {
-        setStage("complete");
+      let movie: { id: string; status?: string };
+      if (movieId) {
+        movie = await apiFetch<{ id: string; status?: string }>(`/api/movies/${movieId}`);
       } else {
-        const nextIdx = nextPendingIndex(item.key);
-        setCurrentIndex(nextIdx === -1 ? 0 : nextIdx);
+        movie = await apiFetch<{ id: string; status?: string }>("/api/movies", {
+          method: "POST",
+          body: JSON.stringify({
+            title: item.title.trim(),
+            excerpt: item.excerpt.trim() || undefined,
+            content: item.content.trim() || undefined,
+            mainCategory,
+            thumbnailUrl: item.thumbnailUrl,
+            previewUrl: item.previewUrl.trim() || undefined,
+            videoUrl: item.videoUrl,
+            videoProvider: "bunny",
+            categories: item.categories,
+            tags: item.tags,
+            actorIds: item.actorIds,
+          }),
+        });
+        movieId = movie.id;
+        updateItem(item.key, { movieId });
       }
+
+      // A retry can arrive after the server processed submit-review but the
+      // browser lost its response. Only submit DRAFT/REJECTED movies again;
+      // every later status proves the first request already moved forward.
+      if (!movie.status || movie.status === "DRAFT" || movie.status === "REJECTED") {
+        movie = await apiFetch<{ id: string; status?: string }>(`/api/movies/${movieId}/submit-review`, { method: "POST" });
+      }
+
+      updateItem(item.key, {
+        status: "done",
+        movieId,
+        publishStatus: movie.status,
+        error: undefined,
+        errorPhase: undefined,
+        validationError: undefined,
+      });
+      return true;
     } catch (err) {
-      updateItem(item.key, { status: "ready" });
-      notify(err instanceof ApiClientError ? err.message : "บันทึกไม่สำเร็จ");
-    } finally {
-      setSaving(false);
+      const phase: UploadFailurePhase = movieId ? "publish" : "save";
+      const message = formatUploadError(err, phase === "publish" ? "เผยแพร่วิดีโอไม่สำเร็จ" : "บันทึกข้อมูลวิดีโอไม่สำเร็จ");
+      updateItem(item.key, { status: "error", movieId, error: message, errorPhase: phase });
+      return false;
     }
+  }
+
+  function validateWholeQueue(): boolean {
+    const errors = new Map<string, string>();
+    for (const item of queue) {
+      if (item.status === "done") continue;
+      const issues = validateUploadQueueItem(item);
+      if (issues.length) errors.set(item.key, issues.join(" • "));
+    }
+
+    setQueue((prev) => prev.map((item) => ({ ...item, validationError: errors.get(item.key) })));
+    if (!errors.size) return true;
+
+    const firstInvalidIndex = queue.findIndex((item) => errors.has(item.key));
+    if (firstInvalidIndex >= 0) setCurrentIndex(firstInvalidIndex);
+    notify(`พบข้อมูลที่ต้องแก้ ${errors.size} คลิป — ตรวจรายละเอียดสีแดงในคิว`);
+    return false;
+  }
+
+  async function processQueueItems(items: QueueItem[]) {
+    setSaving(true);
+    setBatchProgress({ completed: 0, total: items.length });
+    setStage("processing");
+
+    for (let index = 0; index < items.length; index += 1) {
+      let item: QueueItem | null = items[index] as QueueItem;
+      if (item.errorPhase === "upload" || !item.videoUrl) item = await startUpload(item);
+      if (item) await persistQueueItem(item);
+      setBatchProgress({ completed: index + 1, total: items.length });
+    }
+
+    setSaving(false);
+    setStage("complete");
+  }
+
+  function processWholeQueue() {
+    if (!queue.length || !validateWholeQueue()) return;
+    void processQueueItems(queue.filter((item) => item.status !== "done"));
+  }
+
+  function retryFailedItem(item: QueueItem) {
+    if (item.errorPhase === "validation") {
+      const index = queue.findIndex((candidate) => candidate.key === item.key);
+      setCurrentIndex(Math.max(0, index));
+      setStage("queue");
+      return;
+    }
+    void processQueueItems([item]);
+  }
+
+  function retryAllFailed() {
+    const retryable = queue.filter((item) => item.status === "error" && item.errorPhase !== "validation");
+    if (retryable.length) void processQueueItems(retryable);
   }
 
   function resetAll() {
     setQueue([]);
     setCurrentIndex(0);
     setMainCategory("");
+    setBatchProgress({ completed: 0, total: 0 });
     setStage("category");
   }
 
   const doneCount = queue.filter((q) => q.status === "done").length;
+  const failedCount = queue.filter((q) => q.status === "error").length;
 
   return (
     <div className="upload-wizard-shell">
@@ -365,7 +480,8 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
               {stage === "category" && "เลือกหมวดหมู่หลักก่อนเริ่มอัปโหลด"}
               {stage === "files" && "ลากไฟล์วิดีโอมาวางได้หลายไฟล์พร้อมกัน"}
               {stage === "queue" && current && `กำลังกรอกรายละเอียดคลิปที่ ${currentIndex + 1}/${queue.length}`}
-              {stage === "complete" && `เสร็จสิ้น ${doneCount} คลิป`}
+              {stage === "processing" && `ระบบกำลังประมวลผลทั้งคิว ${batchProgress.completed}/${batchProgress.total}`}
+              {stage === "complete" && `สำเร็จ ${doneCount} คลิป${failedCount ? ` • ผิดพลาด ${failedCount} คลิป` : ""}`}
             </p>
           </div>
           <button type="button" className="upload-close" onClick={() => router.push("/admin/videos")} aria-label="ปิด">
@@ -454,9 +570,12 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     </div>
                     {item.status === "error" && (
                       <>
-                        <div style={{ fontSize: 10.5, color: "var(--red)", overflowWrap: "anywhere" }}>{item.error}</div>
+                        <div className="upload-item-error">
+                          <b>{failurePhaseLabel(item.errorPhase)}</b>
+                          <span>{item.error}</span>
+                        </div>
                         <button type="button" className="btn-ghost" style={{ fontSize: 11, padding: "3px 8px" }} onClick={() => retryUpload(item)}>
-                          ลองใหม่
+                          {retryActionLabel(item.errorPhase)}
                         </button>
                       </>
                     )}
@@ -485,7 +604,12 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     {statusLabel(item.status)}
                     {item.status === "uploading" && item.progress !== null ? ` ${Math.round(item.progress)}%` : ""}
                   </div>
-                  {item.status === "error" && <div style={{ fontSize: 10.5, color: "var(--red)", overflowWrap: "anywhere" }}>{item.error}</div>}
+                  {(item.error || item.validationError) && (
+                    <div className="upload-item-error">
+                      <b>{failurePhaseLabel(item.validationError ? "validation" : item.errorPhase)}</b>
+                      <span>{item.validationError ?? item.error}</span>
+                    </div>
+                  )}
                   {item.status === "error" && (
                     <button
                       type="button"
@@ -493,10 +617,11 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                       style={{ fontSize: 11, padding: "3px 8px" }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        retryUpload(item);
+                        if (item.errorPhase === "upload") retryUpload(item);
+                        else retryFailedItem(item);
                       }}
                     >
-                      ลองใหม่
+                      {retryActionLabel(item.errorPhase)}
                     </button>
                   )}
                   {item.status !== "done" && item.status !== "saving" && (
@@ -521,7 +646,7 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                   <label>
                     ชื่อเรื่อง <span className="req">*</span>
                   </label>
-                  <input type="text" value={current.title} onChange={(e) => updateItem(current.key, { title: e.target.value })} placeholder="ใส่ชื่อวิดีโอ" />
+                  <input type="text" value={current.title} onChange={(e) => updateItem(current.key, { title: e.target.value, validationError: undefined })} placeholder="ใส่ชื่อวิดีโอ" />
                 </div>
                 <div className="field">
                   <label>คำอธิบาย</label>
@@ -556,6 +681,16 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                       <span>{Math.round(current.thumbProgress)}%</span>
                     </div>
                   )}
+                  {current.thumbError && (
+                    <div className="upload-inline-error" role="alert">
+                      <span>{current.thumbError}</span>
+                      {current.thumbnailFile && (
+                        <button type="button" className="btn-ghost" onClick={() => uploadThumbnail(current, current.thumbnailFile as File)}>
+                          ลองอัปโหลดรูปใหม่
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="field">
@@ -571,8 +706,8 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                         เลือกไฟล์พรีวิว
                         <input ref={previewInput} type="file" accept="video/*" onChange={onItemPreviewPick} style={{ display: "none" }} />
                       </label>
-                      {current.previewUrl && (
-                        <button type="button" className="btn-ghost" onClick={() => updateItem(current.key, { previewUrl: "" })}>
+                      {(current.previewUrl || current.previewError) && (
+                        <button type="button" className="btn-ghost" onClick={() => updateItem(current.key, { previewUrl: "", previewFile: undefined, previewError: undefined, validationError: undefined })}>
                           ลบพรีวิว
                         </button>
                       )}
@@ -582,6 +717,16 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     <div className="upload-wizard-progress compact">
                       <div style={{ width: `${Math.round(current.previewProgress)}%` }} />
                       <span>{Math.round(current.previewProgress)}%</span>
+                    </div>
+                  )}
+                  {current.previewError && (
+                    <div className="upload-inline-error" role="alert">
+                      <span>{current.previewError}</span>
+                      {current.previewFile && (
+                        <button type="button" className="btn-ghost" onClick={() => uploadPreview(current, current.previewFile as File)}>
+                          ลองอัปโหลดพรีวิวใหม่
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -661,6 +806,19 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     </div>
                   )}
                 </div>
+
+                <div className="field">
+                  <label>นักแสดง</label>
+                  <div className="category-grid">
+                    {actors.map((a) => (
+                      <label key={a.id} className="category-option">
+                        <input type="checkbox" checked={current.actorIds.includes(a.id)} onChange={() => toggleItemActor(a.id)} />
+                        {a.name}
+                      </label>
+                    ))}
+                    {actors.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีนักแสดงในระบบ</span>}
+                  </div>
+                </div>
               </div>
 
               <aside className="upload-preview-side">
@@ -697,26 +855,71 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
           </>
         )}
 
-        {stage === "complete" && (
+        {stage === "processing" && (
           <div className="upload-processing-panel">
-            <div className="complete-mark">OK</div>
-            <h3>เสร็จสิ้นทั้งคิว</h3>
-            <p>บันทึกวิดีโอสำเร็จ {doneCount} คลิป</p>
-            <div style={{ display: "grid", gap: 8, width: "min(480px, 100%)", textAlign: "left" }}>
+            <div className="processing-ring" aria-hidden="true" />
+            <h3>กำลังบันทึกและเผยแพร่ทั้งคิว</h3>
+            <p>
+              ประมวลผลแล้ว {batchProgress.completed}/{batchProgress.total} คลิป — ระบบจะทำรายการถัดไปอัตโนมัติแม้บางคลิปเกิดข้อผิดพลาด
+            </p>
+            <div className="upload-result-list" aria-live="polite">
               {queue.map((item) => (
-                <div key={item.key} className="upload-copy-field">
-                  <span>{item.title}</span>
-                  {item.movieId ? (
-                    <button className="btn-ghost" type="button" onClick={() => router.push(`/admin/videos/${item.movieId}/preview`)}>
-                      เปิดตัวอย่าง
-                    </button>
-                  ) : (
-                    <b>ไม่สำเร็จ</b>
+                <div key={item.key} className={`upload-result-item ${item.status}`}>
+                  <div>
+                    <b>{item.title || item.file.name}</b>
+                    <span>{statusLabel(item.status)}</span>
+                  </div>
+                  {item.error && (
+                    <div className="upload-item-error">
+                      <b>{failurePhaseLabel(item.errorPhase)}</b>
+                      <span>{item.error}</span>
+                    </div>
                   )}
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
+          </div>
+        )}
+
+        {stage === "complete" && (
+          <div className="upload-processing-panel">
+            <div className={`complete-mark ${failedCount ? "has-errors" : ""}`}>{failedCount ? "!" : "OK"}</div>
+            <h3>{failedCount ? "ประมวลผลเสร็จ แต่มีรายการผิดพลาด" : "เสร็จสิ้นทั้งคิว"}</h3>
+            <p>
+              สำเร็จ {doneCount} คลิป{failedCount ? ` • ไม่สำเร็จ ${failedCount} คลิป` : ""}
+            </p>
+            <div className="upload-result-list">
+              {queue.map((item) => (
+                <div key={item.key} className={`upload-result-item ${item.status}`}>
+                  <div>
+                    <b>{item.title || item.file.name}</b>
+                    <span>{item.status === "done" ? `สำเร็จ${item.publishStatus ? ` (${item.publishStatus})` : ""}` : "ไม่สำเร็จ"}</span>
+                  </div>
+                  {item.status === "error" && (
+                    <>
+                      <div className="upload-item-error" role="alert">
+                        <b>ขั้นตอน: {failurePhaseLabel(item.errorPhase)}</b>
+                        <span>{item.error ?? "ไม่ทราบสาเหตุ"}</span>
+                      </div>
+                      <button className="btn btn-ghost" type="button" disabled={saving} onClick={() => retryFailedItem(item)}>
+                        {retryActionLabel(item.errorPhase)}
+                      </button>
+                    </>
+                  )}
+                  {item.status === "done" && item.movieId && (
+                    <button className="btn-ghost" type="button" onClick={() => router.push(`/admin/videos/${item.movieId}/preview`)}>
+                      เปิดตัวอย่าง
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="upload-complete-actions">
+              {failedCount > 0 && (
+                <button className="btn btn-gold" type="button" disabled={saving} onClick={retryAllFailed}>
+                  ลองรายการที่ล้มเหลวทั้งหมด ({failedCount})
+                </button>
+              )}
               <button className="btn btn-ghost" type="button" onClick={resetAll}>
                 อัปโหลดชุดใหม่
               </button>
@@ -732,7 +935,10 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
             <div className="upload-foot-status">
               {stage === "category" && (mainCategory ? "พร้อมไปขั้นตอนอัปโหลดไฟล์" : "ต้องเลือกหมวดหมู่หลักก่อน")}
               {stage === "files" && (queue.length ? `เพิ่มแล้ว ${queue.length} คลิป` : "ยังไม่ได้เพิ่มไฟล์วิดีโอ")}
-              {stage === "queue" && (saving ? "กำลังบันทึก..." : "กรอกรายละเอียดให้ครบก่อนบันทึก")}
+              {stage === "queue" &&
+                (currentIndex === queue.length - 1
+                  ? `ขั้นสุดท้าย: ระบบจะบันทึกและเผยแพร่ทั้ง ${queue.length} คลิปต่อเนื่องโดยอัตโนมัติ`
+                  : `กรอกรายละเอียดคลิปที่ ${currentIndex + 1}/${queue.length} — รายละเอียดจะบันทึกพร้อมกันในขั้นสุดท้าย`)}
             </div>
             <div className="upload-foot-actions">
               {stage === "category" && (
@@ -750,8 +956,7 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                     className="btn btn-gold"
                     disabled={queue.length === 0}
                     onClick={() => {
-                      const idx = nextPendingIndex("");
-                      setCurrentIndex(idx === -1 ? 0 : idx);
+                      setCurrentIndex(0);
                       setStage("queue");
                     }}
                   >
@@ -764,9 +969,20 @@ export function NewVideosWizard({ sites, categories, mainCategories }: { sites: 
                   <button type="button" className="btn btn-ghost" onClick={() => setStage("files")} disabled={saving}>
                     เพิ่มไฟล์อีก
                   </button>
-                  <button type="button" className="btn btn-gold" onClick={saveCurrentAndAdvance} disabled={saving || !current || current.status === "saving"}>
-                    {saving ? "กำลังบันทึก..." : "บันทึกคลิปนี้ + ถัดไป"}
-                  </button>
+                  {currentIndex > 0 && (
+                    <button type="button" className="btn btn-ghost" onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}>
+                      คลิปก่อนหน้า
+                    </button>
+                  )}
+                  {currentIndex < queue.length - 1 ? (
+                    <button type="button" className="btn btn-gold" onClick={() => setCurrentIndex((index) => Math.min(queue.length - 1, index + 1))}>
+                      รายละเอียดคลิปถัดไป
+                    </button>
+                  ) : (
+                    <button type="button" className="btn btn-gold" onClick={processWholeQueue} disabled={saving || !queue.length}>
+                      บันทึกและเผยแพร่ทั้งหมด ({queue.length})
+                    </button>
+                  )}
                 </>
               )}
             </div>

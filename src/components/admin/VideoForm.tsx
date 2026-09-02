@@ -93,6 +93,7 @@ export function VideoForm({
   const [step, setStep] = useState<WizardStep>(initialMovie?.videoUrl || initialMovie?.jwPlayerMediaId || initialMovie?.iframeUrl ? "details" : "upload");
 
   const [title, setTitle] = useState(initialMovie?.title ?? "");
+  const [slug, setSlug] = useState(initialMovie?.slug ?? "");
   const [excerpt, setExcerpt] = useState(initialMovie?.excerpt ?? "");
   const [content, setContent] = useState(initialMovie?.content ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(initialMovie?.thumbnailUrl ?? "");
@@ -308,6 +309,7 @@ export function VideoForm({
   function buildPayload() {
     return {
       title: title.trim(),
+      slug: slug.trim() || undefined,
       excerpt: excerpt.trim() || undefined,
       content: content.trim() || undefined,
       mainCategory,
@@ -428,6 +430,11 @@ export function VideoForm({
                   ชื่อเรื่อง <span className="req">*</span>
                 </label>
                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ใส่ชื่อวิดีโอ" />
+              </div>
+              <div className="field">
+                <label>Slug (URL)</label>
+                <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="ปล่อยว่างเพื่อสร้างจากชื่อเรื่องอัตโนมัติ" />
+                <div className="hint">ใช้เป็นส่วนหนึ่งของลิงก์วิดีโอ — ปล่อยว่างไว้ ระบบจะสร้างให้จากชื่อเรื่องเอง</div>
               </div>
               <div className="field">
                 <label>คำอธิบาย</label>

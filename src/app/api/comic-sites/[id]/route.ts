@@ -1,0 +1,79 @@
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { encrypt } from "@/lib/crypto";
+import { updateComicSiteSchema } from "@/lib/validation";
+import { apiError, jsonOk, ApiError } from "@/lib/api-response";
+import { requireMinRole, requireRole } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
+
+const COMIC_SITE_PUBLIC_SELECT = {
+  id: true,
+  name: true,
+  baseUrl: true,
+  authType: true,
+  wpUsername: true,
+  postType: true,
+  categoryRestBase: true,
+  tagRestBase: true,
+  defaultStatus: true,
+  comicTypes: true,
+  isActive: true,
+  healthStatus: true,
+  lastCheckedAt: true,
+  createdAt: true,
+} as const;
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const actor = await requireMinRole("MANAGER");
+    const { id } = await params;
+    const input = updateComicSiteSchema.parse(await req.json());
+
+    const existing = await prisma.comicTargetSite.findUnique({ where: { id } });
+    if (!existing) throw new ApiError("comic_site_not_found", 404);
+
+    const enc = input.credential ? encrypt(input.credential) : null;
+
+    const site = await prisma.comicTargetSite.update({
+      where: { id },
+      data: {
+        name: input.name,
+        baseUrl: input.baseUrl,
+        authType: input.authType,
+        wpUsername: input.wpUsername,
+        postType: input.postType,
+        categoryRestBase: input.categoryRestBase,
+        tagRestBase: input.tagRestBase,
+        defaultStatus: input.defaultStatus,
+        comicTypes: input.comicTypes,
+        isActive: input.isActive,
+        ...(enc ? { credentialEnc: enc.ciphertext, credentialIv: enc.iv, credentialTag: enc.tag } : {}),
+      },
+      select: COMIC_SITE_PUBLIC_SELECT,
+    });
+
+    const action = input.isActive === false && existing.isActive ? "disable_comic_site" : input.isActive === true && !existing.isActive ? "enable_comic_site" : "update_comic_site";
+    await logAudit({ actor, action, resourceType: "comic_site", resourceId: site.id });
+
+    return jsonOk(site);
+  } catch (err) {
+    return apiError(err);
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const actor = await requireRole("HEAD");
+    const { id } = await params;
+    const existing = await prisma.comicTargetSite.findUnique({ where: { id } });
+    if (!existing) throw new ApiError("comic_site_not_found", 404);
+
+    await prisma.comicTargetSite.delete({ where: { id } });
+
+    await logAudit({ actor, action: "delete_comic_site", resourceType: "comic_site", resourceId: id, metadata: { name: existing.name } });
+
+    return jsonOk({ ok: true });
+  } catch (err) {
+    return apiError(err);
+  }
+}

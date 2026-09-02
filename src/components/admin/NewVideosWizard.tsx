@@ -52,6 +52,7 @@ interface QueueItem {
   errorPhase?: UploadFailurePhase;
   validationError?: string;
   title: string;
+  slug: string;
   excerpt: string;
   content: string;
   thumbnailUrl: string;
@@ -207,6 +208,7 @@ export function NewVideosWizard({
         progress: null,
         videoUrl: "",
         title: titleFromFilename(file.name),
+        slug: "",
         excerpt: "",
         content: "",
         thumbnailUrl: "",
@@ -366,6 +368,7 @@ export function NewVideosWizard({
           method: "POST",
           body: JSON.stringify({
             title: item.title.trim(),
+            slug: item.slug.trim() || undefined,
             excerpt: item.excerpt.trim() || undefined,
             content: item.content.trim() || undefined,
             mainCategory,
@@ -647,6 +650,11 @@ export function NewVideosWizard({
                     ชื่อเรื่อง <span className="req">*</span>
                   </label>
                   <input type="text" value={current.title} onChange={(e) => updateItem(current.key, { title: e.target.value, validationError: undefined })} placeholder="ใส่ชื่อวิดีโอ" />
+                </div>
+                <div className="field">
+                  <label>Slug (URL)</label>
+                  <input type="text" value={current.slug} onChange={(e) => updateItem(current.key, { slug: e.target.value })} placeholder="ปล่อยว่างเพื่อสร้างจากชื่อเรื่องอัตโนมัติ" />
+                  <div className="hint">ใช้เป็นส่วนหนึ่งของลิงก์วิดีโอ — ปล่อยว่างไว้ ระบบจะสร้างให้จากชื่อเรื่องเอง</div>
                 </div>
                 <div className="field">
                   <label>คำอธิบาย</label>

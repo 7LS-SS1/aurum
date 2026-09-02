@@ -51,6 +51,34 @@ export async function presignAndUpload(
   });
 }
 
+/**
+ * Comic/doujin cover image upload — the Doujin-specific counterpart to
+ * presignAndUpload's "r2" branch, hitting /api/comic-uploads/presign (the
+ * separate Doujin R2 bucket) instead of /api/uploads/presign (video).
+ */
+export async function presignAndUploadComicImage(file: File, onProgress: (pct: number) => void): Promise<{ url: string; objectKey: string }> {
+  const contentType = resolveUploadContentType(file);
+  const presign = await apiFetch<Record<string, unknown>>("/api/comic-uploads/presign", {
+    method: "POST",
+    body: JSON.stringify({ provider: "r2", filename: file.name, contentType, size: file.size }),
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(presign.method as string, presign.uploadUrl as string);
+    const headers = (presign.headers as Record<string, string>) ?? {};
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.send(file);
+  });
+
+  return { url: presign.publicUrl as string, objectKey: presign.objectKey as string };
+}
+
 export async function presignAndUploadWordpressThemeAsset(
   file: File,
   kind: "package" | "screenshot",

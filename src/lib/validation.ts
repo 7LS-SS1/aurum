@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SLUG_PATTERN, SLUG_PATTERN_MESSAGE } from "@/lib/slug";
 
 /** Shared string limits so a single bad request can't write unbounded rows. */
 const shortText = z.string().trim().min(1).max(500);
@@ -12,7 +13,7 @@ export const createMovieSchema = z.object({
     .string()
     .trim()
     .max(500)
-    .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens")
+    .regex(SLUG_PATTERN, SLUG_PATTERN_MESSAGE)
     .optional(),
   excerpt: longText,
   content: longText,
@@ -59,6 +60,25 @@ export const createSiteSchema = z.object({
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 
 export const updateSiteSchema = createSiteSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+/** Doujin/Comic's own destination-site schema — deliberately separate from createSiteSchema (video), same shape with comicTypes replacing mainCategories. */
+export const createComicSiteSchema = z.object({
+  name: shortText,
+  baseUrl: urlField,
+  authType: z.enum(["APP_PASSWORD", "JWT"]).default("APP_PASSWORD"),
+  wpUsername: z.string().trim().max(255).optional(),
+  credential: z.string().trim().min(8).max(2048),
+  postType: z.string().trim().min(1).max(100).default("posts"),
+  categoryRestBase: z.string().trim().min(1).max(100).default("categories"),
+  tagRestBase: z.string().trim().min(1).max(100).default("tags"),
+  defaultStatus: z.enum(["publish", "draft", "pending"]).default("publish"),
+  comicTypes: z.array(z.enum(["MANGA", "DOUJIN"])).max(2).default([]),
+});
+export type CreateComicSiteInput = z.infer<typeof createComicSiteSchema>;
+
+export const updateComicSiteSchema = createComicSiteSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
@@ -194,6 +214,9 @@ export const createMainCategorySchema = z.object({
 });
 export type CreateMainCategoryInput = z.infer<typeof createMainCategorySchema>;
 
+export const updateMainCategorySchema = createMainCategorySchema;
+export type UpdateMainCategoryInput = z.infer<typeof updateMainCategorySchema>;
+
 export const createUserSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
   password: z.string().min(8).max(255),
@@ -280,7 +303,7 @@ const slugField = z
   .string()
   .trim()
   .max(500)
-  .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens")
+  .regex(SLUG_PATTERN, SLUG_PATTERN_MESSAGE)
   .optional();
 
 export const createComicSeriesSchema = z.object({

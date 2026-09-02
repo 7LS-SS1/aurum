@@ -34,6 +34,14 @@ const envSchema = z.object({
   R2_PUBLIC_HOSTNAME: optionalString(),
   NEXT_PUBLIC_R2_PUBLIC_URL: optionalUrl(),
 
+  // Deliberately a separate bucket/credential set from R2_* above — Doujin/Comic
+  // storage must never share a bucket with video (see src/lib/storage/doujin-r2.ts).
+  R2_DOUJIN_ACCOUNT_ID: optionalString(),
+  R2_DOUJIN_ACCESS_KEY_ID: optionalString(),
+  R2_DOUJIN_SECRET_ACCESS_KEY: optionalString(),
+  R2_DOUJIN_BUCKET_NAME: optionalString(),
+  R2_DOUJIN_PUBLIC_HOSTNAME: optionalString(),
+
   BUNNY_LIBRARY_ID: optionalString(),
   BUNNY_API_KEY: optionalString(),
   BUNNY_CDN_HOST: optionalString(),

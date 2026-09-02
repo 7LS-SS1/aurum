@@ -117,7 +117,7 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
           <p>{description}</p>
           {(tags.length > 0 || categories.length > 0) && (
             <div className="admin-watch-tags">
-              {[...categories, ...tags].slice(0, 12).map((tag) => (
+              {[...new Set([...categories, ...tags])].slice(0, 12).map((tag) => (
                 <span key={tag}>#{tag}</span>
               ))}
             </div>

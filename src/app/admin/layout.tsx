@@ -78,6 +78,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="side-link side-link-sub" href="/admin/tags/new">
             เพิ่มแท็กใหม่
           </Link>
+
+          <div className="side-subcat">จัดการหมวดหมู่หลัก</div>
+          <Link className="side-link side-link-sub" href="/admin/main-categories">
+            หมวดหมู่หลักทั้งหมด
+          </Link>
+          <Link className="side-link side-link-sub" href="/admin/main-categories/new">
+            เพิ่มหมวดหมู่หลักใหม่
+          </Link>
         </div>
         <div className="side-sec">
           <div className="side-cat">Doujin/Comic</div>
@@ -110,6 +118,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
           <Link className="side-link side-link-sub" href="/admin/comic-tags/new">
             เพิ่มแท็กใหม่
+          </Link>
+
+          <div className="side-subcat">ระบบกระจายเนื้อหา</div>
+          <Link className="side-link side-link-sub" href="/admin/comic-sites">
+            เว็บปลายทาง
           </Link>
         </div>
         <div className="side-sec">

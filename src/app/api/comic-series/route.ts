@@ -5,21 +5,10 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
-
-function slugifyTitle(title: string) {
-  const slug = title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-
-  return slug || `series-${Date.now().toString(36)}`;
-}
+import { slugifyTitle } from "@/lib/slug";
 
 async function getUniqueSeriesSlug(title: string, requestedSlug?: string) {
-  const base = requestedSlug?.trim() || slugifyTitle(title);
+  const base = requestedSlug?.trim() || slugifyTitle(title, "series");
   let slug = base;
   let suffix = 2;
 

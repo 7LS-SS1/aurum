@@ -631,3 +631,33 @@ model ComicTag {
 
   @@map("comic_tags")
 }
+
+/// Destination WordPress site for Doujin/Comic content — deliberately a
+/// separate model from TargetSite (video), per explicit request that the two
+/// never share domains/credentials. Same shape and same encryption approach
+/// (AES-256-GCM, see src/lib/crypto.ts) as TargetSite; comicTypes replaces
+/// mainCategories as the per-site content-scope filter (empty = unrestricted,
+/// same non-FK "store the value directly" rationale). No push/distribution
+/// relations yet (siteDrafts/distributions/syncJobs on TargetSite) — this is
+/// connection management only until the Doujin/Comic push pipeline is built.
+model ComicTargetSite {
+  id               String       @id @default(cuid())
+  name             String
+  baseUrl          String       @map("base_url")
+  authType         SiteAuthType @default(APP_PASSWORD) @map("auth_type")
+  wpUsername       String?      @map("wp_username")
+  credentialEnc    String       @map("credential_enc")
+  credentialIv     String       @map("credential_iv")
+  credentialTag    String       @map("credential_tag")
+  postType         String       @default("posts") @map("post_type")
+  categoryRestBase String       @default("categories") @map("category_rest_base")
+  tagRestBase      String       @default("tags") @map("tag_rest_base")
+  defaultStatus    String       @default("publish") @map("default_status")
+  comicTypes       Json         @default("[]") @map("comic_types")
+  isActive         Boolean      @default(true) @map("is_active")
+  healthStatus     SiteHealth   @default(UNKNOWN) @map("health_status")
+  lastCheckedAt    DateTime?    @map("last_checked_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  @@map("comic_target_sites")
+}

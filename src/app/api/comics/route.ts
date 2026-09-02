@@ -6,24 +6,13 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
+import { slugifyTitle } from "@/lib/slug";
 
 const COMIC_TYPES = ["MANGA", "DOUJIN"] as const;
 const COMIC_STATUSES = ["ONGOING", "COMPLETED", "HIATUS"] as const;
 
-function slugifyTitle(title: string) {
-  const slug = title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-
-  return slug || `comic-${Date.now().toString(36)}`;
-}
-
 async function getUniqueComicSlug(title: string, requestedSlug?: string) {
-  const base = requestedSlug?.trim() || slugifyTitle(title);
+  const base = requestedSlug?.trim() || slugifyTitle(title, "comic");
   let slug = base;
   let suffix = 2;
 

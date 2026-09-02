@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
+import { slugifyTitle } from "@/lib/slug";
 
 const MOVIE_STATUSES = [
   "DRAFT",
@@ -27,20 +28,8 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.length > 0) : [];
 }
 
-function slugifyTitle(title: string) {
-  const slug = title
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-
-  return slug || `video-${Date.now().toString(36)}`;
-}
-
 async function getUniqueMovieSlug(title: string, requestedSlug?: string) {
-  const base = requestedSlug?.trim() || slugifyTitle(title);
+  const base = requestedSlug?.trim() || slugifyTitle(title, "video");
   let slug = base;
   let suffix = 2;
 

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { presignAndUpload } from "@/lib/upload-client";
+import { presignAndUploadComicImage } from "@/lib/upload-client";
 
 interface ComicCategoryRow {
   id: string;
@@ -54,6 +54,7 @@ export function ComicForm({
   const [isOneShot, setIsOneShot] = useState(initialComic?.isOneShot ?? false);
   const [seriesId, setSeriesId] = useState(initialComic?.seriesId ?? "");
   const [coverImageUrl, setCoverImageUrl] = useState(initialComic?.coverImageUrl ?? "");
+  const [coverObjectKey, setCoverObjectKey] = useState("");
   const [coverProgress, setCoverProgress] = useState<number | null>(null);
   const coverInput = useRef<HTMLInputElement>(null);
 
@@ -84,8 +85,9 @@ export function ComicForm({
     if (!file) return;
     setCoverProgress(0);
     try {
-      const url = await presignAndUpload(file, "r2", setCoverProgress);
+      const { url, objectKey } = await presignAndUploadComicImage(file, setCoverProgress);
       setCoverImageUrl(url);
+      setCoverObjectKey(objectKey);
       notify("อัปโหลดรูปปกเสร็จ");
     } catch (err) {
       notify(err instanceof Error ? err.message : "อัปโหลดรูปปกไม่สำเร็จ");
@@ -174,6 +176,7 @@ export function ComicForm({
         status,
         isOneShot,
         coverImageUrl: coverImageUrl || undefined,
+        coverObjectKey: coverObjectKey || undefined,
         seriesId: seriesId || null,
         categoryIds: selectedCategories,
         tags,

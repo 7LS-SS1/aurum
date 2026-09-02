@@ -94,7 +94,7 @@ export function ComicDetailManager({ initialComic }: { initialComic: ComicDetail
         </div>
 
         {showAddChapter && (
-          <form onSubmit={addChapter} style={{ padding: "0 12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <form onSubmit={addChapter} className="filter-bar" style={{ padding: "0 12px 16px" }}>
             <input type="text" value={chapterNumber} onChange={(e) => setChapterNumber(e.target.value)} placeholder="เลขตอน เช่น 1, 1.5" style={{ maxWidth: 140 }} />
             <input type="text" value={chapterTitle} onChange={(e) => setChapterTitle(e.target.value)} placeholder="ชื่อตอน (ไม่บังคับ)" style={{ flex: 1, minWidth: 160 }} />
             <button className="btn btn-gold" type="submit" disabled={pending}>

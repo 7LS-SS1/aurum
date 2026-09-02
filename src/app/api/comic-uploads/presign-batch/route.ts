@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
 import { presignBatchSchema, assertUploadAllowed } from "@/lib/validation";
-import { presignR2Upload, getR2ObjectKeyFromPublicUrl } from "@/lib/storage/r2";
+import { presignDoujinR2Upload, getDoujinR2ObjectKeyFromPublicUrl } from "@/lib/storage/doujin-r2";
 import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireMinRole } from "@/lib/authz";
 import { rateLimit } from "@/lib/rate-limit";
 
 /**
- * Batch variant of /api/uploads/presign — a doujin/manga chapter can have
+ * Batch variant for chapter page uploads — a doujin/manga chapter can have
  * 20-40 page images, so issuing one presigned URL per request (and burning
- * one rate-limit slot each time) would blow through the 20/min limit on that
- * route. This does one rateLimit check for the whole batch instead. Images
- * only (chapter pages and covers are always images, never video).
+ * one rate-limit slot each time) would blow through a per-file rate limit.
+ * This does one rateLimit check for the whole batch instead. Images only.
+ * Uses the Doujin-specific R2 client (separate bucket from video) — see
+ * src/lib/storage/doujin-r2.ts.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -24,8 +25,8 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.all(
       items.map(async (item) => {
-        const presigned = await presignR2Upload({ filename: item.filename, contentType: item.contentType, folder: "images" });
-        const objectKey = getR2ObjectKeyFromPublicUrl(presigned.publicUrl);
+        const presigned = await presignDoujinR2Upload({ filename: item.filename, contentType: item.contentType, folder: "pages" });
+        const objectKey = getDoujinR2ObjectKeyFromPublicUrl(presigned.publicUrl);
         if (!objectKey) throw new ApiError("internal_server_error", 500);
         return { ...presigned, objectKey };
       }),

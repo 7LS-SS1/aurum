@@ -119,11 +119,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="side-link side-link-sub" href="/admin/comic-tags/new">
             เพิ่มแท็กใหม่
           </Link>
-
-          <div className="side-subcat">ระบบกระจายเนื้อหา</div>
-          <Link className="side-link side-link-sub" href="/admin/comic-sites">
-            เว็บปลายทาง
-          </Link>
         </div>
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>

@@ -1,6 +1,6 @@
 {
   "name": "aurum-project",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "description": "AURUM — multi-site content distribution platform (Next.js / Prisma / NeonDB / Cloudflare R2)",
   "engines": {

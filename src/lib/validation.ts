@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SLUG_PATTERN, SLUG_PATTERN_MESSAGE } from "@/lib/slug";
+import { SLUG_PATTERN, SLUG_PATTERN_MESSAGE, slugifyTitle } from "@/lib/slug";
 
 /** Shared string limits so a single bad request can't write unbounded rows. */
 const shortText = z.string().trim().min(1).max(500);
@@ -7,14 +7,23 @@ const longText = z.string().trim().max(20_000).optional();
 const urlField = z.string().trim().url().max(2048);
 const taxonomyList = z.array(z.string().trim().min(1).max(120)).max(50);
 
+/**
+ * Admins commonly paste a filename or title into the optional URL field. It
+ * can contain spaces, dots, underscores, emoji, or Thai text; normalize it
+ * before validation so a cosmetic URL value can never block a video publish.
+ */
+const movieSlugField = z.preprocess(
+  (value) => {
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    return trimmed ? slugifyTitle(trimmed, "video") : undefined;
+  },
+  z.string().trim().min(1).max(500).regex(SLUG_PATTERN, SLUG_PATTERN_MESSAGE).optional(),
+);
+
 export const createMovieSchema = z.object({
   title: shortText,
-  slug: z
-    .string()
-    .trim()
-    .max(500)
-    .regex(SLUG_PATTERN, SLUG_PATTERN_MESSAGE)
-    .optional(),
+  slug: movieSlugField,
   excerpt: longText,
   content: longText,
   mainCategory: z.string().trim().min(1).max(120),

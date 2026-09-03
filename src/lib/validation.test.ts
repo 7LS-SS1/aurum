@@ -29,13 +29,19 @@ describe("createMovieSchema", () => {
     expect(() => createMovieSchema.parse({ title: "x" })).toThrow();
   });
 
-  it("rejects a slug with uppercase or spaces", () => {
-    expect(() => createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "Not Valid Slug" })).toThrow();
+  it("normalizes a manually entered slug with spaces and punctuation", () => {
+    const result = createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "Not Valid_Slug.mp4" });
+    expect(result.slug).toBe("not-valid-slug-mp4");
   });
 
   it("accepts a proper lowercase-hyphen slug", () => {
     const result = createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "my-movie-2024" });
     expect(result.slug).toBe("my-movie-2024");
+  });
+
+  it("preserves Thai letters while normalizing a pasted filename", () => {
+    const result = createMovieSchema.parse({ title: "x", mainCategory: "AV", slug: "คลิป พิเศษ_01.mp4" });
+    expect(result.slug).toBe("คลิป-พิเศษ-01-mp4");
   });
 
   it("rejects a malformed thumbnailUrl", () => {

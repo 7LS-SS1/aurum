@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
+import { generateVideoAssets } from "@/lib/browser-video-assets";
 import {
   failurePhaseLabel,
   formatUploadError,
@@ -63,6 +64,8 @@ interface QueueItem {
   previewFile?: File;
   previewProgress: number | null;
   previewError?: string;
+  autoAssetStatus: "idle" | "generating" | "done" | "error";
+  autoAssetError?: string;
   categories: string[];
   tags: string[];
   actorIds: string[];
@@ -215,13 +218,17 @@ export function NewVideosWizard({
         thumbProgress: null,
         previewUrl: "",
         previewProgress: null,
+        autoAssetStatus: "idle",
         categories: [],
         tags: [],
         actorIds: [],
       }));
 
       setQueue((prev) => [...prev, ...newItems]);
-      for (const item of newItems) void startUpload(item);
+      for (const item of newItems) {
+        void startUpload(item);
+        void generateAssets(item);
+      }
     } catch (err) {
       notify(err instanceof Error ? `เพิ่มไฟล์ไม่สำเร็จ: ${err.message}` : "เพิ่มไฟล์ไม่สำเร็จ");
     }
@@ -349,6 +356,32 @@ export function NewVideosWizard({
     }
   }
 
+  async function generateAssets(item: QueueItem) {
+    updateItem(item.key, { autoAssetStatus: "generating", autoAssetError: undefined });
+    try {
+      const { thumbnail, preview } = await generateVideoAssets(item.file);
+      const [thumbnailUrl, previewUrl] = await Promise.all([
+        presignAndUpload(thumbnail, "r2", (pct) => updateItem(item.key, { thumbProgress: pct })),
+        presignAndUpload(preview, "r2", (pct) => updateItem(item.key, { previewProgress: pct })),
+      ]);
+      updateItem(item.key, {
+        thumbnailUrl,
+        previewUrl,
+        thumbnailFile: thumbnail,
+        previewFile: preview,
+        thumbError: undefined,
+        previewError: undefined,
+        autoAssetStatus: "done",
+        autoAssetError: undefined,
+      });
+    } catch (err) {
+      const message = formatUploadError(err, "สร้างรูปหน้าปกและวิดีโอพรีวิวอัตโนมัติไม่สำเร็จ");
+      updateItem(item.key, { autoAssetStatus: "error", autoAssetError: message });
+    } finally {
+      updateItem(item.key, { thumbProgress: null, previewProgress: null });
+    }
+  }
+
   async function onItemPreviewPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !current) return;
@@ -413,6 +446,10 @@ export function NewVideosWizard({
     const errors = new Map<string, string>();
     for (const item of queue) {
       if (item.status === "done") continue;
+      if (item.autoAssetStatus === "generating") {
+        errors.set(item.key, "กำลังสร้างรูปหน้าปกและวิดีโอพรีวิวอัตโนมัติ");
+        continue;
+      }
       const issues = validateUploadQueueItem(item);
       if (issues.length) errors.set(item.key, issues.join(" • "));
     }
@@ -669,6 +706,14 @@ export function NewVideosWizard({
                   <label>
                     รูปหน้าปก <span className="req">*</span>
                   </label>
+                  {current.autoAssetStatus === "generating" && <p className="asset-generation-note">กำลังสร้างจาก 10%, 50%, 90% ของวิดีโอ</p>}
+                  {current.autoAssetStatus === "done" && <p className="asset-generation-note success">สร้างอัตโนมัติจาก 10%, 50%, 90% แล้ว</p>}
+                  {current.autoAssetStatus === "error" && (
+                    <div className="upload-inline-error">
+                      <span>{current.autoAssetError}</span>
+                      <button type="button" className="btn-ghost" onClick={() => void generateAssets(current)}>ลองสร้างใหม่</button>
+                    </div>
+                  )}
                   <div className="thumb-picker-row">
                     {current.thumbnailUrl ? (
                       <div className="thumb-preview-card">
@@ -703,6 +748,8 @@ export function NewVideosWizard({
 
                 <div className="field">
                   <label>วิดีโอพรีวิวตอน hover</label>
+                  {current.autoAssetStatus === "generating" && <p className="asset-generation-note">กำลังตัด 5 ช่วง: 10%, 30%, 50%, 70%, 90% ช่วงละ 2 วินาที</p>}
+                  {current.autoAssetStatus === "done" && <p className="asset-generation-note success">สร้างวิดีโอพรีวิว 10 วินาทีอัตโนมัติแล้ว</p>}
                   <div className="preview-picker-row">
                     {current.previewUrl ? (
                       <video className="preview-clip-card" src={current.previewUrl} muted loop playsInline controls preload="metadata" />

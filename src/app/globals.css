@@ -899,6 +899,17 @@ select {
   flex-wrap: wrap;
 }
 
+.asset-generation-note {
+  margin: -2px 0 9px;
+  color: var(--muted-2);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.asset-generation-note.success {
+  color: var(--ok);
+}
+
 .thumb-preview-card,
 .thumb-empty,
 .preview-clip-card,

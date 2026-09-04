@@ -321,6 +321,11 @@ export function NewVideosWizard({
     updateItem(current.key, { tags: current.tags.filter((t) => t !== tag) });
   }
 
+  function addAllPopularTags() {
+    if (!current) return;
+    addTag((popularTags ?? []).slice(0, 20).map(({ tag }) => tag).join(","));
+  }
+
   async function uploadThumbnail(item: QueueItem, file: File) {
     updateItem(item.key, { thumbnailFile: file, thumbProgress: 0, thumbError: undefined, validationError: undefined });
     try {
@@ -694,12 +699,12 @@ export function NewVideosWizard({
                   <div className="hint">ใช้เป็นส่วนหนึ่งของลิงก์วิดีโอ — ปล่อยว่างไว้ ระบบจะสร้างให้จากชื่อเรื่องเอง</div>
                 </div>
                 <div className="field">
-                  <label>คำอธิบาย</label>
-                  <textarea value={current.excerpt} onChange={(e) => updateItem(current.key, { excerpt: e.target.value })} placeholder="ใส่คำอธิบายหรือรายละเอียดสั้น ๆ" />
-                </div>
-                <div className="field">
-                  <label>เนื้อหาเพิ่มเติม</label>
-                  <textarea value={current.content} onChange={(e) => updateItem(current.key, { content: e.target.value })} placeholder="รายละเอียดเพิ่มเติมสำหรับ WordPress" />
+                  <label>คำอธิบายและเนื้อหาเพิ่มเติม</label>
+                  <textarea
+                    value={current.content || current.excerpt}
+                    onChange={(e) => updateItem(current.key, { excerpt: e.target.value, content: e.target.value })}
+                    placeholder="ใส่คำอธิบายและเนื้อหาเพิ่มเติมสำหรับ WordPress"
+                  />
                 </div>
 
                 <div className="field">
@@ -852,13 +857,18 @@ export function NewVideosWizard({
                     />
                   </div>
                   {popularTags && popularTags.length > 0 && (
-                    <div className="chipbar" style={{ padding: "10px 0 0" }}>
-                      {popularTags.map(({ tag }) => (
-                        <button key={tag} type="button" className={`chip ${current.tags.includes(tag) ? "active" : ""}`} onClick={() => (current.tags.includes(tag) ? removeTag(tag) : addTag(tag))}>
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
+                    <>
+                      <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={addAllPopularTags}>
+                        เพิ่มแท็กอัตโนมัติ (20 แท็ก)
+                      </button>
+                      <div className="chipbar" style={{ padding: "10px 0 0" }}>
+                        {popularTags.map(({ tag }) => (
+                          <button key={tag} type="button" className={`chip ${current.tags.includes(tag) ? "active" : ""}`} onClick={() => (current.tags.includes(tag) ? removeTag(tag) : addTag(tag))}>
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
 

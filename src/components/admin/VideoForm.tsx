@@ -94,8 +94,9 @@ export function VideoForm({
 
   const [title, setTitle] = useState(initialMovie?.title ?? "");
   const [slug, setSlug] = useState(initialMovie?.slug ?? "");
-  const [excerpt, setExcerpt] = useState(initialMovie?.excerpt ?? "");
-  const [content, setContent] = useState(initialMovie?.content ?? "");
+  // The downstream API and WordPress integration still use both fields. Keep
+  // them in sync from one editor so staff only enter the description once.
+  const [description, setDescription] = useState(initialMovie?.content ?? initialMovie?.excerpt ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(initialMovie?.thumbnailUrl ?? "");
   const [videoUrl, setVideoUrl] = useState(initialMovie?.videoUrl ?? "");
   const [previewUrl, setPreviewUrl] = useState(initialMovie?.previewUrl ?? "");
@@ -295,7 +296,7 @@ export function VideoForm({
   }
 
   function addAllPopularTags() {
-    for (const { tag } of popularTags ?? []) addTag(tag);
+    for (const { tag } of (popularTags ?? []).slice(0, 20)) addTag(tag);
   }
 
   function validate(): string | null {
@@ -310,8 +311,8 @@ export function VideoForm({
     return {
       title: title.trim(),
       slug: slug.trim() || undefined,
-      excerpt: excerpt.trim() || undefined,
-      content: content.trim() || undefined,
+      excerpt: description.trim() || undefined,
+      content: description.trim() || undefined,
       mainCategory,
       thumbnailUrl,
       previewUrl: previewUrl.trim() || undefined,
@@ -437,12 +438,8 @@ export function VideoForm({
                 <div className="hint">ใช้เป็นส่วนหนึ่งของลิงก์วิดีโอ — ปล่อยว่างไว้ ระบบจะสร้างให้จากชื่อเรื่องเอง</div>
               </div>
               <div className="field">
-                <label>คำอธิบาย</label>
-                <textarea value={excerpt} onChange={(e) => setExcerpt(e.target.value)} placeholder="ใส่คำอธิบายหรือรายละเอียดสั้น ๆ" />
-              </div>
-              <div className="field">
-                <label>เนื้อหาเพิ่มเติม</label>
-                <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="รายละเอียดเพิ่มเติมสำหรับ WordPress" />
+                <label>คำอธิบายและเนื้อหาเพิ่มเติม</label>
+                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ใส่คำอธิบายและเนื้อหาเพิ่มเติมสำหรับ WordPress" />
               </div>
 
               <div className="field">
@@ -627,7 +624,7 @@ export function VideoForm({
                 {popularTags && popularTags.length > 0 && (
                   <>
                     <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={addAllPopularTags}>
-                      เพิ่ม Tag ยอดนิยม {popularTags.length} อันดับ
+                      เพิ่มแท็กอัตโนมัติ (20 แท็ก)
                     </button>
                     <div className="chipbar" style={{ padding: "10px 0 0" }}>
                       {popularTags.map(({ tag }) => (
@@ -672,7 +669,7 @@ export function VideoForm({
                   )}
                   <div>
                     <b style={{ display: "block", color: "var(--text)", fontSize: 15 }}>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
-                    {excerpt && <p style={{ color: "var(--muted-2)", fontSize: 12.5, marginTop: 6 }}>{excerpt}</p>}
+                    {description && <p style={{ color: "var(--muted-2)", fontSize: 12.5, marginTop: 6 }}>{description}</p>}
                   </div>
                 </div>
               </div>

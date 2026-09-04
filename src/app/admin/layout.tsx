@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { AdminComicMenu } from "@/components/admin/AdminComicMenu";
+import { AdminVideoMenu } from "@/components/admin/AdminVideoMenu";
 import { can } from "@/lib/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -44,82 +46,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Backend Dashboard
           </Link>
         </div>
-        <div className="side-sec">
-          <div className="side-cat">เนื้อหา</div>
-          <Link className="side-link" href="/admin/videos">
-            วิดีโอทั้งหมด
-          </Link>
-          {role && can(role, "movie:create") && (
-            <Link className="side-link" href="/admin/videos/new">
-              เพิ่มวิดีโอใหม่
-            </Link>
-          )}
-
-          <div className="side-subcat">จัดการนักแสดง</div>
-          <Link className="side-link side-link-sub" href="/admin/actors">
-            นักแสดงทั้งหมด
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/actors/new">
-            เพิ่มนักแสดงใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการหมวดหมู่</div>
-          <Link className="side-link side-link-sub" href="/admin/categories">
-            หมวดหมู่ทั้งหมด
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/categories/new">
-            เพิ่มหมวดหมู่ใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการแท็ก</div>
-          <Link className="side-link side-link-sub" href="/admin/tags">
-            จัดการแท็ก
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/tags/new">
-            เพิ่มแท็กใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการหมวดหมู่หลัก</div>
-          <Link className="side-link side-link-sub" href="/admin/main-categories">
-            หมวดหมู่หลักทั้งหมด
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/main-categories/new">
-            เพิ่มหมวดหมู่หลักใหม่
-          </Link>
-        </div>
-        <div className="side-sec">
-          <div className="side-cat">Doujin/Comic</div>
-          <Link className="side-link" href="/admin/comics">
-            คอมมิคทั้งหมด
-          </Link>
-          <Link className="side-link" href="/admin/comics/new">
-            เพิ่มคอมมิคใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการซีรีส์</div>
-          <Link className="side-link side-link-sub" href="/admin/comic-series">
-            ซีรีส์ทั้งหมด
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/comic-series/new">
-            เพิ่มซีรีส์ใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการหมวดหมู่</div>
-          <Link className="side-link side-link-sub" href="/admin/comic-categories">
-            หมวดหมู่ทั้งหมด
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/comic-categories/new">
-            เพิ่มหมวดหมู่ใหม่
-          </Link>
-
-          <div className="side-subcat">จัดการแท็ก</div>
-          <Link className="side-link side-link-sub" href="/admin/comic-tags">
-            จัดการแท็ก
-          </Link>
-          <Link className="side-link side-link-sub" href="/admin/comic-tags/new">
-            เพิ่มแท็กใหม่
-          </Link>
-        </div>
+        <AdminVideoMenu canCreate={Boolean(role && can(role, "movie:create"))} />
+        <AdminComicMenu />
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>
           <Link className="side-link" href="/admin/sites">

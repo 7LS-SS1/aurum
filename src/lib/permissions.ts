@@ -23,6 +23,7 @@ export const ROLE_RANK: Record<Exclude<Role, "SYSTEM">, number> = {
 };
 
 export type Action =
+  | "actor:push"
   | "movie:view"
   | "movie:create"
   | "movie:edit"
@@ -44,6 +45,7 @@ export type Action =
   | "upload:quick-publish";
 
 const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
+  "actor:push": "MANAGER",
   "movie:view": "STAFF",
   "movie:create": "STAFF",
   "movie:edit": "STAFF",

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ActorPushPanel } from "./ActorPushPanel";
 import { useState, useTransition } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
@@ -20,7 +21,7 @@ interface PaginationState {
   pageSize: number;
 }
 
-export function ActorsManager({ initialActors, initialPagination }: { initialActors: ActorRow[]; initialPagination: PaginationState }) {
+export function ActorsManager({ initialActors, initialPagination, pushSites = [], canPush = false }: { initialActors: ActorRow[]; initialPagination: PaginationState; pushSites?: { id: string; name: string }[]; canPush?: boolean }) {
   const [actors, setActors] = useState(initialActors);
   const [pagination, setPagination] = useState(initialPagination);
   const [q, setQ] = useState("");
@@ -87,6 +88,7 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
           ค้นหา
         </button>
       </form>
+      {canPush && <ActorPushPanel actors={actors} sites={pushSites} />}
       {actors.length === 0 && <div className="empty">ยังไม่มีนักแสดงในระบบ</div>}
       {actors.map((a) => (
         <div key={a.id} className="site-row" style={{ cursor: "default" }}>

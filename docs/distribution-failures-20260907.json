@@ -1,0 +1,593 @@
+{
+  "capturedAt": "2026-09-07T09:07:42.420Z",
+  "statuses": [
+    {
+      "_count": {
+        "_all": 783
+      },
+      "status": "FAILED"
+    },
+    {
+      "_count": {
+        "_all": 6731
+      },
+      "status": "SUCCESS"
+    },
+    {
+      "_count": {
+        "_all": 771
+      },
+      "status": "PENDING"
+    }
+  ],
+  "movies": [
+    {
+      "_count": {
+        "_all": 702
+      },
+      "status": "DONE"
+    },
+    {
+      "_count": {
+        "_all": 36
+      },
+      "status": "PARTIAL"
+    },
+    {
+      "_count": {
+        "_all": 43
+      },
+      "status": "FAILED"
+    }
+  ],
+  "categories": {
+    "timeout": 8,
+    "other": 3,
+    "http_500": 180,
+    "wordpress_database": 197,
+    "metadata_verification": 395
+  },
+  "failedUniqueMovies": 80,
+  "failedOnDoneMovies": 1,
+  "failedWithRemoteId": 437,
+  "sites": [
+    {
+      "id": "cmrnsmsc402jcmv0kjvafcvgi",
+      "name": "zaixt.net",
+      "baseUrl": "https://zaixt.net/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-16T17:39:14.100Z",
+      "failed": 57
+    },
+    {
+      "id": "cmrnt0mhg032kmv0kzi1txiq1",
+      "name": "annettejosephstyle.com",
+      "baseUrl": "https://annettejosephstyle.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-23T08:19:28.780Z",
+      "failed": 57
+    },
+    {
+      "id": "cmrz3rv3b01mmqb0kij340d2f",
+      "name": "boxvide.online",
+      "baseUrl": "https://boxvide.online/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-24T15:36:34.386Z",
+      "failed": 59
+    },
+    {
+      "id": "cmt5sbpr7004unw0krqzdpc38",
+      "name": "วาร์ปหี.com",
+      "baseUrl": "https://xn--s3cpls6av2n.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-08-23T12:30:10.845Z",
+      "failed": 53
+    },
+    {
+      "id": "cms3mjibn03mfqb0kbx6x0qeo",
+      "name": "เอากัน.com",
+      "baseUrl": "https://xn--12c2cycrd6f.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-08-22T13:21:50.151Z",
+      "failed": 57
+    },
+    {
+      "id": "cmrcnl4df001umz0kfzale74r",
+      "name": "ดูแตด.com",
+      "baseUrl": "https://xn--l3cac7lpb.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-09T08:38:25.130Z",
+      "failed": 59
+    },
+    {
+      "id": "cmsu9a624017ho60k0ghwsdl9",
+      "name": "javhub24.com",
+      "baseUrl": "https://javhub24.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-08-22T13:21:53.352Z",
+      "failed": 0
+    },
+    {
+      "id": "cmrap1pt4000wp60kkkfboju4",
+      "name": "yeddude.com",
+      "baseUrl": "https://yeddude.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-07T13:37:53.133Z",
+      "failed": 56
+    },
+    {
+      "id": "cmrcnpwkd003fmz0k8d75tlxn",
+      "name": "หวังตอก.com",
+      "baseUrl": "https://xn--12cl6bzdtapz.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-08T22:36:09.276Z",
+      "failed": 57
+    },
+    {
+      "id": "cmrddf5n8006pmz0k8kbicenu",
+      "name": "yedx.org",
+      "baseUrl": "https://yedx.org/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-10T02:56:54.765Z",
+      "failed": 60
+    },
+    {
+      "id": "cmrkk0zqa0138mv0kwz9jy37c",
+      "name": "brigadeneopolis.live",
+      "baseUrl": "https://brigadeneopolis.live/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-14T11:14:58.462Z",
+      "failed": 58
+    },
+    {
+      "id": "cmrnr033d02j7mv0k2nkm9oqd",
+      "name": "tmrwstudio.me",
+      "baseUrl": "https://tmrwstudio.me/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-07-16T16:53:32.366Z",
+      "failed": 54
+    },
+    {
+      "id": "cmt4a5qrq02y7o60kblbq1nqz",
+      "name": "เย็ดยับยับ.com",
+      "baseUrl": "https://xn--l3cma3abb7hc2kzc.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-08-22T13:31:47.206Z",
+      "failed": 51
+    },
+    {
+      "id": "cmr6k1ypv000371i4t47wgis9",
+      "name": "doomhee.com",
+      "baseUrl": "https://doomhee.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-09-05T06:21:06.335Z",
+      "failed": 60
+    },
+    {
+      "id": "cmtbo2gea01cznw0koup0jsi6",
+      "name": "thaitube.live - Toddz",
+      "baseUrl": "https://thaitube.live/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-09-05T06:21:10.788Z",
+      "failed": 45
+    },
+    {
+      "id": "cmtr0bgvp02a5pg0kliikqb6r",
+      "name": "Test Videos",
+      "baseUrl": "https://fabrics-registration-traditions-diabetes.trycloudflare.com/",
+      "isActive": true,
+      "healthStatus": "OK",
+      "lastCheckedAt": "2026-09-07T08:57:08.623Z",
+      "failed": 0
+    }
+  ],
+  "groups": [
+    {
+      "siteId": "cmt5sbpr7004unw0krqzdpc38",
+      "message": "AURUM Video Core integration is not ready on https://xn--s3cpls6av2n.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 35,
+      "withRemoteId": 35,
+      "first": "2026-09-01T16:56:18.773Z",
+      "last": "2026-09-07T05:04:44.267Z"
+    },
+    {
+      "siteId": "cmr6k1ypv000371i4t47wgis9",
+      "message": "AURUM Video Core integration is not ready on https://doomhee.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 33,
+      "withRemoteId": 33,
+      "first": "2026-09-01T19:37:18.561Z",
+      "last": "2026-09-07T05:12:51.480Z"
+    },
+    {
+      "siteId": "cmt4a5qrq02y7o60kblbq1nqz",
+      "message": "AURUM Video Core integration is not ready on https://xn--l3cma3abb7hc2kzc.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 29,
+      "withRemoteId": 29,
+      "first": "2026-09-01T19:37:27.557Z",
+      "last": "2026-09-07T04:23:07.789Z"
+    },
+    {
+      "siteId": "cmtbo2gea01cznw0koup0jsi6",
+      "message": "AURUM Video Core integration is not ready on https://thaitube.live/ WordPress post <id> did not persist REST meta aurum_movie_id, aurum_provider, aurum_video_url, aurum_thumbnail_url, video_provider, video_url, thumbnail_url. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 29,
+      "withRemoteId": 29,
+      "first": "2026-09-01T19:37:08.509Z",
+      "last": "2026-09-07T04:09:48.856Z"
+    },
+    {
+      "siteId": "cmrnsmsc402jcmv0kjvafcvgi",
+      "message": "AURUM Video Core integration is not ready on https://zaixt.net/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 29,
+      "withRemoteId": 29,
+      "first": "2026-09-01T19:37:19.647Z",
+      "last": "2026-09-07T05:09:04.587Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "AURUM Video Core integration is not ready on https://boxvide.online/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 27,
+      "withRemoteId": 27,
+      "first": "2026-09-01T16:56:19.509Z",
+      "last": "2026-09-07T05:04:44.552Z"
+    },
+    {
+      "siteId": "cmrddf5n8006pmz0k8kbicenu",
+      "message": "AURUM Video Core integration is not ready on https://yedx.org/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 27,
+      "withRemoteId": 27,
+      "first": "2026-09-01T19:37:17.870Z",
+      "last": "2026-09-07T04:45:20.149Z"
+    },
+    {
+      "siteId": "cmrnt0mhg032kmv0kzi1txiq1",
+      "message": "AURUM Video Core integration is not ready on https://annettejosephstyle.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 26,
+      "withRemoteId": 26,
+      "first": "2026-09-01T19:37:15.726Z",
+      "last": "2026-09-07T05:12:51.125Z"
+    },
+    {
+      "siteId": "cmrkk0zqa0138mv0kwz9jy37c",
+      "message": "AURUM Video Core integration is not ready on https://brigadeneopolis.live/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 25,
+      "withRemoteId": 25,
+      "first": "2026-09-01T19:37:16.955Z",
+      "last": "2026-09-07T05:12:50.938Z"
+    },
+    {
+      "siteId": "cmrcnpwkd003fmz0k8d75tlxn",
+      "message": "AURUM Video Core integration is not ready on https://xn--12cl6bzdtapz.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 25,
+      "withRemoteId": 25,
+      "first": "2026-09-01T19:37:20.106Z",
+      "last": "2026-09-07T05:12:51.059Z"
+    },
+    {
+      "siteId": "cmrap1pt4000wp60kkkfboju4",
+      "message": "AURUM Video Core integration is not ready on https://yeddude.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 25,
+      "withRemoteId": 25,
+      "first": "2026-09-01T19:37:25.784Z",
+      "last": "2026-09-07T05:12:52.124Z"
+    },
+    {
+      "siteId": "cmrnr033d02j7mv0k2nkm9oqd",
+      "message": "AURUM Video Core integration is not ready on https://tmrwstudio.me/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 24,
+      "withRemoteId": 24,
+      "first": "2026-09-01T19:37:50.132Z",
+      "last": "2026-09-07T05:09:03.306Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "[https://boxvide.online/] <h1>Error establishing a database connection</h1>",
+      "count": 23,
+      "withRemoteId": 1,
+      "first": "2026-08-30T04:56:16.693Z",
+      "last": "2026-09-07T05:12:50.223Z"
+    },
+    {
+      "siteId": "cmrcnl4df001umz0kfzale74r",
+      "message": "AURUM Video Core integration is not ready on https://xn--l3cac7lpb.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 23,
+      "withRemoteId": 23,
+      "first": "2026-09-01T19:37:36.887Z",
+      "last": "2026-09-07T04:45:19.571Z"
+    },
+    {
+      "siteId": "cmrcnl4df001umz0kfzale74r",
+      "message": "[https://xn--l3cac7lpb.com/] HTTP 500 Internal Server Error",
+      "count": 22,
+      "withRemoteId": 5,
+      "first": "2026-08-30T04:37:20.929Z",
+      "last": "2026-09-07T05:09:03.018Z"
+    },
+    {
+      "siteId": "cms3mjibn03mfqb0kbx6x0qeo",
+      "message": "AURUM Video Core integration is not ready on https://xn--12c2cycrd6f.com/ WordPress post <id> did not persist REST meta aurum_movie_id. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 22,
+      "withRemoteId": 22,
+      "first": "2026-09-01T19:37:14.060Z",
+      "last": "2026-09-07T04:26:38.330Z"
+    },
+    {
+      "siteId": "cmrddf5n8006pmz0k8kbicenu",
+      "message": "[https://yedx.org/] HTTP 500 Internal Server Error",
+      "count": 21,
+      "withRemoteId": 5,
+      "first": "2026-08-30T04:37:20.935Z",
+      "last": "2026-09-07T05:09:03.185Z"
+    },
+    {
+      "siteId": "cms3mjibn03mfqb0kbx6x0qeo",
+      "message": "[https://xn--12c2cycrd6f.com/] <h1>Error establishing a database connection</h1>",
+      "count": 20,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:23.676Z",
+      "last": "2026-09-07T05:12:50.209Z"
+    },
+    {
+      "siteId": "cmrnt0mhg032kmv0kzi1txiq1",
+      "message": "[https://annettejosephstyle.com/] <h1>Error establishing a database connection</h1>",
+      "count": 19,
+      "withRemoteId": 0,
+      "first": "2026-09-01T03:42:30.229Z",
+      "last": "2026-09-07T05:09:01.949Z"
+    },
+    {
+      "siteId": "cmr6k1ypv000371i4t47wgis9",
+      "message": "[https://doomhee.com/] HTTP 500 Internal Server Error",
+      "count": 18,
+      "withRemoteId": 1,
+      "first": "2026-08-30T04:37:20.930Z",
+      "last": "2026-09-03T11:28:35.290Z"
+    },
+    {
+      "siteId": "cmrkk0zqa0138mv0kwz9jy37c",
+      "message": "[https://brigadeneopolis.live/] HTTP 500 Internal Server Error",
+      "count": 18,
+      "withRemoteId": 2,
+      "first": "2026-08-30T04:40:41.016Z",
+      "last": "2026-09-03T11:28:35.286Z"
+    },
+    {
+      "siteId": "cmrap1pt4000wp60kkkfboju4",
+      "message": "[https://yeddude.com/] <h1>Error establishing a database connection</h1>",
+      "count": 17,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:11.099Z",
+      "last": "2026-09-07T05:09:01.975Z"
+    },
+    {
+      "siteId": "cmrcnpwkd003fmz0k8d75tlxn",
+      "message": "[https://xn--12cl6bzdtapz.com/] HTTP 500 Internal Server Error",
+      "count": 17,
+      "withRemoteId": 0,
+      "first": "2026-08-30T04:40:41.119Z",
+      "last": "2026-09-04T16:03:13.005Z"
+    },
+    {
+      "siteId": "cmrnsmsc402jcmv0kjvafcvgi",
+      "message": "[https://zaixt.net/] HTTP 500 Internal Server Error",
+      "count": 17,
+      "withRemoteId": 2,
+      "first": "2026-08-30T04:44:09.210Z",
+      "last": "2026-09-07T05:12:50.403Z"
+    },
+    {
+      "siteId": "cmt4a5qrq02y7o60kblbq1nqz",
+      "message": "[https://xn--l3cma3abb7hc2kzc.com/] <h1>Error establishing a database connection</h1>",
+      "count": 17,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:11.198Z",
+      "last": "2026-09-07T05:09:02.019Z"
+    },
+    {
+      "siteId": "cmrnr033d02j7mv0k2nkm9oqd",
+      "message": "[https://tmrwstudio.me/] <h1>Error establishing a database connection</h1>",
+      "count": 16,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:16.571Z",
+      "last": "2026-09-07T04:45:18.321Z"
+    },
+    {
+      "siteId": "cmtbo2gea01cznw0koup0jsi6",
+      "message": "AURUM Video Core integration is not ready on https://thaitube.live/ WordPress post <id> did not persist REST meta aurum_movie_id, aurum_provider, aurum_video_url, aurum_thumbnail_url, aurum_preview_url, video_provider, video_url, thumbnail_url, preview_url. Install/activate aurum-video-core and check /wp-json/aurum-video-core/v1/diagnostics.",
+      "count": 16,
+      "withRemoteId": 16,
+      "first": "2026-09-03T17:41:55.665Z",
+      "last": "2026-09-07T05:12:50.191Z"
+    },
+    {
+      "siteId": "cmrcnpwkd003fmz0k8d75tlxn",
+      "message": "[https://xn--12cl6bzdtapz.com/] <h1>Error establishing a database connection</h1>",
+      "count": 15,
+      "withRemoteId": 2,
+      "first": "2026-09-01T19:37:23.602Z",
+      "last": "2026-09-07T04:23:06.743Z"
+    },
+    {
+      "siteId": "cmrkk0zqa0138mv0kwz9jy37c",
+      "message": "[https://brigadeneopolis.live/] <h1>Error establishing a database connection</h1>",
+      "count": 15,
+      "withRemoteId": 2,
+      "first": "2026-09-01T19:37:23.723Z",
+      "last": "2026-09-07T04:23:06.842Z"
+    },
+    {
+      "siteId": "cmrap1pt4000wp60kkkfboju4",
+      "message": "[https://yeddude.com/] HTTP 500 Internal Server Error",
+      "count": 14,
+      "withRemoteId": 1,
+      "first": "2026-08-30T04:40:41.120Z",
+      "last": "2026-09-03T11:28:35.291Z"
+    },
+    {
+      "siteId": "cms3mjibn03mfqb0kbx6x0qeo",
+      "message": "[https://xn--12c2cycrd6f.com/] HTTP 500 Internal Server Error",
+      "count": 14,
+      "withRemoteId": 0,
+      "first": "2026-08-30T04:37:20.935Z",
+      "last": "2026-09-03T11:28:35.327Z"
+    },
+    {
+      "siteId": "cmrnr033d02j7mv0k2nkm9oqd",
+      "message": "[https://tmrwstudio.me/] HTTP 500 Internal Server Error",
+      "count": 14,
+      "withRemoteId": 2,
+      "first": "2026-08-30T04:40:41.117Z",
+      "last": "2026-09-07T05:12:50.309Z"
+    },
+    {
+      "siteId": "cmt5sbpr7004unw0krqzdpc38",
+      "message": "[https://xn--s3cpls6av2n.com/] <h1>Error establishing a database connection</h1>",
+      "count": 13,
+      "withRemoteId": 0,
+      "first": "2026-08-30T04:56:16.637Z",
+      "last": "2026-09-07T05:09:03.174Z"
+    },
+    {
+      "siteId": "cmrcnl4df001umz0kfzale74r",
+      "message": "[https://xn--l3cac7lpb.com/] <h1>Error establishing a database connection</h1>",
+      "count": 12,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:23.730Z",
+      "last": "2026-09-07T05:12:50.383Z"
+    },
+    {
+      "siteId": "cmrnt0mhg032kmv0kzi1txiq1",
+      "message": "[https://annettejosephstyle.com/] HTTP 500 Internal Server Error",
+      "count": 11,
+      "withRemoteId": 1,
+      "first": "2026-08-30T04:44:09.119Z",
+      "last": "2026-09-03T17:41:56.881Z"
+    },
+    {
+      "siteId": "cmrnsmsc402jcmv0kjvafcvgi",
+      "message": "[https://zaixt.net/] <h1>Error establishing a database connection</h1>",
+      "count": 11,
+      "withRemoteId": 1,
+      "first": "2026-09-01T19:37:23.702Z",
+      "last": "2026-09-07T04:45:18.515Z"
+    },
+    {
+      "siteId": "cmrddf5n8006pmz0k8kbicenu",
+      "message": "[https://yedx.org/] <h1>Error establishing a database connection</h1>",
+      "count": 10,
+      "withRemoteId": 2,
+      "first": "2026-09-01T19:37:23.463Z",
+      "last": "2026-09-07T05:12:49.342Z"
+    },
+    {
+      "siteId": "cmr6k1ypv000371i4t47wgis9",
+      "message": "[https://doomhee.com/] <h1>Error establishing a database connection</h1>",
+      "count": 9,
+      "withRemoteId": 0,
+      "first": "2026-09-01T19:37:23.806Z",
+      "last": "2026-09-07T04:45:18.234Z"
+    },
+    {
+      "siteId": "cmt5sbpr7004unw0krqzdpc38",
+      "message": "[https://xn--s3cpls6av2n.com/] HTTP 500 Internal Server Error",
+      "count": 5,
+      "withRemoteId": 4,
+      "first": "2026-09-01T19:37:41.611Z",
+      "last": "2026-09-07T05:12:50.376Z"
+    },
+    {
+      "siteId": "cmt4a5qrq02y7o60kblbq1nqz",
+      "message": "[https://xn--l3cma3abb7hc2kzc.com/] HTTP 500 Internal Server Error",
+      "count": 5,
+      "withRemoteId": 3,
+      "first": "2026-09-02T02:39:37.446Z",
+      "last": "2026-09-07T05:12:50.326Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "[https://boxvide.online/] HTTP 500 Internal Server Error",
+      "count": 4,
+      "withRemoteId": 3,
+      "first": "2026-09-02T02:47:45.314Z",
+      "last": "2026-09-07T05:09:02.009Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "The operation was aborted due to timeout",
+      "count": 3,
+      "withRemoteId": 0,
+      "first": "2026-08-24T13:56:40.272Z",
+      "last": "2026-08-25T12:55:48.464Z"
+    },
+    {
+      "siteId": "cmrddf5n8006pmz0k8kbicenu",
+      "message": "The operation was aborted due to timeout",
+      "count": 2,
+      "withRemoteId": 0,
+      "first": "2026-08-14T15:13:41.218Z",
+      "last": "2026-09-04T16:02:15.824Z"
+    },
+    {
+      "siteId": "cms3mjibn03mfqb0kbx6x0qeo",
+      "message": "The operation was aborted due to timeout",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-07-27T19:48:22.362Z",
+      "last": "2026-07-27T19:48:22.362Z"
+    },
+    {
+      "siteId": "cmrcnl4df001umz0kfzale74r",
+      "message": "[https://xn--l3cac7lpb.com/] HTTP 522 <none>",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-08-17T14:55:52.528Z",
+      "last": "2026-08-17T14:55:52.528Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "[https://boxvide.online/] HTTP 522 <none>",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-08-18T04:18:38.188Z",
+      "last": "2026-08-18T04:18:38.188Z"
+    },
+    {
+      "siteId": "cmrz3rv3b01mmqb0kij340d2f",
+      "message": "[https://boxvide.online/] HTTP 503 Service Unavailable",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-08-18T15:09:51.051Z",
+      "last": "2026-08-18T15:09:51.051Z"
+    },
+    {
+      "siteId": "cmrcnl4df001umz0kfzale74r",
+      "message": "The operation was aborted due to timeout",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-08-14T13:37:18.817Z",
+      "last": "2026-08-14T13:37:18.817Z"
+    },
+    {
+      "siteId": "cmrnt0mhg032kmv0kzi1txiq1",
+      "message": "The operation was aborted due to timeout",
+      "count": 1,
+      "withRemoteId": 0,
+      "first": "2026-08-21T09:35:40.049Z",
+      "last": "2026-08-21T09:35:40.049Z"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { actorFingerprint, actorSyncRemoteSchema, type ActorSyncPayload, type ActorSyncRemote } from "./actor-sync-contract";
+
 /**
  * Thin client for one destination WordPress site's REST API.
  *
@@ -200,6 +202,30 @@ export class WordPressClient {
       }
     }
     throw lastErr;
+  }
+
+  /** Actor endpoint alone is idempotent; never retry the general createPost API. */
+  async syncActor(payload: ActorSyncPayload): Promise<ActorSyncRemote> {
+    const url = this.baseUrl + "/wp-json/aurum-video-core/v1/actors/" + encodeURIComponent(payload.externalId);
+    let found: ActorSyncRemote | null = null;
+    // The actor endpoint returns 200/null for a missing actor; 404 means the plugin is missing.
+    const read = await this.getWithRetry<unknown>(url, 2);
+    if (read.data !== null) found = actorSyncRemoteSchema.parse(read.data);
+    if (found && found.payload.externalId !== payload.externalId) throw new Error("actor_identity_conflict");
+    if (found && actorFingerprint(found.payload) === actorFingerprint(payload)) return { ...found, status: "skipped" };
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const result = actorSyncRemoteSchema.parse(await this.json<unknown>(url, {
+          method: "PUT", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        }));
+        if (!result.status || actorFingerprint(result.payload) !== actorFingerprint(payload)) throw new Error("actor_verification_failed");
+        return result;
+      } catch (err) {
+        const transient = err instanceof WordPressHttpError ? err.status === 429 || err.status === 503 || err.status >= 500 : err instanceof TypeError || (err instanceof Error && ["TimeoutError", "AbortError"].includes(err.name));
+        if (!transient || attempt >= 1) throw err;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }
 
   /** `/users/me` 401s on bad credentials — used for the site health check. */

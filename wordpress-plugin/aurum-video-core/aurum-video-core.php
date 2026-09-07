@@ -19,6 +19,7 @@ define( 'AURUM_VIDEO_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AURUM_VIDEO_CORE_URL', plugin_dir_url( __FILE__ ) );
 
 require_once AURUM_VIDEO_CORE_DIR . 'includes/meta.php';
+require_once AURUM_VIDEO_CORE_DIR . 'includes/actor-sync.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/player.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/seo.php';
 

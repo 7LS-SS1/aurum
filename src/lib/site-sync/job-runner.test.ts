@@ -35,7 +35,10 @@ vi.mock("@/lib/wordpress-client", () => ({
   WordPressScanError: FakeWordPressScanError,
 }));
 
-vi.mock("@/lib/distributor", () => ({ distributeToSite: distributeToSiteMock }));
+vi.mock("@/lib/distributor", () => ({
+  distributeToSite: distributeToSiteMock,
+  ACTOR_SYNC_SELECT: { id: true, name: true },
+}));
 
 const { runScanAndCompare, runPushBatch, runWorkerTick } = await import("./job-runner");
 

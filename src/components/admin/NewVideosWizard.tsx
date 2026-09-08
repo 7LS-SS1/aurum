@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ActorSelector } from "./ActorSelector";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
 import { generateVideoAssets } from "@/lib/browser-video-assets";
@@ -292,12 +293,6 @@ export function NewVideosWizard({
     if (!current) return;
     const next = current.categories.includes(name) ? current.categories.filter((c) => c !== name) : [...current.categories, name];
     updateItem(current.key, { categories: next });
-  }
-
-  function toggleItemActor(id: string) {
-    if (!current) return;
-    const next = current.actorIds.includes(id) ? current.actorIds.filter((a) => a !== id) : [...current.actorIds, id];
-    updateItem(current.key, { actorIds: next });
   }
 
   function addTag(raw: string) {
@@ -872,18 +867,7 @@ export function NewVideosWizard({
                   )}
                 </div>
 
-                <div className="field">
-                  <label>นักแสดง</label>
-                  <div className="category-grid">
-                    {actors.map((a) => (
-                      <label key={a.id} className="category-option">
-                        <input type="checkbox" checked={current.actorIds.includes(a.id)} onChange={() => toggleItemActor(a.id)} />
-                        {a.name}
-                      </label>
-                    ))}
-                    {actors.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีนักแสดงในระบบ</span>}
-                  </div>
-                </div>
+                <ActorSelector actors={actors} selectedIds={current.actorIds} onChange={ids => updateItem(current.key, { actorIds: ids })} disabled={saving} />
               </div>
 
               <aside className="upload-preview-side">

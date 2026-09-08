@@ -1,4 +1,4 @@
-import type { Movie, MovieSiteDraft, Tag, TargetSite } from "@prisma/client";
+import type { Actor, Movie, MovieSiteDraft, Tag, TargetSite } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
@@ -8,6 +8,7 @@ import {
   type AurumVideoMeta,
   type WpPost,
 } from "@/lib/wordpress-client";
+import { actorFingerprint, actorPayload } from "@/lib/actor-sync-contract";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 
 export interface DistributionResult {
@@ -26,8 +27,16 @@ export interface DistributeSummary {
   results: DistributionResult[];
 }
 
-/** Movie.tags is a real relation now — every caller that touches merged content needs it eagerly loaded. */
-export type MovieWithTags = Movie & { tags: Pick<Tag, "name">[] };
+/** Fields actorPayload() needs; also the Prisma `select` every findMany/findUnique below reuses. */
+export const ACTOR_SYNC_SELECT = {
+  id: true, name: true, bio: true, profileImageUrl: true,
+  age: true, heightCm: true, weightKg: true,
+  measurementBust: true, measurementWaist: true, measurementHip: true,
+} as const;
+type MovieActor = Pick<Actor, keyof typeof ACTOR_SYNC_SELECT>;
+
+/** Movie.tags/actors are real relations now — every caller that touches merged content needs them eagerly loaded. */
+export type MovieWithTags = Movie & { tags: Pick<Tag, "name">[]; actors: MovieActor[] };
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
@@ -55,6 +64,37 @@ function mergeContent(movie: MovieWithTags, draft: MovieSiteDraft | undefined) {
     tags: draft?.tags ? asStringArray(draft.tags) : movie.tags.map((t) => t.name),
     extraMeta: { ...extraMeta, ...draftExtraMeta },
   };
+}
+
+/**
+ * Push each of the movie's actors to this site's `aurum_video_actor` taxonomy
+ * and return the resulting WordPress term IDs, so the video post can attach
+ * to them (WP's native REST taxonomy-field auto-assignment — same mechanism
+ * already used for categories/tags, keyed by the taxonomy's REST base).
+ *
+ * Best-effort per actor: a single actor failing to sync (stale plugin,
+ * transient error, name conflict) must never fail the whole video
+ * distribution — the video still publishes with whatever actor terms did
+ * resolve, and the failed actor can be retried from /admin/actors.
+ */
+async function syncMovieActors(client: WordPressClient, actors: MovieActor[], siteId: string): Promise<number[]> {
+  const termIds: number[] = [];
+  for (const actor of actors) {
+    try {
+      const payload = actorPayload(actor);
+      const remote = await client.syncActor(payload);
+      if (remote.status !== "existing") {
+        await prisma.$executeRaw`INSERT INTO actor_syncs (actor_id, site_id, remote_id, term_id, payload_hash, synced_at)
+          VALUES (${actor.id}, ${siteId}, ${remote.remoteId}, ${remote.termId ?? null}, ${actorFingerprint(payload)}, NOW())
+          ON CONFLICT (actor_id, site_id) DO UPDATE SET remote_id = EXCLUDED.remote_id,
+          term_id = EXCLUDED.term_id, payload_hash = EXCLUDED.payload_hash, synced_at = EXCLUDED.synced_at`;
+      }
+      if (remote.termId) termIds.push(remote.termId);
+    } catch {
+      // Skip this actor; the video still publishes with the actors that did sync.
+    }
+  }
+  return termIds;
 }
 
 async function resolveIframeUrl(movie: Movie): Promise<string | undefined> {
@@ -106,6 +146,10 @@ async function buildPayload(client: WordPressClient, movie: MovieWithTags, site:
   }
   if (merged.tags.length) {
     payload.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
+  }
+  if (movie.actors?.length) {
+    const actorTermIds = await syncMovieActors(client, movie.actors, site.id);
+    if (actorTermIds.length) payload.aurum_video_actor = actorTermIds;
   }
   if (movie.thumbnailUrl) {
     try {
@@ -192,7 +236,7 @@ export async function distributeToSite(
 }
 
 export async function distributeMovie(movieId: string, siteIds: string[]): Promise<DistributeSummary> {
-  const movie = await prisma.movie.findUnique({ where: { id: movieId }, include: { tags: true } });
+  const movie = await prisma.movie.findUnique({ where: { id: movieId }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } });
   if (!movie) throw new Error("Movie not found");
 
   const [sites, drafts] = await Promise.all([

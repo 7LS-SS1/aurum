@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { WordPressClient, WordPressScanError } from "@/lib/wordpress-client";
-import { distributeToSite } from "@/lib/distributor";
+import { distributeToSite, ACTOR_SYNC_SELECT } from "@/lib/distributor";
 import { buildWpMatchIndex, findMatch, type MovieForMatch } from "./match";
 import { ELIGIBLE_SYNC_STATUSES } from "./job-service";
 
@@ -299,7 +299,7 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
   const remaining = pushQueue.slice(PUSH_BATCH_SIZE);
 
   const [movies, drafts, distributions] = await Promise.all([
-    prisma.movie.findMany({ where: { id: { in: batchIds } }, include: { tags: true } }),
+    prisma.movie.findMany({ where: { id: { in: batchIds } }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } }),
     prisma.movieSiteDraft.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
     prisma.distribution.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
   ]);

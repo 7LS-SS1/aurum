@@ -70,6 +70,25 @@ describe("auth header", () => {
   });
 });
 
+describe("actor synchronization", () => {
+  const payload = {
+    externalId: "actor-1", slug: "aurum-actor-actor-1", name: "Actor One", bio: "Local bio", profileImageUrl: null,
+    metadata: { age: null, heightCm: null, weightKg: null, measurementBust: null, measurementWaist: null, measurementHip: null },
+  };
+
+  it("does not PUT or overwrite when create-only mode finds an existing actor", async () => {
+    const remotePayload = { ...payload, name: "ชื่อที่แก้ไขในเว็บปลายทาง", bio: "ข้อมูลเดิมของปลายทาง" };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ remoteId: 71, payload: remotePayload }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await client().syncActor(payload, { createOnly: true });
+
+    expect(result).toMatchObject({ remoteId: 71, status: "existing", payload: remotePayload });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.method).not.toBe("PUT");
+  });
+});
+
 describe("json() error handling", () => {
   it("throws an error containing the site's message field on a non-ok response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ message: "Invalid credentials" }, false, 401)));

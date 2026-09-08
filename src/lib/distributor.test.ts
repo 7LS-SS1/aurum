@@ -12,6 +12,8 @@ const verifyVideoMetaMock = vi.fn();
 const resolveCategoryTreeMock = vi.fn();
 const resolveTermsMock = vi.fn();
 const uploadMediaFromUrlMock = vi.fn();
+const syncActorMock = vi.fn();
+const executeRawMock = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -19,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
     targetSite: { findMany: targetSiteFindMany },
     movieSiteDraft: { findMany: movieSiteDraftFindMany },
     distribution: { upsert: distributionUpsert, update: distributionUpdate },
+    $executeRaw: executeRawMock,
   },
 }));
 
@@ -46,6 +49,7 @@ vi.mock("@/lib/wordpress-client", () => ({
     resolveCategoryTree: resolveCategoryTreeMock,
     resolveTerms: resolveTermsMock,
     uploadMediaFromUrl: uploadMediaFromUrlMock,
+    syncActor: syncActorMock,
   })),
 }));
 
@@ -68,6 +72,7 @@ function fakeMovie(overrides: Record<string, unknown> = {}) {
     thumbnailUrl: null,
     previewUrl: null,
     jwPlayerMediaId: null,
+    actors: [],
     ...overrides,
   };
 }
@@ -99,6 +104,7 @@ beforeEach(() => {
   uploadMediaFromUrlMock.mockResolvedValue(321);
   distributionUpsert.mockResolvedValue({ id: "dist1" });
   verifyVideoMetaMock.mockResolvedValue(undefined);
+  executeRawMock.mockResolvedValue(undefined);
 });
 
 describe("distributeToSite", () => {
@@ -246,6 +252,49 @@ describe("distributeToSite", () => {
     createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
     await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
     expect(decryptMock).toHaveBeenCalledWith({ ciphertext: "enc", iv: "iv", tag: "tag" });
+  });
+
+  it("syncs each of the movie's actors and attaches their term ids to the post payload", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    syncActorMock.mockResolvedValueOnce({
+      remoteId: 501,
+      termId: 901,
+      status: "updated",
+      payload: { externalId: "a1", slug: "aurum-actor-a1", name: "Actor One", bio: "", profileImageUrl: null,
+        metadata: { age: null, heightCm: null, weightKg: null, measurementBust: null, measurementWaist: null, measurementHip: null } },
+    });
+
+    await distributeToSite(
+      fakeMovie({
+        actors: [{ id: "a1", name: "Actor One", bio: "", profileImageUrl: null,
+          age: null, heightCm: null, weightKg: null, measurementBust: null, measurementWaist: null, measurementHip: null }],
+      }) as never,
+      fakeSite() as never,
+      undefined,
+    );
+
+    expect(syncActorMock).toHaveBeenCalledTimes(1);
+    expect(executeRawMock).toHaveBeenCalledTimes(1);
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(payload.aurum_video_actor).toEqual([901]);
+  });
+
+  it("still publishes the video when an actor fails to sync", async () => {
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+    syncActorMock.mockRejectedValueOnce(new Error("actor sync failed"));
+
+    const result = await distributeToSite(
+      fakeMovie({
+        actors: [{ id: "a1", name: "Actor One", bio: "", profileImageUrl: null,
+          age: null, heightCm: null, weightKg: null, measurementBust: null, measurementWaist: null, measurementHip: null }],
+      }) as never,
+      fakeSite() as never,
+      undefined,
+    );
+
+    expect(result.status).toBe("success");
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(payload.aurum_video_actor).toBeUndefined();
   });
 
 });

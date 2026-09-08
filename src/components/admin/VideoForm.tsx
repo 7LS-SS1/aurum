@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ActorSelector } from "./ActorSelector";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
 
@@ -212,10 +213,6 @@ export function VideoForm({
 
   function toggleCategory(name: string) {
     setSelectedCategories((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
-  }
-
-  function toggleActor(id: string) {
-    setSelectedActorIds((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
   }
 
   async function addNewCategory() {
@@ -637,18 +634,7 @@ export function VideoForm({
                 )}
               </div>
 
-              <div className="field">
-                <label>นักแสดง</label>
-                <div className="category-grid">
-                  {actors.map((a) => (
-                    <label key={a.id} className="category-option">
-                      <input type="checkbox" checked={selectedActorIds.includes(a.id)} onChange={() => toggleActor(a.id)} />
-                      {a.name}
-                    </label>
-                  ))}
-                  {actors.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีนักแสดงในระบบ</span>}
-                </div>
-              </div>
+              <ActorSelector actors={actors} selectedIds={selectedActorIds} onChange={setSelectedActorIds} disabled={saving} />
             </div>
           </div>
         )}

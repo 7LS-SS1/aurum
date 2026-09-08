@@ -1,3 +1,5 @@
+import { actorFingerprint, actorSyncLookupSchema, actorSyncRemoteSchema, type ActorSyncPayload, type ActorSyncRemote } from "./actor-sync-contract";
+
 /**
  * Thin client for one destination WordPress site's REST API.
  *
@@ -101,7 +103,7 @@ export class WordPressIntegrationError extends Error {
   }
 }
 
-class WordPressHttpError extends Error {
+export class WordPressHttpError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
@@ -200,6 +202,43 @@ export class WordPressClient {
       }
     }
     throw lastErr;
+  }
+
+  /** Actor endpoint alone is idempotent; never retry the general createPost API. */
+  async checkActorSyncSupport(): Promise<void> {
+    const url = this.baseUrl + "/wp-json/aurum-video-core/v1/actors/aurum-capability-probe";
+    const { data } = await this.getWithRetry<unknown>(url, 2);
+    actorSyncLookupSchema.parse(data);
+  }
+
+  async syncActor(payload: ActorSyncPayload, options: { createOnly?: boolean } = {}): Promise<ActorSyncRemote | (Omit<ActorSyncRemote, "status"> & { status: "existing" })> {
+    const url = this.baseUrl + "/wp-json/aurum-video-core/v1/actors/" + encodeURIComponent(payload.externalId);
+    let found: ActorSyncRemote | null = null;
+    // Missing actors use explicit JSON; WordPress emits an empty HTTP body for REST null.
+    const read = await this.getWithRetry<unknown>(url, 2);
+    const lookup = actorSyncLookupSchema.parse(read.data);
+    if (lookup && "remoteId" in lookup) found = lookup;
+    if (found && found.payload.externalId !== payload.externalId) throw new Error("actor_identity_conflict");
+    // Append-only mode must never call PUT for an actor already present at the destination.
+    if (found && options.createOnly) return { ...found, status: "existing" };
+    // Do NOT short-circuit on a matching fingerprint here: the PUT handler is the
+    // only place that keeps the `aurum_video_actor` taxonomy term (name, metrics,
+    // profile image) in sync. A GET-only skip would silently drop that backfill
+    // for every actor whose CPT payload already matches, which is the common case
+    // when re-pushing actors specifically to backfill terms.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const result = actorSyncRemoteSchema.parse(await this.json<unknown>(url, {
+          method: "PUT", redirect: "error", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        }));
+        if (!result.status || actorFingerprint(result.payload) !== actorFingerprint(payload)) throw new Error("actor_verification_failed");
+        return result;
+      } catch (err) {
+        const transient = err instanceof WordPressHttpError ? err.status === 429 || err.status === 503 || err.status >= 500 : err instanceof TypeError || (err instanceof Error && ["TimeoutError", "AbortError"].includes(err.name));
+        if (!transient || attempt >= 1) throw err;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
   }
 
   /** `/users/me` 401s on bad credentials — used for the site health check. */

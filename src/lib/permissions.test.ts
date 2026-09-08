@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { can, hasMinRole, ROLE_RANK } from "./permissions";
 
 describe("can", () => {
+  it.each([
+    ["STAFF", false], ["SENIOR", false], ["MANAGER", true], ["HEAD", true], ["SYSTEM", false],
+  ] as const)("actor:push grants %s = %s", (role, allowed) => {
+    expect(can(role, "actor:push")).toBe(allowed);
+  });
   it("SYSTEM never passes any human-role action check", () => {
     expect(can("SYSTEM", "movie:view")).toBe(false);
     expect(can("SYSTEM", "audit:view")).toBe(false);

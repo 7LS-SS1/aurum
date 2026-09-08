@@ -205,6 +205,7 @@ model Actor {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   movies Movie[]
+  syncs ActorSync[]
 
   @@map("actors")
 }
@@ -241,6 +242,7 @@ model TargetSite {
 
   siteDrafts    MovieSiteDraft[]
   distributions Distribution[]
+  actorSyncs    ActorSync[]
   syncJobs      SiteSyncJob[]
 
   @@map("target_sites")
@@ -660,4 +662,23 @@ model ComicTargetSite {
   createdAt        DateTime     @default(now()) @map("created_at")
 
   @@map("comic_target_sites")
+}
+
+/// Last verified destination mapping. Writes and locks use parameterized SQL.
+model ActorSync {
+  actorId String @map("actor_id")
+  siteId String @map("site_id")
+  remoteId Int @map("remote_id")
+  /// WordPress term ID in the `aurum_video_actor` taxonomy (theme-compatible
+  /// actor directory/archive). Nullable: rows written before this column
+  /// existed, or by a destination that has not yet reported a term, have no
+  /// value until the actor is re-synced.
+  termId Int? @map("term_id")
+  payloadHash String @map("payload_hash")
+  syncedAt DateTime @default(now()) @map("synced_at")
+  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  site TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@id([actorId, siteId])
+  @@unique([siteId, remoteId])
+  @@map("actor_syncs")
 }

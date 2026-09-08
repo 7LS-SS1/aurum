@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ActorPushPanel } from "./ActorPushPanel";
 import { useState, useTransition } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
@@ -20,12 +21,14 @@ interface PaginationState {
   pageSize: number;
 }
 
-export function ActorsManager({ initialActors, initialPagination }: { initialActors: ActorRow[]; initialPagination: PaginationState }) {
+export function ActorsManager({ initialActors, initialPagination, pushSites = [], canPush = false }: { initialActors: ActorRow[]; initialPagination: PaginationState; pushSites?: { id: string; name: string }[]; canPush?: boolean }) {
   const [actors, setActors] = useState(initialActors);
   const [pagination, setPagination] = useState(initialPagination);
+  const [totalActors, setTotalActors] = useState(initialPagination.total);
   const [q, setQ] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [pushing, setPushing] = useState(false);
 
   function notify(msg: string) {
     setToast(msg);
@@ -41,6 +44,7 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
   }
 
   function goToPage(page: number) {
+    if (pushing) return;
     if (page < 1 || page > pagination.totalPages || page === pagination.page) return;
     startTransition(async () => {
       try {
@@ -53,6 +57,7 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
+    if (pushing) return;
     startTransition(async () => {
       try {
         await fetchPage(1, q);
@@ -63,11 +68,13 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
   }
 
   function deleteActor(id: string, name: string) {
+    if (pushing) return;
     if (!confirm(`ลบนักแสดง "${name}"? วิดีโอที่เชื่อมกับนักแสดงคนนี้จะไม่ถูกลบ แต่จะไม่แสดงชื่อนักแสดงคนนี้อีก`)) return;
     startTransition(async () => {
       try {
         await apiFetch(`/api/actors/${id}`, { method: "DELETE" });
         setActors((prev) => prev.filter((a) => a.id !== id));
+        setTotalActors((total) => Math.max(0, total - 1));
         notify("ลบนักแสดงแล้ว");
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "ลบไม่สำเร็จ");
@@ -82,11 +89,12 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
         <span className="sub">{pagination.total.toLocaleString("th-TH")} คน</span>
       </div>
       <form onSubmit={onSearch} className="filter-bar" style={{ padding: "0 12px 12px" }}>
-        <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อนักแสดง" style={{ flex: 1 }} />
-        <button className="btn btn-ghost" type="submit" disabled={pending}>
+        <input type="text" disabled={pushing} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อนักแสดง" style={{ flex: 1 }} />
+        <button className="btn btn-ghost" type="submit" disabled={pending || pushing}>
           ค้นหา
         </button>
       </form>
+      {canPush && <ActorPushPanel actors={actors} sites={pushSites} totalActors={totalActors} disabled={pending} onBusyChange={setPushing} />}
       {actors.length === 0 && <div className="empty">ยังไม่มีนักแสดงในระบบ</div>}
       {actors.map((a) => (
         <div key={a.id} className="site-row" style={{ cursor: "default" }}>
@@ -102,13 +110,13 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
               {a.age ? `${a.age} ปี` : "-"} · {a.heightCm ? `${a.heightCm} ซม.` : "-"} · {a.weightKg ? `${a.weightKg} กก.` : "-"}
             </div>
           </div>
-          <Link className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} href={`/admin/actors/${a.id}/edit`}>
+          <Link aria-disabled={pushing} onClick={event => { if (pushing) event.preventDefault(); }} className="btn-ghost" style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} href={`/admin/actors/${a.id}/edit`}>
             แก้ไข
           </Link>
           <button
             className="btn-ghost"
             style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12.5, color: "var(--red)" }}
-            disabled={pending}
+            disabled={pending || pushing}
             onClick={() => deleteActor(a.id, a.name)}
           >
             ลบ
@@ -117,13 +125,13 @@ export function ActorsManager({ initialActors, initialPagination }: { initialAct
       ))}
       {pagination.totalPages > 1 && (
         <nav className="pagination admin-pagination" aria-label="Actors pagination">
-          <button className="page-btn" disabled={pending || pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}>
+          <button className="page-btn" disabled={pending || pushing || pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}>
             ก่อนหน้า
           </button>
           <span className="page-status">
             หน้า {pagination.page.toLocaleString("th-TH")} / {pagination.totalPages.toLocaleString("th-TH")}
           </span>
-          <button className="page-btn" disabled={pending || pagination.page >= pagination.totalPages} onClick={() => goToPage(pagination.page + 1)}>
+          <button className="page-btn" disabled={pending || pushing || pagination.page >= pagination.totalPages} onClick={() => goToPage(pagination.page + 1)}>
             ถัดไป
           </button>
         </nav>

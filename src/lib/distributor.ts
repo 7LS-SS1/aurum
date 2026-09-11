@@ -226,7 +226,19 @@ export async function distributeToSite(
     let protectedBefore: string | null = null;
     if (existingPostId && Number.isInteger(existingPostId) && existingPostId > 0) {
       const remote = await client.getPost(existingPostId);
-      if (String(remote.meta.aurum_movie_id ?? "") !== movie.id) throw new Error("wordpress_identity_conflict");
+      const remoteMovieId = typeof remote.meta.aurum_movie_id === "string"
+        ? remote.meta.aurum_movie_id.trim()
+        : "";
+      if (remoteMovieId && remoteMovieId !== movie.id) {
+        throw new Error("wordpress_identity_conflict");
+      }
+      // A missing WordPress identity is recoverable only from a previously
+      // verified success for this exact (movie, site, remote post) tuple.
+      // `distributedAt` is written only after verifyVideoMeta() succeeds.
+      // This deliberately does not use title, slug, URL, or content matching.
+      if (!remoteMovieId && (!distribution.remotePostId || !distribution.distributedAt)) {
+        throw new Error("wordpress_identity_missing");
+      }
       if (mode === "video_only") {
         protectedBefore = protectedSnapshot(remote);
         payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));

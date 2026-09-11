@@ -199,8 +199,42 @@ describe("distributeToSite", () => {
     getPostMock.mockResolvedValue({ id: 48, meta: { aurum_movie_id: "another-movie" } });
     const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
     expect(result.status).toBe("failed");
+    expect(result.error).toBe("wordpress_identity_conflict");
     expect(createPostMock).not.toHaveBeenCalled();
     expect(updatePostMock).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes missing identity without verified distribution history", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48", distributedAt: null });
+    getPostMock.mockResolvedValue({ id: 48, meta: {} });
+
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+
+    expect(result).toMatchObject({ status: "failed", error: "wordpress_identity_missing" });
+    expect(updatePostMock).not.toHaveBeenCalled();
+  });
+
+  it("repairs missing identity only from verified history and verifies the metadata read-back", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48", distributedAt: new Date("2026-09-01") });
+    const remote = {
+      id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "editor-slug",
+      title: "Editor title", content: "Editor content", excerpt: "Editor excerpt",
+      categories: [7], tags: [8], featuredMedia: 9, meta: { rank_math_description: "Editor SEO" },
+    };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue({
+      ...remote,
+      meta: { ...remote.meta, aurum_movie_id: "m1", aurum_video_url: "https://cdn.example.com/v.mp4" },
+    });
+
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+
+    expect(result.status).toBe("success");
+    expect(updatePostMock).toHaveBeenCalledWith(48, { meta: expect.objectContaining({ aurum_movie_id: "m1" }) });
+    expect(verifyVideoMetaMock).toHaveBeenCalledWith(48, expect.objectContaining({ aurum_movie_id: "m1" }));
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("title");
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("content");
   });
 
   it("recovers an earlier create by exact aurum_movie_id instead of creating a duplicate", async () => {

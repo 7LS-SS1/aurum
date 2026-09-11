@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { can, type Role } from "@/lib/permissions";
 import { DEFAULT_TAXO } from "@/lib/taxonomy";
+import { describeDistributionOutcome, type DistributionOutcomeSummary } from "@/lib/distribution-outcome";
 
 type MovieStatus =
   | "DRAFT"
@@ -172,11 +173,11 @@ export function VideosManager({
     });
   }
 
-  async function run(id: string, label: string, fn: () => Promise<unknown>, refetchAfter = true) {
+  async function run<T>(id: string, label: string | ((result: T) => string), fn: () => Promise<T>, refetchAfter = true) {
     setBusyId(id);
     try {
-      await fn();
-      notify(label);
+      const result = await fn();
+      notify(typeof label === "function" ? label(result) : label);
       if (refetchAfter) await fetchPage(pagination.page);
     } catch (err) {
       notify(err instanceof ApiClientError ? err.message : "ดำเนินการไม่สำเร็จ");
@@ -242,9 +243,16 @@ export function VideosManager({
       ? `เขียนทับ Title, slug, content, excerpt, หมวดหมู่ และแท็กของ "${m.title}" บน WordPress (${siteIds.length} เว็บ) — การแก้ไขของผู้ดูแลปลายทางจะถูกแทนที่ ยืนยัน?`
       : `อัปเดตเฉพาะข้อมูลวิดีโอของ "${m.title}" (${siteIds.length} เว็บ) โดยรักษาเนื้อหาและ SEO ใน WordPress — ยืนยัน?`;
     if (!window.confirm(warning)) return;
-    run(m.id, mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตข้อมูลวิดีโอแล้ว", () =>
-      apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds, mode }) }),
-    );
+    const successMessage = mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตข้อมูลวิดีโอแล้ว";
+    run(m.id, (message: string) => message, async () => {
+      const result = await apiFetch<DistributionOutcomeSummary>(`/api/movies/${m.id}/distribute`, {
+        method: "POST",
+        body: JSON.stringify({ siteIds, mode }),
+      });
+      const outcome = describeDistributionOutcome(result, successMessage);
+      if (!outcome.ok) throw new ApiClientError(outcome.message, 409);
+      return outcome.message;
+    });
   }
 
   async function retry(m: MovieRow) {
@@ -256,8 +264,12 @@ export function VideosManager({
         notify("ไม่มีเว็บที่ล้มเหลว");
         return;
       }
-      await apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds: failedIds, mode: "video_only" }) });
-      notify("ลองเผยแพร่ใหม่แล้ว");
+      const result = await apiFetch<DistributionOutcomeSummary>(`/api/movies/${m.id}/distribute`, {
+        method: "POST",
+        body: JSON.stringify({ siteIds: failedIds, mode: "video_only" }),
+      });
+      const outcome = describeDistributionOutcome(result, "ลองเผยแพร่ใหม่แล้ว");
+      notify(outcome.message);
       await fetchPage(pagination.page);
     } catch (err) {
       notify(err instanceof ApiClientError ? err.message : "ลองใหม่ไม่สำเร็จ");

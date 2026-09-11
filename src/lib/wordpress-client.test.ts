@@ -238,6 +238,18 @@ describe("updatePostMeta", () => {
   });
 });
 
+describe("updatePost", () => {
+  it("sends only the caller allow-listed partial payload", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5, link: "https://example.com/?p=5", status: "publish" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await client().updatePost(5, { meta: { aurum_movie_id: "m1" } });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://example.com/wp-json/wp/v2/posts/5",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ meta: { aurum_movie_id: "m1" } }) }),
+    );
+  });
+});
+
 describe("post-write video meta verification", () => {
   const editablePost = {
     id: 48,

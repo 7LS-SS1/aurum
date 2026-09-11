@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!success) throw new ApiError("too_many_requests", 429);
 
     const { id } = await params;
-    const { siteIds } = distributeSchema.parse(await req.json());
+    const { siteIds, mode } = distributeSchema.parse(await req.json());
 
     const movie = await prisma.movie.findUnique({ where: { id } });
     if (!movie) throw new ApiError("movie_not_found", 404);
@@ -31,14 +31,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       throw new ApiError(`cannot_publish_from_${movie.status.toLowerCase()}`, 409);
     }
 
-    const result = await distributeMovie(id, siteIds);
+    const result = await distributeMovie(id, siteIds, mode);
 
     await logAudit({
       actor,
       action: "publish",
       resourceType: "movie",
       resourceId: id,
-      metadata: { total: result.summary.total, success: result.summary.success, finalStatus: result.status },
+      metadata: { total: result.summary.total, success: result.summary.success, finalStatus: result.status, mode },
     });
     if (result.status !== "done") {
       await logAudit({

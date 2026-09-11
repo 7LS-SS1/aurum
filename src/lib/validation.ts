@@ -93,6 +93,7 @@ export const updateComicSiteSchema = createComicSiteSchema.partial().extend({
 
 export const distributeSchema = z.object({
   siteIds: z.array(z.string().min(1)).min(1).max(200),
+  mode: z.enum(["video_only", "overwrite_editorial"]).default("video_only"),
 });
 
 export const syncJobsBatchSchema = z.object({

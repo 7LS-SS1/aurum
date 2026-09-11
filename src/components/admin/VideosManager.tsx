@@ -235,11 +235,16 @@ export function VideosManager({
     }
   }
 
-  function publishNow(m: MovieRow) {
+  function publishNow(m: MovieRow, mode: "video_only" | "overwrite_editorial" = "video_only") {
     const siteIds = asStringArray(m.targetSiteIds);
     if (!siteIds.length) return notify("ยังไม่มีเว็บปลายทางที่เปิดใช้งาน — เพิ่มเว็บที่หน้า \"เว็บปลายทาง\" ก่อน");
-    if (!window.confirm(`ส่ง "${m.title}" เข้า WordPress ทันที (${siteIds.length} เว็บ) — ยืนยัน?`)) return;
-    run(m.id, "ส่งเข้า WordPress แล้ว", () => apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds }) }));
+    const warning = mode === "overwrite_editorial"
+      ? `เขียนทับ Title, slug, content, excerpt, หมวดหมู่ และแท็กของ "${m.title}" บน WordPress (${siteIds.length} เว็บ) — การแก้ไขของผู้ดูแลปลายทางจะถูกแทนที่ ยืนยัน?`
+      : `อัปเดตเฉพาะข้อมูลวิดีโอของ "${m.title}" (${siteIds.length} เว็บ) โดยรักษาเนื้อหาและ SEO ใน WordPress — ยืนยัน?`;
+    if (!window.confirm(warning)) return;
+    run(m.id, mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตข้อมูลวิดีโอแล้ว", () =>
+      apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds, mode }) }),
+    );
   }
 
   async function retry(m: MovieRow) {
@@ -251,7 +256,7 @@ export function VideosManager({
         notify("ไม่มีเว็บที่ล้มเหลว");
         return;
       }
-      await apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds: failedIds }) });
+      await apiFetch(`/api/movies/${m.id}/distribute`, { method: "POST", body: JSON.stringify({ siteIds: failedIds, mode: "video_only" }) });
       notify("ลองเผยแพร่ใหม่แล้ว");
       await fetchPage(pagination.page);
     } catch (err) {
@@ -288,6 +293,16 @@ export function VideosManager({
         {can(role, "movie:publish") && ["PARTIAL", "FAILED"].includes(m.status) && (
           <button disabled={busy} onClick={() => retry(m)}>
             ลองใหม่
+          </button>
+        )}
+        {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (
+          <button disabled={busy} onClick={() => publishNow(m, "video_only")}>
+            อัปเดตเฉพาะวิดีโอ
+          </button>
+        )}
+        {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (
+          <button className="danger" disabled={busy} onClick={() => publishNow(m, "overwrite_editorial")}>
+            เขียนทับข้อมูล WordPress
           </button>
         )}
         {can(role, "movie:archive") && ["APPROVED", "DONE", "PARTIAL", "FAILED", "REJECTED"].includes(m.status) && (

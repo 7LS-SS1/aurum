@@ -46,6 +46,10 @@ export interface WpEditablePost extends WpPost {
   slug: string;
   title: string;
   content: string;
+  excerpt: string;
+  categories: number[];
+  tags: number[];
+  featuredMedia: number;
   meta: Record<string, unknown>;
 }
 
@@ -83,6 +87,10 @@ interface WpRawPostListItem {
   status: string;
   title?: { rendered?: string } | string;
   content?: { raw?: string; rendered?: string } | string;
+  excerpt?: { raw?: string; rendered?: string } | string;
+  categories?: number[];
+  tags?: number[];
+  featured_media?: number;
   meta?: Record<string, unknown>;
 }
 
@@ -332,9 +340,17 @@ export class WordPressClient {
     });
   }
 
+  /** Exact recovery lookup used before create; never falls back to mutable content fields. */
+  async findPostByAurumMovieId(movieId: string): Promise<WpScannedPost | null> {
+    const matches = (await this.listAllPosts(["publish", "future", "draft", "pending", "private"]))
+      .filter((post) => post.aurumMovieId === movieId);
+    if (matches.length > 1) throw new Error("duplicate_aurum_movie_id");
+    return matches[0] ?? null;
+  }
+
   /** Reads a post back with authenticated edit context, including raw REST meta. */
   async getPost(postId: number): Promise<WpEditablePost> {
-    const fields = encodeURIComponent("id,link,status,slug,title,content,meta");
+    const fields = encodeURIComponent("id,link,status,slug,title,content,excerpt,categories,tags,featured_media,meta");
     const raw = await this.json<WpRawPostListItem>(
       `${this.api}/${this.postType}/${postId}?context=edit&_fields=${fields}`,
     );
@@ -345,8 +361,21 @@ export class WordPressClient {
       slug: raw.slug ?? "",
       title: typeof raw.title === "string" ? raw.title : raw.title?.rendered ?? "",
       content: typeof raw.content === "string" ? raw.content : raw.content?.raw ?? raw.content?.rendered ?? "",
+      excerpt: typeof raw.excerpt === "string" ? raw.excerpt : raw.excerpt?.raw ?? raw.excerpt?.rendered ?? "",
+      categories: raw.categories ?? [],
+      tags: raw.tags ?? [],
+      featuredMedia: raw.featured_media ?? 0,
       meta: raw.meta ?? {},
     };
+  }
+
+  /** Partial update of one confirmed post. Callers control the allow-list. */
+  async updatePost(postId: number, payload: Record<string, unknown>): Promise<WpPost> {
+    return this.json(`${this.api}/${this.postType}/${postId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
   }
 
   /**

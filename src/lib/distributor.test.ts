@@ -8,6 +8,9 @@ const distributionUpsert = vi.fn();
 const distributionUpdate = vi.fn();
 const decryptMock = vi.fn();
 const createPostMock = vi.fn();
+const updatePostMock = vi.fn();
+const getPostMock = vi.fn();
+const findPostByAurumMovieIdMock = vi.fn();
 const verifyVideoMetaMock = vi.fn();
 const resolveCategoryTreeMock = vi.fn();
 const resolveTermsMock = vi.fn();
@@ -45,6 +48,9 @@ vi.mock("@/lib/wordpress-client", () => ({
   ],
   WordPressClient: vi.fn().mockImplementation(() => ({
     createPost: createPostMock,
+    updatePost: updatePostMock,
+    getPost: getPostMock,
+    findPostByAurumMovieId: findPostByAurumMovieIdMock,
     verifyVideoMeta: verifyVideoMetaMock,
     resolveCategoryTree: resolveCategoryTreeMock,
     resolveTerms: resolveTermsMock,
@@ -102,9 +108,10 @@ beforeEach(() => {
   resolveCategoryTreeMock.mockResolvedValue([]);
   resolveTermsMock.mockResolvedValue([]);
   uploadMediaFromUrlMock.mockResolvedValue(321);
-  distributionUpsert.mockResolvedValue({ id: "dist1" });
+  distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: null });
   verifyVideoMetaMock.mockResolvedValue(undefined);
   executeRawMock.mockResolvedValue(undefined);
+  findPostByAurumMovieIdMock.mockResolvedValue(null);
 });
 
 describe("distributeToSite", () => {
@@ -160,6 +167,52 @@ describe("distributeToSite", () => {
         }),
       }),
     );
+  });
+
+  it("refreshes an identified post with video meta only and preserves WordPress-owned fields", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
+    const remote = {
+      id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "editor-slug",
+      title: "Editor title", content: "<p>Editor content</p>", excerpt: "Editor excerpt",
+      categories: [7], tags: [8], featuredMedia: 9,
+      meta: { aurum_movie_id: "m1", rank_math_description: "Editor SEO" },
+    };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue({ ...remote, meta: { ...remote.meta, aurum_video_url: "https://cdn.example.com/v.mp4" } });
+
+    const result = await distributeToSite(fakeMovie({ title: "AURUM title" }) as never, fakeSite() as never, undefined);
+
+    expect(result.status).toBe("success");
+    expect(createPostMock).not.toHaveBeenCalled();
+    expect(updatePostMock).toHaveBeenCalledWith(48, { meta: expect.objectContaining({ aurum_movie_id: "m1" }) });
+    const payload = updatePostMock.mock.calls[0]?.[1];
+    expect(payload).not.toHaveProperty("title");
+    expect(payload).not.toHaveProperty("slug");
+    expect(payload).not.toHaveProperty("content");
+    expect(payload).not.toHaveProperty("excerpt");
+    expect(payload.meta).not.toHaveProperty("rank_math_description");
+  });
+
+  it("fails closed when remotePostId belongs to another AURUM movie", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
+    getPostMock.mockResolvedValue({ id: 48, meta: { aurum_movie_id: "another-movie" } });
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result.status).toBe("failed");
+    expect(createPostMock).not.toHaveBeenCalled();
+    expect(updatePostMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers an earlier create by exact aurum_movie_id instead of creating a duplicate", async () => {
+    findPostByAurumMovieIdMock.mockResolvedValue({ id: 48, aurumMovieId: "m1" });
+    const remote = { id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "s", title: "T", content: "C", excerpt: "E", categories: [], tags: [], featuredMedia: 0, meta: { aurum_movie_id: "m1" } };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue(remote);
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result.status).toBe("success");
+    expect(createPostMock).not.toHaveBeenCalled();
+    expect(updatePostMock).toHaveBeenCalledWith(48, expect.objectContaining({ meta: expect.any(Object) }));
   });
 
   it("on failure, updates the distribution to FAILED with a truncated error message and returns a failed result", async () => {

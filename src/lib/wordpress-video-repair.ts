@@ -1,7 +1,5 @@
 import type { AurumVideoMeta, WpScannedPost } from "./wordpress-client";
-import { canonicalizeVideoUrl, normalizeSlug, normalizeTitle } from "./site-sync/normalize";
-
-export type RepairMatchStrategy = "remote_post_id" | "aurum_movie_id" | "video_url" | "slug" | "title";
+export type RepairMatchStrategy = "remote_post_id" | "aurum_movie_id";
 
 export interface RepairMovie {
   id: string;
@@ -61,16 +59,7 @@ export function fallbackVideoUrl(content: string | undefined): string | null {
   return block?.[1]?.trim() || null;
 }
 
-function setUnique<T>(map: Map<string, T | null>, key: string, value: T): void {
-  if (!key) return;
-  if (map.has(key)) map.set(key, null);
-  else map.set(key, value);
-}
-
-/**
- * Produces a deterministic, write-free plan. Ambiguous weak keys are removed
- * from the index instead of risking a repair against the wrong movie.
- */
+/** Produces a deterministic, write-free plan from strong identity evidence only. */
 export function planWordPressVideoRepairs(
   posts: WpScannedPost[],
   movies: RepairMovie[],
@@ -83,16 +72,7 @@ export function planWordPressVideoRepairs(
     if (movie && distribution.remotePostId) movieByRemotePostId.set(distribution.remotePostId, movie);
   }
 
-  const movieByVideoUrl = new Map<string, RepairMovie | null>();
-  const movieBySlug = new Map<string, RepairMovie | null>();
-  const movieByTitle = new Map<string, RepairMovie | null>();
-  for (const movie of movies) {
-    setUnique(movieByVideoUrl, canonicalizeVideoUrl(movie.videoUrl) ?? "", movie);
-    setUnique(movieBySlug, normalizeSlug(movie.slug), movie);
-    setUnique(movieByTitle, normalizeTitle(movie.title), movie);
-  }
-
-  return posts.filter((post) => hasAurumFallback(post.content)).map((post) => {
+  return posts.map((post) => {
     let movie = movieByRemotePostId.get(String(post.id));
     let strategy: RepairMatchStrategy | null = movie ? "remote_post_id" : null;
 
@@ -101,26 +81,6 @@ export function planWordPressVideoRepairs(
       const movieId = typeof meta.aurum_movie_id === "string" ? meta.aurum_movie_id.trim() : "";
       movie = movieById.get(movieId);
       if (movie) strategy = "aurum_movie_id";
-    }
-
-    if (!movie) {
-      const rawUrl =
-        (typeof meta.aurum_video_url === "string" && meta.aurum_video_url) ||
-        (typeof meta.video_url === "string" && meta.video_url) ||
-        fallbackVideoUrl(post.content);
-      const key = canonicalizeVideoUrl(rawUrl || null);
-      movie = key ? movieByVideoUrl.get(key) ?? undefined : undefined;
-      if (movie) strategy = "video_url";
-    }
-
-    if (!movie) {
-      movie = movieBySlug.get(normalizeSlug(post.slug)) ?? undefined;
-      if (movie) strategy = "slug";
-    }
-
-    if (!movie) {
-      movie = movieByTitle.get(normalizeTitle(post.title)) ?? undefined;
-      if (movie) strategy = "title";
     }
 
     if (!movie) {

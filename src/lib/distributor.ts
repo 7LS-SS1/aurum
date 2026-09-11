@@ -6,6 +6,7 @@ import {
   AURUM_VIDEO_META_KEYS,
   WordPressClient,
   type AurumVideoMeta,
+  type WpEditablePost,
   type WpPost,
 } from "@/lib/wordpress-client";
 import { actorFingerprint, actorPayload } from "@/lib/actor-sync-contract";
@@ -26,6 +27,8 @@ export interface DistributeSummary {
   summary: { total: number; success: number };
   results: DistributionResult[];
 }
+
+export type DistributionWriteMode = "video_only" | "overwrite_editorial";
 
 /** Fields actorPayload() needs; also the Prisma `select` every findMany/findUnique below reuses. */
 export const ACTOR_SYNC_SELECT = {
@@ -162,6 +165,21 @@ async function buildPayload(client: WordPressClient, movie: MovieWithTags, site:
   return payload;
 }
 
+function videoOnlyPayload(movie: MovieWithTags, iframeUrl?: string): Record<string, unknown> {
+  return { meta: buildVideoMeta(movie, iframeUrl) };
+}
+
+function protectedSnapshot(post: WpEditablePost): string {
+  const protectedMeta = Object.fromEntries(
+    Object.entries(post.meta).filter(([key]) => !AURUM_VIDEO_META_KEYS.includes(key as (typeof AURUM_VIDEO_META_KEYS)[number])),
+  );
+  return JSON.stringify({
+    title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt,
+    status: post.status, categories: post.categories, tags: post.tags,
+    featuredMedia: post.featuredMedia, meta: protectedMeta,
+  });
+}
+
 /**
  * Distributes one movie to one site, updating that (movie, site) Distribution
  * row only — unlike distributeMovie(), it never touches Movie.status, so
@@ -173,8 +191,9 @@ export async function distributeToSite(
   movie: MovieWithTags,
   site: TargetSite,
   draft: MovieSiteDraft | undefined,
+  mode: DistributionWriteMode = "video_only",
 ): Promise<DistributionResult> {
-  await prisma.distribution.upsert({
+  const distribution = await prisma.distribution.upsert({
     where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
     update: { status: "PROCESSING", attempts: { increment: 1 } },
     create: { movieId: movie.id, siteId: site.id, status: "PROCESSING", attempts: 1 },
@@ -198,13 +217,35 @@ export async function distributeToSite(
       tagRestBase: site.tagRestBase,
     });
 
-    const payload = await buildPayload(client, movie, site, draft);
-    createdPost = await client.createPost(payload);
+    let existingPostId = distribution.remotePostId ? Number(distribution.remotePostId) : null;
+    if (!existingPostId) {
+      const recovered = await client.findPostByAurumMovieId(movie.id);
+      if (recovered) existingPostId = recovered.id;
+    }
+    let payload: Record<string, unknown>;
+    let protectedBefore: string | null = null;
+    if (existingPostId && Number.isInteger(existingPostId) && existingPostId > 0) {
+      const remote = await client.getPost(existingPostId);
+      if (String(remote.meta.aurum_movie_id ?? "") !== movie.id) throw new Error("wordpress_identity_conflict");
+      if (mode === "video_only") {
+        protectedBefore = protectedSnapshot(remote);
+        payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
+      } else {
+        payload = await buildPayload(client, movie, site, draft);
+      }
+      createdPost = await client.updatePost(existingPostId, payload);
+    } else {
+      payload = await buildPayload(client, movie, site, draft);
+      createdPost = await client.createPost(payload);
+    }
     const sentMeta = payload.meta as Record<string, unknown>;
     const expectedMeta = Object.fromEntries(
       AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
     ) as AurumVideoMeta;
-    await client.verifyVideoMeta(createdPost.id, expectedMeta);
+    const verified = await client.verifyVideoMeta(createdPost.id, expectedMeta);
+    if (protectedBefore !== null && protectedSnapshot(verified) !== protectedBefore) {
+      throw new Error("wordpress_protected_fields_changed");
+    }
     const post = createdPost;
 
     await prisma.distribution.update({
@@ -235,7 +276,7 @@ export async function distributeToSite(
   }
 }
 
-export async function distributeMovie(movieId: string, siteIds: string[]): Promise<DistributeSummary> {
+export async function distributeMovie(movieId: string, siteIds: string[], mode: DistributionWriteMode = "video_only"): Promise<DistributeSummary> {
   const movie = await prisma.movie.findUnique({ where: { id: movieId }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } });
   if (!movie) throw new Error("Movie not found");
 
@@ -249,7 +290,7 @@ export async function distributeMovie(movieId: string, siteIds: string[]): Promi
 
   await prisma.movie.update({ where: { id: movieId }, data: { status: "PUBLISHING" } });
 
-  const settled = await Promise.allSettled(sites.map((site) => distributeToSite(movie, site, draftBySite.get(site.id))));
+  const settled = await Promise.allSettled(sites.map((site) => distributeToSite(movie, site, draftBySite.get(site.id), mode)));
   const results = settled.map((r) =>
     r.status === "fulfilled" ? r.value : ({ status: "failed", error: r.reason?.message ?? "Unknown error" } as DistributionResult),
   );

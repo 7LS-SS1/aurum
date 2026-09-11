@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { WordPressClient, WordPressScanError } from "@/lib/wordpress-client";
 import { distributeToSite, ACTOR_SYNC_SELECT } from "@/lib/distributor";
-import { buildWpMatchIndex, findMatch, type MovieForMatch } from "./match";
+import { buildWpMatchIndex, findMatch, hasWeakIdentityCandidate, type MovieForMatch } from "./match";
 import { ELIGIBLE_SYNC_STATUSES } from "./job-service";
 
 /** How long a claim lease lasts before another worker tick may steal a stuck job — bounds crash recovery time. */
@@ -218,12 +218,6 @@ export async function runScanAndCompare(job: JobWithSite): Promise<void> {
         metadata: { strategy: match.strategy, title: movie.title },
       });
 
-      // Best-effort: stamp aurum_movie_id onto legacy posts matched by a
-      // weaker strategy so the next sync hits the fast path. Never allowed
-      // to fail the reconciliation itself.
-      if (match.strategy !== "aurum_movie_id") {
-        client.updatePostMeta(match.entry.id, { aurum_movie_id: movie.id }).catch(() => {});
-      }
       continue;
     }
 
@@ -237,6 +231,15 @@ export async function runScanAndCompare(job: JobWithSite): Promise<void> {
         "AURUM บันทึกว่าเผยแพร่แล้วแต่ไม่พบโพสต์บนเว็บไซต์จริง — ข้ามเพื่อป้องกันการสร้างซ้ำ กรุณาตรวจสอบด้วยตนเอง",
         { movieId: movie.id, metadata: { title: movie.title, previousRemotePostId: existingDist.remotePostId } },
       );
+      continue;
+    }
+
+    if (hasWeakIdentityCandidate(candidate, index)) {
+      skippedMovies += 1;
+      await writeLog(job.id, "WARN", "manual_identity_mapping_required", "พบโพสต์ที่ข้อมูลคล้ายกัน แต่ไม่มี aurum_movie_id — ข้ามเพื่อป้องกันโพสต์ซ้ำและต้องจับคู่ด้วยตนเอง", {
+        movieId: movie.id,
+        metadata: { title: movie.title },
+      });
       continue;
     }
 

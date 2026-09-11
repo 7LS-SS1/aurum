@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWpMatchIndex, findMatch, type MovieForMatch } from "./match";
+import { buildWpMatchIndex, findMatch, hasWeakIdentityCandidate, type MovieForMatch } from "./match";
 import type { WpScannedPost } from "@/lib/wordpress-client";
 
 function post(overrides: Partial<WpScannedPost> = {}): WpScannedPost {
@@ -34,32 +34,29 @@ describe("findMatch", () => {
     expect(result).toEqual({ entry: { id: 42, link: "https://site.example/?p=1", slug: "totally-different", title: "Totally Different" }, strategy: "aurum_movie_id" });
   });
 
-  it("falls back to jwplayer media id when aurum_movie_id is absent", () => {
+  it("does not authorize a match from jwplayer media id", () => {
     const index = buildWpMatchIndex([post({ id: 7, jwPlayerMediaId: "jw-123" })]);
     const result = findMatch(movie({ jwPlayerMediaId: "jw-123" }), index);
-    expect(result?.strategy).toBe("jwplayer_media_id");
-    expect(result?.entry.id).toBe(7);
+    expect(result).toBeNull();
   });
 
-  it("falls back to canonicalized video url when movie id and media id don't match", () => {
+  it("does not authorize a match from canonicalized video url", () => {
     const index = buildWpMatchIndex([post({ id: 9, videoUrl: "HTTPS://CDN.example.com/video.mp4/" })]);
     const result = findMatch(movie({ jwPlayerMediaId: null, videoUrl: "https://cdn.example.com/video.mp4" }), index);
-    expect(result?.strategy).toBe("video_url");
-    expect(result?.entry.id).toBe(9);
+    expect(result).toBeNull();
+    expect(hasWeakIdentityCandidate(movie({ jwPlayerMediaId: null, videoUrl: "https://cdn.example.com/video.mp4" }), index)).toBe(true);
   });
 
-  it("falls back to slug when nothing stronger matches", () => {
+  it("does not authorize a match from slug", () => {
     const index = buildWpMatchIndex([post({ id: 11, slug: "movie-slug" })]);
     const result = findMatch(movie({ jwPlayerMediaId: null, videoUrl: null, slug: "Movie-Slug" }), index);
-    expect(result?.strategy).toBe("slug");
-    expect(result?.entry.id).toBe(11);
+    expect(result).toBeNull();
   });
 
-  it("falls back to normalized exact title as the last resort", () => {
+  it("does not authorize a match from normalized exact title", () => {
     const index = buildWpMatchIndex([post({ id: 13, slug: "unrelated-slug", title: "My &amp; Video&#8217;s Title" })]);
     const result = findMatch(movie({ jwPlayerMediaId: null, videoUrl: null, slug: null, title: "my & video’s title" }), index);
-    expect(result?.strategy).toBe("title");
-    expect(result?.entry.id).toBe(13);
+    expect(result).toBeNull();
   });
 
   it("never fuzzy-matches — a close-but-not-exact title is not a match", () => {

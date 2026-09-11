@@ -123,7 +123,7 @@ describe("runScanAndCompare", () => {
     expect(finalUpdate?.[0].data).toEqual(expect.objectContaining({ progress: 100, queuedMovies: 0, matchedMovies: 1, skippedMovies: 1 }));
   });
 
-  it("backfills aurum_movie_id when a legacy post is matched by a weaker strategy", async () => {
+  it("never backfills aurum_movie_id from a weaker identity strategy", async () => {
     listAllPostsMock.mockResolvedValue([
       { id: 5, link: "https://wp.example.com/?p=5", slug: "m-slug", title: "M Title", status: "publish", aurumMovieId: null, jwPlayerMediaId: "jw-1", videoUrl: null },
     ]);
@@ -133,7 +133,7 @@ describe("runScanAndCompare", () => {
 
     await runScanAndCompare(fakeJob());
 
-    expect(updatePostMetaMock).toHaveBeenCalledWith(5, { aurum_movie_id: "m1" });
+    expect(updatePostMetaMock).not.toHaveBeenCalled();
   });
 
   it("queues a movie for push when no WordPress post matches and no local SUCCESS distribution exists", async () => {

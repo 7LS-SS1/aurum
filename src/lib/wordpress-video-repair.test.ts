@@ -40,13 +40,10 @@ describe("planWordPressVideoRepairs", () => {
     expect(plan.changedFields).toContain("video_url");
   });
 
-  it("falls back to URL, then slug and exact normalized title", () => {
-    const url = planWordPressVideoRepairs([post({ id: 50 })], [movie], [])[0]!;
-    const slug = planWordPressVideoRepairs([post({ id: 51, content: '<!-- aurum-video --><div class="aurum-video"><a href="https://other.example/x.m3u8">Watch video</a></div>' })], [movie], [])[0]!;
-    const title = planWordPressVideoRepairs([post({ id: 52, slug: "different", content: '<!-- aurum-video --><div class="aurum-video"><a href="https://other.example/x.m3u8">Watch video</a></div>' })], [movie], [])[0]!;
-    expect(url.strategy).toBe("video_url");
-    expect(slug.strategy).toBe("slug");
-    expect(title.strategy).toBe("title");
+  it("never authorizes repair from URL, slug, or title", () => {
+    const plan = planWordPressVideoRepairs([post({ id: 50 })], [movie], [])[0]!;
+    expect(plan.status).toBe("unmatched");
+    expect(plan.strategy).toBeNull();
   });
 
   it("is idempotent once every expected field is present", () => {
@@ -62,8 +59,9 @@ describe("planWordPressVideoRepairs", () => {
     expect(plan.status).toBe("unmatched");
   });
 
-  it("ignores ordinary posts without an AURUM marker or fallback block", () => {
+  it("can inspect a post after an editor removes the AURUM content block", () => {
     const plans = planWordPressVideoRepairs([post({ content: "<p>Editorial copy</p>" })], [movie], []);
-    expect(plans).toEqual([]);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.status).toBe("unmatched");
   });
 });

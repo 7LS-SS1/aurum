@@ -232,11 +232,12 @@ export async function distributeToSite(
       if (remoteMovieId && remoteMovieId !== movie.id) {
         throw new Error("wordpress_identity_conflict");
       }
-      // A missing WordPress identity is recoverable only from a previously
-      // verified success for this exact (movie, site, remote post) tuple.
-      // `distributedAt` is written only after verifyVideoMeta() succeeds.
-      // This deliberately does not use title, slug, URL, or content matching.
-      if (!remoteMovieId && (!distribution.remotePostId || !distribution.distributedAt)) {
+      // A missing WordPress identity is recoverable only when this exact
+      // (movie, site) Distribution already owns the remote post id. The id is
+      // captured directly from WordPress's create response, including legacy
+      // creates whose metadata verification later failed. This deliberately
+      // does not use title, slug, URL, or content matching.
+      if (!remoteMovieId && !distribution.remotePostId) {
         throw new Error("wordpress_identity_missing");
       }
       if (mode === "video_only") {

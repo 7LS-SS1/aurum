@@ -204,8 +204,8 @@ describe("distributeToSite", () => {
     expect(updatePostMock).not.toHaveBeenCalled();
   });
 
-  it("distinguishes missing identity without verified distribution history", async () => {
-    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48", distributedAt: null });
+  it("distinguishes missing identity when the post was not identified by the distribution row", async () => {
+    findPostByAurumMovieIdMock.mockResolvedValue({ id: 48, aurumMovieId: "m1" });
     getPostMock.mockResolvedValue({ id: 48, meta: {} });
 
     const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
@@ -214,8 +214,8 @@ describe("distributeToSite", () => {
     expect(updatePostMock).not.toHaveBeenCalled();
   });
 
-  it("repairs missing identity only from verified history and verifies the metadata read-back", async () => {
-    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48", distributedAt: new Date("2026-09-01") });
+  it("repairs missing identity from the exact distribution remotePostId and verifies the metadata read-back", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48", distributedAt: null });
     const remote = {
       id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "editor-slug",
       title: "Editor title", content: "Editor content", excerpt: "Editor excerpt",

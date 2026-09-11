@@ -6,11 +6,7 @@ import { apiError, jsonOk, ApiError } from "@/lib/api-response";
 import { requireRoleOrSystem } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
-
-const DISTRIBUTABLE_FROM = ["APPROVED", "PARTIAL", "FAILED"];
-// Manager/head may publish straight from DRAFT if needed. SYSTEM automation may
-// not, it only retries/redistributes already-approved movies.
-const BYPASS_ROLES = ["MANAGER", "HEAD"];
+import { canDistributeMovie } from "@/lib/distribution-policy";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,8 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const movie = await prisma.movie.findUnique({ where: { id } });
     if (!movie) throw new ApiError("movie_not_found", 404);
-    const distributable = BYPASS_ROLES.includes(actor.role) ? [...DISTRIBUTABLE_FROM, "DRAFT"] : DISTRIBUTABLE_FROM;
-    if (!distributable.includes(movie.status)) {
+    if (!canDistributeMovie(movie.status, actor.role)) {
       throw new ApiError(`cannot_publish_from_${movie.status.toLowerCase()}`, 409);
     }
 

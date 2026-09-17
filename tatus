@@ -1,0 +1,22 @@
+ ARCHITECTURE.md                                    |  11 [32m++[m
+ docs/actor-sync-delivery.md                        |  40 [32m++++++[m
+ .../20260907000000_actor_sync/migration.sql        |   9 [32m++[m
+ prisma/schema.prisma                               |  16 [32m+++[m
+ scripts/actor-push-ui-harness.mjs                  |  41 [32m++++++[m
+ src/app/admin/actors/page.test.tsx                 |  43 [32m++++++[m
+ src/app/admin/actors/page.tsx                      |  11 [32m+[m[31m-[m
+ src/app/api/actors/sync/route.test.ts              |  72 [32m++++++++++[m
+ src/app/api/actors/sync/route.ts                   |  42 [32m++++++[m
+ src/components/admin/ActorPushPanel.tsx            | 105 [32m++++++++++++++[m
+ src/components/admin/ActorsManager.tsx             |  20 [32m++[m[31m-[m
+ src/lib/actor-sync-contract.test.ts                |  63 [32m+++++++++[m
+ src/lib/actor-sync-contract.ts                     |  34 [32m+++++[m
+ src/lib/actor-sync.test.ts                         |  85 [32m+++++++++++[m
+ src/lib/actor-sync.ts                              |  67 [32m+++++++++[m
+ src/lib/permissions.test.ts                        |   5 [32m+[m
+ src/lib/permissions.ts                             |   2 [32m+[m
+ src/lib/wordpress-client.ts                        |  35 [32m++++[m[31m-[m
+ .../aurum-video-core/aurum-video-core.php          |   7 [32m+[m[31m-[m
+ .../aurum-video-core/includes/actor-sync.php       | 156 [32m+++++++++++++++++++++[m
+ .../tests/actor-sync-integration.php               |  66 [32m+++++++++[m
+ 21 files changed, 918 insertions(+), 12 deletions(-)

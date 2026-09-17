@@ -164,6 +164,14 @@ describe("runScanAndCompare", () => {
 });
 
 describe("runPushBatch", () => {
+  it("reports a delivered video with SEO warnings as success and records a WARN event", async () => {
+    movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]); movieSiteDraftFindMany.mockResolvedValue([]); distributionFindMany.mockResolvedValue([]);
+    const warnings = ["seo_generation_validation_failed:seo_description_keyword_required"];
+    distributeToSiteMock.mockResolvedValue({ status: "success", postId: 1, warnings });
+    await runPushBatch(fakeJob({ phase: "pushing", queuedMovies: 1, cursor: { pushQueue: ["m1"] } }));
+    expect(siteSyncJobUpdate.mock.calls[0]![0].data).toMatchObject({ status: "COMPLETED", successCount: 1, failedCount: 0 });
+    expect(siteSyncJobLogCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ level: "WARN", event: "published_with_warnings", metadata: { warnings } }) }));
+  });
   it("calls distributeToSite for each queued movie in the batch and reports monotonically increasing, capped progress when more remain", async () => {
     // 10 queued total, only PUSH_BATCH_SIZE (6) are taken this tick — 4 remain, so the job isn't done yet.
     const ids = Array.from({ length: 10 }, (_, i) => `m${i + 1}`);

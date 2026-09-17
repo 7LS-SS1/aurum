@@ -2,7 +2,7 @@ import { z } from "zod";
 import { requireMinRole } from "@/lib/authz";
 import { ApiError, apiError, jsonOk } from "@/lib/api-response";
 import { ensureSiteSeo, readAiConfig } from "@/lib/content-ai";
-import { keywordsSchema } from "@/lib/content-seo";
+import { keywordsSchema, seoValidationReason, seoValidationMessage } from "@/lib/content-seo";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -20,6 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await logAudit({ actor, action: "movie.generate_seo", resourceType: "Movie", resourceId: id, metadata: { siteId: input.siteId } });
     return jsonOk(draft);
   } catch (error) {
+    const validationReason = seoValidationReason(error);
+    if (validationReason) return apiError(new ApiError(seoValidationMessage(validationReason), 422));
     if (error instanceof Error && error.message === "openai_insufficient_quota") {
       return apiError(new ApiError("โควตา OpenAI ไม่เพียงพอ กรุณาตรวจเครดิตและวงเงินของ API project ที่ใช้คีย์นี้ แล้วลองสร้างใหม่", 422));
     }

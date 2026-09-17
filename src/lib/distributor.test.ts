@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { ensureSiteSeo } from "@/lib/content-ai";
+import { SeoGenerationValidationError } from "./content-seo";
 
 const movieFindUnique = vi.fn();
 const movieUpdate = vi.fn();
@@ -110,6 +112,7 @@ function fakeSite(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(ensureSiteSeo).mockReset().mockResolvedValue(undefined);
   decryptMock.mockReturnValue("decrypted-credential");
   checkSeoSupportMock.mockResolvedValue(undefined);
   pingMock.mockResolvedValue({ id: 1, name: "Admin" });
@@ -124,6 +127,34 @@ beforeEach(() => {
 });
 
 describe("distributeToSite", () => {
+  it("publishes original video data with an explicit warning when automatic SEO validation fails", async () => {
+    vi.mocked(ensureSiteSeo).mockRejectedValueOnce(new SeoGenerationValidationError("seo_description_keyword_required"));
+    createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result).toMatchObject({ status: "success", warnings: ["seo_generation_validation_failed:seo_description_keyword_required"] });
+    expect(createPostMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Test Movie", meta: expect.objectContaining({ aurum_movie_id: "m1", aurum_video_url: "https://cdn.example.com/v.mp4" }) }));
+    expect(verifyVideoMetaMock).toHaveBeenCalledTimes(1);
+    expect(distributionUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUCCESS", remotePostId: "10" }) }));
+  });
+  it("uses a manual draft without calling automatic SEO", async () => {
+    vi.mocked(ensureSiteSeo).mockRejectedValue(new Error("openai_connection_failed"));
+    createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
+    await distributeToSite(fakeMovie() as never, fakeSite() as never, { title: "ชื่อจากบรรณาธิการ", content: "เนื้อหาตรวจแล้ว", extraMeta: {} } as never);
+    expect(ensureSiteSeo).not.toHaveBeenCalled();
+    expect(createPostMock).toHaveBeenCalledWith(expect.objectContaining({ title: "ชื่อจากบรรณาธิการ", content: expect.stringContaining("เนื้อหาตรวจแล้ว") }));
+  });
+  it.each(["openai_refused", "openai_rate_limit", "openai_connection_failed", "seo_source_changed_retry"])("does not hide %s as a successful SEO fallback", async message => {
+    vi.mocked(ensureSiteSeo).mockRejectedValueOnce(new Error(message));
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result).toMatchObject({ status: "failed", error: message }); expect(createPostMock).not.toHaveBeenCalled();
+  });
+  it("still fails media verification after a validation fallback and retains its remote id", async () => {
+    vi.mocked(ensureSiteSeo).mockRejectedValueOnce(new SeoGenerationValidationError("seo_duplicate_title"));
+    createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
+    verifyVideoMetaMock.mockRejectedValueOnce(new Error("wordpress_meta_verification_failed"));
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result).toMatchObject({ status: "failed", error: "wordpress_meta_verification_failed", postId: 10 });
+  });
   it("checks the live WordPress credential and marks stale credentials unhealthy before scanning", async () => {
     pingMock.mockRejectedValueOnce(new Error("wordpress_authentication_failed"));
     const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);

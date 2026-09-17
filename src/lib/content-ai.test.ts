@@ -27,6 +27,21 @@ beforeEach(() => {
   mocks.upsert.mockImplementation(async args => args.create);
 });
 describe("persisted site SEO", () => {
+  it("skips oversized automatic tag inputs and retains usable keywords", async () => {
+    mocks.movie.mockResolvedValue({ title: "ของเล่นมาใหม่", tags: [{ name: "ก".repeat(101) }, { name: "ของเล่น" }] });
+    await ensureSiteSeo("m", "s");
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ keywords: ["ของเล่น"] }));
+  });
+  it("reports unavailable automatic keywords without saving an invalid draft", async () => {
+    mocks.movie.mockResolvedValue({ title: "ก".repeat(110), tags: [] });
+    await expect(ensureSiteSeo("m", "s")).rejects.toMatchObject({ reason: "seo_keywords_unavailable" });
+    expect(mocks.generate).not.toHaveBeenCalled(); expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+  it("does not persist rejected generation", async () => {
+    mocks.generate.mockRejectedValue(new Error("seo_generation_validation_failed:seo_original_title_required"));
+    await expect(ensureSiteSeo("m", "s")).rejects.toThrow("seo_generation_validation_failed:seo_original_title_required");
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
   it("uses original content as context and rejects generation if that content changes in flight", async () => {
     mocks.movie.mockResolvedValue({ title: "ของเล่นมาใหม่", content: "<p>เนื้อหาเดิม</p>", excerpt: "สรุป", tags: [{ name: "ของเล่น" }] });
     mocks.latestMovie.mockResolvedValue({ title: "ของเล่นมาใหม่", content: "เนื้อหาแก้ไขแล้ว", excerpt: "สรุป" });

@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
-import { generateSeo, keywordsSchema, seoSourceContext, titleIdentity } from "@/lib/content-seo";
+import { generateSeo, keywordsSchema, seoSourceContext, titleIdentity, SeoGenerationValidationError } from "@/lib/content-seo";
 import { ApiError } from "@/lib/api-response";
 
 export async function readAiConfig(options: { requireStorage?: boolean } = {}) {
@@ -44,7 +44,10 @@ export async function ensureSiteSeo(movieId: string, siteId: string, requestedKe
     const distinctKeywords = [...new Map(
       keywordCandidates.map(keyword => [keyword.trim().toLocaleLowerCase("th"), keyword.trim()]),
     ).values()].filter(Boolean);
-    const keywords = keywordsSchema.parse((distinctKeywords.length ? distinctKeywords : [movie.title]).slice(0, 15));
+    const candidates = distinctKeywords.length ? distinctKeywords : [movie.title.trim()];
+    const usableKeywords = requestedKeywords ? candidates : candidates.filter(keyword => keyword.length <= 100);
+    if (!usableKeywords.length) throw new SeoGenerationValidationError("seo_keywords_unavailable");
+    const keywords = keywordsSchema.parse(usableKeywords.slice(0, 15));
     const result = await generateSeo({
       apiKey: decrypt({ ciphertext: config.apiKeyEnc, iv: config.apiKeyIv, tag: config.apiKeyTag }),
       model: config.model, title: movie.title, keywords, site: site.name,

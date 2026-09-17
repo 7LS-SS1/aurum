@@ -344,6 +344,15 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
             remotePostId: result.postId ? String(result.postId) : undefined,
             remotePostUrl: result.url,
           });
+          if (result.warnings?.length) {
+            const seoWarning = result.warnings.find(warning => warning.startsWith("seo_generation_validation_failed:"));
+            await writeLog(job.id, "WARN", "published_with_warnings", seoWarning
+              ? `ส่งวิดีโอสำเร็จด้วยข้อมูลเดิม — กรุณาตรวจชื่อและ SEO รายเว็บไซต์ (${seoWarning})`
+              : "ส่งวิดีโอสำเร็จ แต่ข้อมูลเสริมบางส่วนยังไม่พร้อม กรุณาตรวจการเชื่อมต่อ SEO", {
+              movieId, remotePostId: result.postId ? String(result.postId) : undefined,
+              metadata: { warnings: result.warnings },
+            });
+          }
           return { success: true };
         }
         await writeLog(job.id, "ERROR", "publish_failed", `ส่งวิดีโอไม่สำเร็จ: ${movie.title} — ${result.error ?? "unknown error"}`, { movieId });

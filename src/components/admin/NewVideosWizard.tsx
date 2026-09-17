@@ -161,6 +161,9 @@ function DistributionResults({ report }: { report?: DistributionReport | null })
           {result.warnings?.includes("wordpress_rank_math_bridge_not_ready") && (
             <div className="upload-site-warning">เผยแพร่วิดีโอแล้ว แต่ข้าม Rank Math SEO เพราะยังไม่ได้ติดตั้งหรือเปิดใช้ AURUM Rank Math Bridge</div>
           )}
+          {result.warnings?.some(warning => warning.startsWith("seo_generation_validation_failed:")) && (
+            <div className="upload-site-warning">เผยแพร่วิดีโอแล้วโดยใช้ข้อมูลเดิมของรายการ เพราะ SEO ที่ AI สร้างยังไม่ผ่านการตรวจ กรุณาตรวจชื่อและ SEO รายเว็บไซต์</div>
+          )}
         </div>
       ))}
     </div>

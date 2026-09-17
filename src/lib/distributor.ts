@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
 import { ensureSiteSeo } from "@/lib/content-ai";
-import { SEO_KEYS } from "@/lib/content-seo";
+import { SEO_KEYS, seoValidationReason } from "@/lib/content-seo";
 import {
   AURUM_VIDEO_META_KEYS,
   WordPressClient,
@@ -280,12 +280,24 @@ export async function distributeToSite(
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
-      const generatedDraft = await ensureSiteSeo(movie.id, site.id);
-      if (generatedDraft) {
-        draft = generatedDraft;
-        publishedTitle = mergeContent(movie, draft).title;
+      // Automatic SEO enriches publication; invalid AI copy must not prevent
+      // delivery of the existing AURUM source. Manual SEO generation stays strict.
+      if (!draft?.title) {
+        try {
+          const generatedDraft = await ensureSiteSeo(movie.id, site.id);
+          if (generatedDraft) {
+            draft = generatedDraft;
+            publishedTitle = mergeContent(movie, draft).title;
+          }
+        } catch (error) {
+          const reason = seoValidationReason(error);
+          if (!reason) throw error;
+          warnings.push(`seo_generation_validation_failed:${reason}`);
+        }
       }
-      ({ payload, warnings } = await buildPayload(client, movie, site, draft));
+      const built = await buildPayload(client, movie, site, draft);
+      payload = built.payload;
+      warnings.push(...built.warnings);
       createdPost = await client.createPost(payload);
     }
     const sentMeta = payload.meta as Record<string, unknown>;

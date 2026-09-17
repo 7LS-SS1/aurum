@@ -18,9 +18,11 @@ export interface DistributionResult {
   siteId: string;
   site: string;
   status: "success" | "failed";
+  title: string;
   postId?: number;
   url?: string;
   error?: string;
+  warnings?: string[];
 }
 
 export interface DistributeSummary {
@@ -129,7 +131,17 @@ export function buildVideoMeta(movie: Movie, iframeUrl?: string): AurumVideoMeta
 
 async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, draft: MovieSiteDraft | undefined) {
   const merged = mergeContent(movie, draft);
-  if (SEO_KEYS.some(key => key in merged.extraMeta)) await client.checkSeoSupport();
+  const warnings: string[] = [];
+  if (SEO_KEYS.some(key => key in merged.extraMeta)) {
+    try {
+      await client.checkSeoSupport();
+    } catch {
+      // SEO is optional enrichment. A missing bridge must not block the video
+      // itself; omit only Rank Math fields and report the skipped integration.
+      for (const key of SEO_KEYS) delete merged.extraMeta[key];
+      warnings.push("wordpress_rank_math_bridge_not_ready");
+    }
+  }
   const iframeUrl = await resolveIframeUrl(movie);
 
   const payload: Record<string, unknown> = {
@@ -165,7 +177,7 @@ async function buildPayload(client: WordPressClient, movie: MovieWithTags, site:
     }
   }
 
-  return payload;
+  return { payload, warnings };
 }
 
 function videoOnlyPayload(movie: MovieWithTags, iframeUrl?: string): Record<string, unknown> {
@@ -196,6 +208,7 @@ export async function distributeToSite(
   draft: MovieSiteDraft | undefined,
   mode: DistributionWriteMode = "video_only",
 ): Promise<DistributionResult> {
+  let publishedTitle = mergeContent(movie, draft).title;
   const distribution = await prisma.distribution.upsert({
     where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
     update: { status: "PROCESSING", attempts: { increment: 1 } },
@@ -220,12 +233,25 @@ export async function distributeToSite(
       tagRestBase: site.tagRestBase,
     });
 
+    // The dashboard's saved health flag can be months old. Verify the same
+    // credential immediately before distribution so an expired/revoked
+    // Application Password is reported as an authentication failure instead
+    // of being obscured by a later post-status scan error.
+    try {
+      await client.ping();
+      await prisma.targetSite.update({ where: { id: site.id }, data: { healthStatus: "OK", lastCheckedAt: new Date() } });
+    } catch (error) {
+      await prisma.targetSite.update({ where: { id: site.id }, data: { healthStatus: "ERROR", lastCheckedAt: new Date() } });
+      throw error;
+    }
+
     let existingPostId = distribution.remotePostId ? Number(distribution.remotePostId) : null;
     if (!existingPostId) {
       const recovered = await client.findPostByAurumMovieId(movie.id);
       if (recovered) existingPostId = recovered.id;
     }
     let payload: Record<string, unknown>;
+    let warnings: string[] = [];
     let protectedBefore: string | null = null;
     if (existingPostId && Number.isInteger(existingPostId) && existingPostId > 0) {
       const remote = await client.getPost(existingPostId);
@@ -250,13 +276,16 @@ export async function distributeToSite(
         protectedBefore = protectedSnapshot(remote);
         payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
       } else {
-        payload = await buildPayload(client, movie, site, draft);
+        ({ payload, warnings } = await buildPayload(client, movie, site, draft));
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
       const generatedDraft = await ensureSiteSeo(movie.id, site.id);
-      if (generatedDraft) draft = generatedDraft;
-      payload = await buildPayload(client, movie, site, draft);
+      if (generatedDraft) {
+        draft = generatedDraft;
+        publishedTitle = mergeContent(movie, draft).title;
+      }
+      ({ payload, warnings } = await buildPayload(client, movie, site, draft));
       createdPost = await client.createPost(payload);
     }
     const sentMeta = payload.meta as Record<string, unknown>;
@@ -288,7 +317,8 @@ export async function distributeToSite(
       },
     });
 
-    return { siteId: site.id, site: site.name, status: "success", postId: post.id, url: post.link };
+    return { siteId: site.id, site: site.name, status: "success", title: verified.title || publishedTitle,
+      postId: post.id, url: post.link, ...(warnings.length ? { warnings } : {}) };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown distribution error";
     await prisma.distribution.update({
@@ -301,7 +331,8 @@ export async function distributeToSite(
           : {}),
       },
     });
-    return { siteId: site.id, site: site.name, status: "failed", error: message };
+    return { siteId: site.id, site: site.name, status: "failed", title: publishedTitle, error: message,
+      ...(createdPost ? { postId: createdPost.id, url: createdPost.link } : {}) };
   }
 }
 
@@ -320,8 +351,11 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
   await prisma.movie.update({ where: { id: movieId }, data: { status: "PUBLISHING" } });
 
   const settled = await Promise.allSettled(sites.map((site) => distributeToSite(movie, site, draftBySite.get(site.id), mode)));
-  const results = settled.map((r) =>
-    r.status === "fulfilled" ? r.value : ({ status: "failed", error: r.reason?.message ?? "Unknown error" } as DistributionResult),
+  const results = settled.map((r, index) =>
+    r.status === "fulfilled" ? r.value : ({
+      siteId: sites[index]?.id ?? "unknown", site: sites[index]?.name ?? "Unknown site", status: "failed", title: movie.title,
+      error: r.reason?.message ?? "Unknown error",
+    } as DistributionResult),
   );
 
   const successCount = results.filter((r) => r.status === "success").length;

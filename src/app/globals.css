@@ -1249,6 +1249,40 @@ select {
   background: rgba(212, 175, 55, 0.07);
 }
 
+.upload-site-results {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.upload-site-result {
+  display: grid;
+  gap: 5px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.upload-site-result.success { border-color: rgba(70, 211, 105, 0.3); }
+.upload-site-result.failed { border-color: rgba(255, 77, 77, 0.38); }
+
+.upload-site-result-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.upload-site-result-head span { color: var(--muted-2); }
+.upload-site-result.success .upload-site-result-head span { color: var(--ok); }
+.upload-site-result.failed .upload-site-result-head span,
+.upload-site-error { color: var(--red); }
+.upload-site-warning { color: var(--gold-bright); }
+.upload-site-title span { color: var(--muted-2); }
+.upload-site-result a { color: var(--gold-bright); }
+
 .upload-complete-actions {
   display: flex;
   justify-content: center;

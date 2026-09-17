@@ -48,6 +48,18 @@ describe("persisted site SEO", () => {
     expect(await ensureSiteSeo("m", "s")).toBeUndefined();
     expect(mocks.generate).not.toHaveBeenCalled();
   });
+  it("limits automatic tag keywords to 15 distinct values before generation", async () => {
+    mocks.movie.mockResolvedValue({ title: "ของเล่นมาใหม่", tags: Array.from({ length: 20 }, (_, index) => ({ name: `คำ${index + 1}` })) });
+    await ensureSiteSeo("m", "s");
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({
+      keywords: Array.from({ length: 15 }, (_, index) => `คำ${index + 1}`),
+    }));
+  });
+  it("uses the source title when an untagged movie has no keywords", async () => {
+    mocks.movie.mockResolvedValue({ title: "ของเล่นมาใหม่", tags: [] });
+    await ensureSiteSeo("m", "s");
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ keywords: ["ของเล่นมาใหม่"] }));
+  });
   it("reuses a saved or manually authored title without spending another request", async () => {
     const draft = { siteId: "s", title: "ชื่อที่ตรวจแล้ว" };
     mocks.drafts.mockResolvedValue([draft]);

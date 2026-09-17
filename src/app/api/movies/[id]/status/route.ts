@@ -8,16 +8,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     await requireMinRole("STAFF");
     const { id } = await params;
 
-    const distributions = await prisma.distribution.findMany({
-      where: { movieId: id },
-      include: { site: { select: { name: true } } },
-      orderBy: { siteId: "asc" },
-    });
+    const [movie, distributions, drafts] = await Promise.all([
+      prisma.movie.findUnique({ where: { id }, select: { title: true } }),
+      prisma.distribution.findMany({
+        where: { movieId: id },
+        include: { site: { select: { name: true } } },
+        orderBy: { siteId: "asc" },
+      }),
+      prisma.movieSiteDraft.findMany({ where: { movieId: id }, select: { siteId: true, title: true } }),
+    ]);
+    const titleBySite = new Map(drafts.map(draft => [draft.siteId, draft.title]));
 
     return jsonOk(
       distributions.map((d) => ({
         siteId: d.siteId,
         siteName: d.site.name,
+        title: titleBySite.get(d.siteId) || movie?.title || "",
         status: d.status,
         remotePostId: d.remotePostId,
         remotePostUrl: d.remotePostUrl,

@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { distributeMovie } from "@/lib/distributor";
 
 const PROCESSABLE_FROM = ["DRAFT", "REJECTED"];
+const RETRYABLE_FROM = ["PARTIAL", "FAILED"];
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.length > 0) : [];
@@ -27,25 +28,33 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const movie = await prisma.movie.findUnique({ where: { id } });
     if (!movie) throw new ApiError("movie_not_found", 404);
     if (actor.role === "STAFF" && movie.createdById !== actor.id) throw new ApiError("forbidden", 403);
-    if (!PROCESSABLE_FROM.includes(movie.status)) {
+    if (!PROCESSABLE_FROM.includes(movie.status) && !RETRYABLE_FROM.includes(movie.status)) {
       throw new ApiError(`cannot_process_from_${movie.status.toLowerCase()}`, 409);
     }
 
-    await prisma.movie.update({
-      where: { id },
-      data: { status: "APPROVED", rejectionReason: null, reviewerId: null },
-    });
-    await logAudit({ actor, action: "start_processing", resourceType: "movie", resourceId: id });
+    if (PROCESSABLE_FROM.includes(movie.status)) {
+      await prisma.movie.update({
+        where: { id },
+        data: { status: "APPROVED", rejectionReason: null, reviewerId: null },
+      });
+      await logAudit({ actor, action: "start_processing", resourceType: "movie", resourceId: id });
+    }
 
-    const siteIds = asStringArray(movie.targetSiteIds);
+    const failedSiteIds = RETRYABLE_FROM.includes(movie.status)
+      ? (await prisma.distribution.findMany({ where: { movieId: id, status: "FAILED" }, select: { siteId: true } })).map(row => row.siteId)
+      : [];
+    const siteIds = failedSiteIds.length ? failedSiteIds : asStringArray(movie.targetSiteIds);
     if (!siteIds.length) {
       // No active destination site yet — leave it at APPROVED so it can be
       // published later (manually, or once a site is added) instead of
       // silently failing here.
-      return jsonOk(await prisma.movie.findUnique({ where: { id } }));
+      return jsonOk({ ...(await prisma.movie.findUnique({ where: { id } })), distribution: null });
     }
 
-    const result = await distributeMovie(id, siteIds);
+    // A retry represents completion of the original first publication, so it
+    // may safely resend editorial fields to a post that WordPress created but
+    // failed to verify on the first request.
+    const result = await distributeMovie(id, siteIds, RETRYABLE_FROM.includes(movie.status) ? "overwrite_editorial" : "video_only");
     await logAudit({
       actor,
       action: "auto_publish",
@@ -54,7 +63,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       metadata: { total: result.summary.total, success: result.summary.success, finalStatus: result.status },
     });
 
-    return jsonOk(await prisma.movie.findUnique({ where: { id } }));
+    return jsonOk({ ...(await prisma.movie.findUnique({ where: { id } })), distribution: result });
   } catch (err) {
     return apiError(err);
   }

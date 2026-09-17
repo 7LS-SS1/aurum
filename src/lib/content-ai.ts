@@ -36,7 +36,15 @@ export async function ensureSiteSeo(movieId: string, siteId: string, requestedKe
     const current = drafts.find(draft => draft.siteId === siteId);
     // A manually authored title is an editorial decision; never silently replace it.
     if (current?.title) return current;
-    const keywords = keywordsSchema.parse(requestedKeywords ?? movie.tags.map(tag => tag.name));
+    // The editor can attach more tags than the model input contract allows.
+    // Keep the first 15 distinct values instead of failing every destination
+    // before WordPress is contacted. A title fallback also lets untagged
+    // movies use automatic SEO.
+    const keywordCandidates = requestedKeywords ?? movie.tags.map(tag => tag.name);
+    const distinctKeywords = [...new Map(
+      keywordCandidates.map(keyword => [keyword.trim().toLocaleLowerCase("th"), keyword.trim()]),
+    ).values()].filter(Boolean);
+    const keywords = keywordsSchema.parse((distinctKeywords.length ? distinctKeywords : [movie.title]).slice(0, 15));
     const result = await generateSeo({
       apiKey: decrypt({ ciphertext: config.apiKeyEnc, iv: config.apiKeyIv, tag: config.apiKeyTag }),
       model: config.model, title: movie.title, keywords, site: site.name,

@@ -215,6 +215,17 @@ describe("listAllPosts", () => {
   });
 });
 
+describe("findPostByAurumMovieId", () => {
+  it("uses WordPress status=any instead of a rejected CSV status list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(pageResponse([], 1));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await client().findPostByAurumMovieId("movie-1");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("status=any");
+  });
+});
+
 describe("getWithRetry (via listAllPosts)", () => {
   it("retries a transient 500 and succeeds on the next attempt", async () => {
     const fetchMock = vi

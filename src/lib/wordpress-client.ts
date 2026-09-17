@@ -353,7 +353,10 @@ export class WordPressClient {
 
   /** Exact recovery lookup used before create; never falls back to mutable content fields. */
   async findPostByAurumMovieId(movieId: string): Promise<WpScannedPost | null> {
-    const matches = (await this.listAllPosts(["publish", "future", "draft", "pending", "private"]))
+    // `status=any` is the portable WordPress REST value for every status the
+    // authenticated user may read. Several real destinations reject a CSV
+    // list here with rest_invalid_param before AURUM ever reaches createPost.
+    const matches = (await this.listAllPosts(["any"]))
       .filter((post) => post.aurumMovieId === movieId);
     if (matches.length > 1) throw new Error("duplicate_aurum_movie_id");
     return matches[0] ?? null;

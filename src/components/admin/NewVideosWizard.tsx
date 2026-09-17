@@ -44,6 +44,29 @@ interface PopularTag {
 type QueueStatus = "queued" | "uploading" | "ready" | "saving" | "done" | "error";
 type WizardStage = "category" | "files" | "queue" | "processing" | "complete";
 
+interface DistributionSiteResult {
+  siteId: string;
+  site: string;
+  status: "success" | "failed";
+  title: string;
+  postId?: number;
+  url?: string;
+  error?: string;
+  warnings?: string[];
+}
+
+interface DistributionReport {
+  status: "done" | "partial" | "failed";
+  summary: { total: number; success: number };
+  results: DistributionSiteResult[];
+}
+
+interface MoviePublishResponse {
+  id: string;
+  status?: string;
+  distribution?: DistributionReport | null;
+}
+
 interface QueueItem {
   key: string;
   file: File;
@@ -72,6 +95,7 @@ interface QueueItem {
   actorIds: string[];
   movieId?: string;
   publishStatus?: string;
+  distribution?: DistributionReport | null;
 }
 
 const MAX_TAGS = 50;
@@ -104,6 +128,57 @@ function statusLabel(status: QueueStatus) {
     case "error":
       return "ผิดพลาด";
   }
+}
+
+function distributionErrorMessage(error?: string) {
+  if (!error) return "WordPress ไม่ส่งรายละเอียดข้อผิดพลาดกลับมา";
+  if (error.includes("parameter(s) ไม่ถูกต้อง: status")) return "WordPress ปฏิเสธตัวกรองสถานะขณะตรวจโพสต์เดิม";
+  if (error.includes("rest_forbidden_context") || error.includes("ไม่ได้รับอนุญาต") || error.includes("ไม่ได้อยู่ในระบบ")) return "ข้อมูลเข้าสู่ระบบ WordPress หมดอายุ ไม่ถูกต้อง หรือไม่มีสิทธิ์เผยแพร่";
+  if (error.includes("did not persist REST meta")) return "ปลั๊กอิน AURUM Video Core ไม่ได้บันทึก metadata ที่จำเป็น";
+  if (error === "wordpress_rank_math_bridge_not_ready") return "Rank Math หรือ AURUM Rank Math Bridge ยังไม่พร้อมใช้งาน";
+  if (error === "openai_insufficient_quota") return "เครดิต OpenAI ไม่เพียงพอ";
+  if (error === "openai_rate_limit") return "OpenAI จำกัดจำนวนคำขอชั่วคราว";
+  return error;
+}
+
+function DistributionResults({ report }: { report?: DistributionReport | null }) {
+  if (!report?.results.length) return null;
+  return (
+    <div className="upload-site-results" aria-label="ผลการเผยแพร่รายเว็บไซต์">
+      {report.results.map((result) => (
+        <div key={result.siteId} className={`upload-site-result ${result.status}`}>
+          <div className="upload-site-result-head">
+            <b>{result.site}</b>
+            <span>{result.status === "success" ? "เผยแพร่สำเร็จ" : "ล้มเหลว"}</span>
+          </div>
+          <div className="upload-site-title"><span>ชื่อเรื่อง:</span> {result.title || "-"}</div>
+          {result.url && (
+            <a href={result.url} target="_blank" rel="noopener noreferrer">
+              เปิดโพสต์ WordPress{result.postId ? ` #${result.postId}` : ""}
+            </a>
+          )}
+          {result.status === "failed" && <div className="upload-site-error">{distributionErrorMessage(result.error)}</div>}
+          {result.warnings?.includes("wordpress_rank_math_bridge_not_ready") && (
+            <div className="upload-site-warning">เผยแพร่วิดีโอแล้ว แต่ข้าม Rank Math SEO เพราะยังไม่ได้ติดตั้งหรือเปิดใช้ AURUM Rank Math Bridge</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function mergeDistributionReports(previous: DistributionReport | null | undefined, latest: DistributionReport | null | undefined) {
+  if (!previous) return latest;
+  if (!latest) return previous;
+  const results = new Map(previous.results.map(result => [result.siteId, result]));
+  for (const result of latest.results) results.set(result.siteId, result);
+  const mergedResults = [...results.values()];
+  const success = mergedResults.filter(result => result.status === "success").length;
+  return {
+    status: success === mergedResults.length ? "done" : success > 0 ? "partial" : "failed",
+    summary: { total: mergedResults.length, success },
+    results: mergedResults,
+  } satisfies DistributionReport;
 }
 
 export function NewVideosWizard({
@@ -393,11 +468,11 @@ export function NewVideosWizard({
     let movieId = item.movieId;
     updateItem(item.key, { status: "saving", error: undefined, errorPhase: undefined, validationError: undefined });
     try {
-      let movie: { id: string; status?: string };
+      let movie: MoviePublishResponse;
       if (movieId) {
-        movie = await apiFetch<{ id: string; status?: string }>(`/api/movies/${movieId}`);
+        movie = await apiFetch<MoviePublishResponse>(`/api/movies/${movieId}`);
       } else {
-        movie = await apiFetch<{ id: string; status?: string }>("/api/movies", {
+        movie = await apiFetch<MoviePublishResponse>("/api/movies", {
           method: "POST",
           body: JSON.stringify({
             title: item.title.trim(),
@@ -418,17 +493,38 @@ export function NewVideosWizard({
         updateItem(item.key, { movieId });
       }
 
-      // A retry can arrive after the server processed submit-review but the
-      // browser lost its response. Only submit DRAFT/REJECTED movies again;
-      // every later status proves the first request already moved forward.
-      if (!movie.status || movie.status === "DRAFT" || movie.status === "REJECTED") {
-        movie = await apiFetch<{ id: string; status?: string }>(`/api/movies/${movieId}/submit-review`, { method: "POST" });
+      // The same endpoint handles first publication and retries only the
+      // failed destinations for PARTIAL/FAILED movies owned by this uploader.
+      if (!movie.status || ["DRAFT", "REJECTED", "PARTIAL", "FAILED"].includes(movie.status)) {
+        movie = await apiFetch<MoviePublishResponse>(`/api/movies/${movieId}/submit-review`, { method: "POST" });
+      }
+
+      const distribution = mergeDistributionReports(item.distribution, movie.distribution);
+      if (!distribution && movie.status === "APPROVED") {
+        updateItem(item.key, {
+          status: "error", movieId, publishStatus: movie.status, distribution,
+          error: "บันทึกวิดีโอแล้ว แต่ไม่มีเว็บไซต์ปลายทางที่ตรงกับหมวดหมู่และเปิดใช้งานอยู่",
+          errorPhase: "publish", validationError: undefined,
+        });
+        return false;
+      }
+      if (distribution && distribution.status !== "done") {
+        const failed = distribution.results.filter(result => result.status === "failed").length;
+        const message = distribution.summary.success
+          ? `เผยแพร่สำเร็จบางส่วน ${distribution.summary.success}/${distribution.summary.total} เว็บ — ล้มเหลว ${failed} เว็บ`
+          : `เผยแพร่ WordPress ไม่สำเร็จ 0/${distribution.summary.total} เว็บ`;
+        updateItem(item.key, {
+          status: "error", movieId, publishStatus: movie.status, distribution,
+          error: message, errorPhase: "publish", validationError: undefined,
+        });
+        return false;
       }
 
       updateItem(item.key, {
         status: "done",
         movieId,
         publishStatus: movie.status,
+        distribution,
         error: undefined,
         errorPhase: undefined,
         validationError: undefined,
@@ -924,6 +1020,7 @@ export function NewVideosWizard({
                       <span>{item.error}</span>
                     </div>
                   )}
+                  <DistributionResults report={item.distribution} />
                 </div>
               ))}
             </div>
@@ -955,6 +1052,7 @@ export function NewVideosWizard({
                       </button>
                     </>
                   )}
+                  <DistributionResults report={item.distribution} />
                   {item.status === "done" && item.movieId && (
                     <button className="btn-ghost" type="button" onClick={() => router.push(`/admin/videos/${item.movieId}/preview`)}>
                       เปิดตัวอย่าง

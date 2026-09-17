@@ -1,5 +1,16 @@
 # ชื่อและ SEO รายเว็บไซต์ — 2026-09-16
 
+## Hotfix 2.1.1 — ผลเผยแพร่ WordPress และรายงานหลังอัปโหลด
+
+- แก้หน้าต่างอัปโหลดที่เคยนับการบันทึกวิดีโอเข้า AURUM เป็น “สำเร็จ” แม้ WordPress ทุกเว็บล้มเหลว ตอนนี้สถานะสำเร็จต้องอิงผลเผยแพร่จริง
+- หน้าสรุปแสดงเว็บไซต์ ชื่อเรื่องที่ส่งจริง สถานะ ลิงก์/เลขโพสต์ คำเตือน และ error ของแต่ละเว็บไซต์ พร้อม retry เฉพาะปลายทางที่ล้มเหลวโดยไม่อัปโหลดไฟล์เข้า storage ซ้ำ
+- ตัด Keywords อัตโนมัติให้เหลือสูงสุด 15 คำแบบไม่ซ้ำก่อนเรียก OpenAI และใช้ชื่อหลักเป็น fallback เมื่อไม่มี Tag
+- ตรวจ credential WordPress ก่อนค้นหา/สร้างโพสต์ พร้อมอัปเดต health status และเวลาเช็กล่าสุด จึงไม่ซ่อนปัญหา login ไว้หลัง error ตัวกรอง `status`
+- ใช้ `status=any` สำหรับ recovery scan หลัง credential ผ่าน แทน CSV หลายสถานะที่เคยทำให้บางปลายทางตอบ `rest_invalid_param`
+- ถ้า Rank Math Bridge ยังไม่พร้อม ระบบเผยแพร่วิดีโอและชื่อรายเว็บต่อได้ โดยข้ามเฉพาะ Rank Math meta และแสดงคำเตือนรายเว็บ
+- Read-only production diagnostics ณ 2026-09-17: 17 ปลายทาง login ผ่าน 3, credential ไม่ผ่าน 13, localhost เข้าไม่ถึง 1; ทั้ง 3 เว็บที่ login ผ่านยังไม่มี SEO capability endpoint. ต้องเชื่อมต่อ credential ใหม่และติดตั้ง Bridge เพื่อให้ Rank Math meta ถูกนำเข้า
+- Validation: 26 test files / 292 tests, TypeScript, ESLint และ Next.js 15.5.19 production build ผ่าน
+
 ## Release 2.1.0 — 2026-09-17
 
 - เพิ่มการตั้งค่า OpenAI, สร้าง Title และ meta description รายเว็บไซต์โดยอิงต้นฉบับ พร้อมตรวจชื่อซ้ำและอ่าน SEO กลับจาก WordPress หลังนำเข้า

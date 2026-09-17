@@ -85,7 +85,7 @@ interface WpRawPostListItem {
   link: string;
   slug: string;
   status: string;
-  title?: { rendered?: string } | string;
+  title?: { raw?: string; rendered?: string } | string;
   content?: { raw?: string; rendered?: string } | string;
   excerpt?: { raw?: string; rendered?: string } | string;
   categories?: number[];
@@ -210,6 +210,17 @@ export class WordPressClient {
       }
     }
     throw lastErr;
+  }
+
+  /** Verify the destination can persist the SEO fields before publishing. */
+  async checkSeoSupport(): Promise<void> {
+    const { data } = await this.getWithRetry<{ rankMathActive?: boolean; postTypes?: string[]; keys?: string[] }>(
+      this.baseUrl + "/wp-json/aurum-video-core/v1/seo-capabilities", 1,
+    );
+    if (!data.rankMathActive || !data.postTypes?.includes(this.postType) ||
+        !["rank_math_title", "rank_math_description", "rank_math_focus_keyword"].every(key => data.keys?.includes(key))) {
+      throw new Error("wordpress_rank_math_bridge_not_ready");
+    }
   }
 
   /** Actor endpoint alone is idempotent; never retry the general createPost API. */
@@ -359,7 +370,7 @@ export class WordPressClient {
       link: raw.link,
       status: raw.status,
       slug: raw.slug ?? "",
-      title: typeof raw.title === "string" ? raw.title : raw.title?.rendered ?? "",
+      title: typeof raw.title === "string" ? raw.title : raw.title?.raw ?? raw.title?.rendered ?? "",
       content: typeof raw.content === "string" ? raw.content : raw.content?.raw ?? raw.content?.rendered ?? "",
       excerpt: typeof raw.excerpt === "string" ? raw.excerpt : raw.excerpt?.raw ?? raw.excerpt?.rendered ?? "",
       categories: raw.categories ?? [],

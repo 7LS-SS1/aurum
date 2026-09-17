@@ -36,6 +36,18 @@ function client(overrides: Partial<ConstructorParameters<typeof WordPressClient>
 }
 
 describe("WordPressClient construction", () => {
+  it("uses raw editorial titles for read-back instead of HTML-encoded rendered titles", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ id: 1, title: { raw: 'Toys & "new"', rendered: 'Toys &amp; &#8220;new&#8221;' }, meta: {} })));
+    expect((await client().getPost(1)).title).toBe('Toys & "new"');
+  });
+  it("checks authenticated Rank Math capability for the configured REST post type", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ rankMathActive: true, postTypes: ["posts"], keys: ["rank_math_title", "rank_math_description", "rank_math_focus_keyword"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(client().checkSeoSupport()).resolves.toBeUndefined();
+    await expect(client({ postType: "videos" }).checkSeoSupport()).rejects.toThrow("wordpress_rank_math_bridge_not_ready");
+    fetchMock.mockResolvedValue(jsonResponse({ rankMathActive: false, postTypes: [], keys: [] }));
+    await expect(client().checkSeoSupport()).rejects.toThrow("wordpress_rank_math_bridge_not_ready");
+  });
   it("strips trailing slashes from baseUrl", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1, name: "Admin" }));
     vi.stubGlobal("fetch", fetchMock);

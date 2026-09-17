@@ -1,5 +1,7 @@
 # Actor Push completion
 
+> 2026-09-16: เพิ่มระบบชื่อ/SEO รายเว็บไซต์ใน local source ดู [CONTENT_AI_SEO.md](docs/CONTENT_AI_SEO.md) สำหรับขอบเขต การเปิดใช้งาน และหลักฐานทดสอบ ไม่ได้ deploy หรือ migrate production ข้อเสนอเก่าด้านล่างเป็นบันทึกตามวันที่เดิม
+
 The approved scope is actor synchronization on top of commit 3f593ad. MANAGER and HEAD may push; other roles may not. Preserve the existing video workflow and the user's plugin Author change (7LS).
 
 Use the actor external CUID as identity, a per-site remote-ID mapping, server-side credentials, transaction locks and a destination lock. Compare the actual remote payload before writing. Replace or clear the external image URL without creating duplicate attachments. All six measurement/age fields, name, bio, identity and slug participate in comparison.

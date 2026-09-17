@@ -80,6 +80,7 @@ export default async function AdminVideoWatchPage({ params }: { params: Promise<
         </div>
 
         <h1 className="admin-watch-title">{movie.title}</h1>
+        <Link className="watch-pill" href={`/admin/videos/${movie.id}/seo`}>ชื่อและ SEO รายเว็บไซต์</Link>
 
         <div className="admin-watch-meta-row">
           <div className="admin-watch-channel">

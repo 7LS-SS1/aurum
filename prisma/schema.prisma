@@ -2,6 +2,19 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Singleton OpenAI configuration. The API key is encrypted using the existing envelope.
+model ContentAiConfig {
+  id String @id @default("default")
+  enabled Boolean @default(false)
+  model String
+  apiKeyEnc String
+  apiKeyIv String
+  apiKeyTag String
+  updatedAt DateTime @updatedAt
+
+  @@map("content_ai_config")
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

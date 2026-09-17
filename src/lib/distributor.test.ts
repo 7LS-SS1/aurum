@@ -17,6 +17,8 @@ const resolveTermsMock = vi.fn();
 const uploadMediaFromUrlMock = vi.fn();
 const syncActorMock = vi.fn();
 const executeRawMock = vi.fn();
+const checkSeoSupportMock = vi.fn();
+vi.mock("@/lib/content-ai", () => ({ ensureSiteSeo: vi.fn().mockResolvedValue(undefined) }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -48,6 +50,7 @@ vi.mock("@/lib/wordpress-client", () => ({
   ],
   WordPressClient: vi.fn().mockImplementation(() => ({
     createPost: createPostMock,
+    checkSeoSupport: checkSeoSupportMock,
     updatePost: updatePostMock,
     getPost: getPostMock,
     findPostByAurumMovieId: findPostByAurumMovieIdMock,
@@ -105,6 +108,7 @@ function fakeSite(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   decryptMock.mockReturnValue("decrypted-credential");
+  checkSeoSupportMock.mockResolvedValue(undefined);
   resolveCategoryTreeMock.mockResolvedValue([]);
   resolveTermsMock.mockResolvedValue([]);
   uploadMediaFromUrlMock.mockResolvedValue(321);
@@ -115,6 +119,39 @@ beforeEach(() => {
 });
 
 describe("distributeToSite", () => {
+  it("sends and verifies Rank Math metadata in the video creation request", async () => {
+    const meta = { rank_math_title: "Site title", rank_math_description: "Site description", rank_math_focus_keyword: "keyword" };
+    createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
+    verifyVideoMetaMock.mockResolvedValue({ title: "Site title", meta });
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, { title: "Site title", extraMeta: meta } as never);
+    expect(result.status).toBe("success");
+    expect(checkSeoSupportMock).toHaveBeenCalledTimes(1);
+    expect(createPostMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Site title", meta: expect.objectContaining(meta) }));
+  });
+
+  it("fails when SEO is silently dropped and retains the created post identity", async () => {
+    createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
+    verifyVideoMetaMock.mockResolvedValue({ meta: {} });
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, { extraMeta: { rank_math_description: "SEO" } } as never);
+    expect(result).toMatchObject({ status: "failed", error: "wordpress_seo_verification_failed:rank_math_description" });
+    expect(distributionUpdate).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ remotePostId: "10", status: "FAILED" }) }));
+  });
+
+  it("does not create a post when the Rank Math bridge is unavailable", async () => {
+    checkSeoSupportMock.mockRejectedValueOnce(new Error("wordpress_rank_math_bridge_not_ready"));
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, { extraMeta: { rank_math_description: "SEO" } } as never);
+    expect(result.status).toBe("failed");
+    expect(createPostMock).not.toHaveBeenCalled();
+  });
+
+  it("does not turn an unverified SEO import into success on a video-only retry", async () => {
+    distributionUpsert.mockResolvedValue({ remotePostId: "10", errorMessage: "wordpress_seo_verification_failed:rank_math_description" });
+    getPostMock.mockResolvedValue({ id: 10, meta: { aurum_movie_id: "m1" } });
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);
+    expect(result).toMatchObject({ status: "failed", error: "wordpress_seo_retry_requires_editorial_mode" });
+    expect(updatePostMock).not.toHaveBeenCalled();
+  });
+
   it("marks the distribution PROCESSING before attempting the post", async () => {
     createPostMock.mockResolvedValue({ id: 10, link: "https://wp.example.com/?p=10" });
     await distributeToSite(fakeMovie() as never, fakeSite() as never, undefined);

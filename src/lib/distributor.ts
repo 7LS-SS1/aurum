@@ -2,6 +2,8 @@ import type { Actor, Movie, MovieSiteDraft, Tag, TargetSite } from "@prisma/clie
 import { prisma } from "@/lib/prisma";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
+import { ensureSiteSeo } from "@/lib/content-ai";
+import { SEO_KEYS } from "@/lib/content-seo";
 import {
   AURUM_VIDEO_META_KEYS,
   WordPressClient,
@@ -127,6 +129,7 @@ export function buildVideoMeta(movie: Movie, iframeUrl?: string): AurumVideoMeta
 
 async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, draft: MovieSiteDraft | undefined) {
   const merged = mergeContent(movie, draft);
+  if (SEO_KEYS.some(key => key in merged.extraMeta)) await client.checkSeoSupport();
   const iframeUrl = await resolveIframeUrl(movie);
 
   const payload: Record<string, unknown> = {
@@ -241,6 +244,9 @@ export async function distributeToSite(
         throw new Error("wordpress_identity_missing");
       }
       if (mode === "video_only") {
+        if (distribution.errorMessage?.startsWith("wordpress_seo_")) {
+          throw new Error("wordpress_seo_retry_requires_editorial_mode");
+        }
         protectedBefore = protectedSnapshot(remote);
         payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
       } else {
@@ -248,6 +254,8 @@ export async function distributeToSite(
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
+      const generatedDraft = await ensureSiteSeo(movie.id, site.id);
+      if (generatedDraft) draft = generatedDraft;
       payload = await buildPayload(client, movie, site, draft);
       createdPost = await client.createPost(payload);
     }
@@ -256,6 +264,14 @@ export async function distributeToSite(
       AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
     ) as AurumVideoMeta;
     const verified = await client.verifyVideoMeta(createdPost.id, expectedMeta);
+    for (const key of SEO_KEYS) {
+      if (key in sentMeta && verified.meta[key] !== sentMeta[key]) {
+        throw new Error(`wordpress_seo_verification_failed:${key}`);
+      }
+    }
+    if (SEO_KEYS.some(key => key in sentMeta) && verified.title !== payload.title) {
+      throw new Error("wordpress_seo_verification_failed:title");
+    }
     if (protectedBefore !== null && protectedSnapshot(verified) !== protectedBefore) {
       throw new Error("wordpress_protected_fields_changed");
     }

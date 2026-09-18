@@ -126,10 +126,10 @@ export function TargetSitesManager({
     startTransition(async () => {
       try {
         const endpoint = type === "video" ? `/api/sites/${id}/ping` : `/api/comic-sites/${id}/ping`;
-        const { healthStatus } = await apiFetch<{ healthStatus: VideoSiteRow["healthStatus"] }>(endpoint, { method: "POST" });
+        const { healthStatus, message } = await apiFetch<{ healthStatus: VideoSiteRow["healthStatus"]; message?: string }>(endpoint, { method: "POST" });
         if (type === "video") setVideoSites((prev) => prev.map((s) => (s.id === id ? { ...s, healthStatus } : s)));
         else setComicSites((prev) => prev.map((s) => (s.id === id ? { ...s, healthStatus } : s)));
-        notify(healthStatus === "OK" ? "เชื่อมต่อสำเร็จ" : "เชื่อมต่อไม่สำเร็จ — ตรวจสอบกุญแจ/สิทธิ์ผู้ใช้");
+        notify(message ?? (healthStatus === "OK" ? "เชื่อมต่อสำเร็จ" : "เชื่อมต่อไม่สำเร็จ — ตรวจสอบกุญแจ/สิทธิ์ผู้ใช้"));
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "ตรวจสอบไม่สำเร็จ");
       }

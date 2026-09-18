@@ -1,0 +1,14 @@
+.aurum-core{max-width:1240px;color:#192335}
+.aurum-core-head{margin:24px 0;padding:26px 30px;border-radius:12px;background:#172133;color:#fff}
+.aurum-core-brand{display:block;color:#e8c77a;font-size:12px;font-weight:700;letter-spacing:3px;margin-bottom:10px}
+.aurum-core-head h2{color:#fff;font-size:25px;font-weight:600;padding:0;margin:0;line-height:1.4}
+.aurum-core-head p{color:#d3d9e3;margin:8px 0 0;line-height:1.7}
+.aurum-core-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:20px}
+.aurum-core-card,.aurum-core-panel{background:#fff;border:1px solid #dce2e9;border-radius:10px;padding:22px;box-shadow:0 2px 8px #18223705}
+.aurum-core-card span{display:block;color:#617086;font-size:13px}.aurum-core-card strong{display:block;margin-top:12px;font-size:24px;line-height:1.4}
+.aurum-core-panel{margin-bottom:20px}.aurum-core-panel h2{font-size:17px;margin:0 0 14px}.aurum-core-panel p{line-height:1.8}
+.aurum-core-panel select{min-width:240px;max-width:100%}.aurum-core-table{overflow-x:auto}.aurum-core-table table{border:0;min-width:650px}
+.aurum-core-table td,.aurum-core-table th{padding:14px 12px;vertical-align:top;overflow-wrap:anywhere}.aurum-core-table th{background:#f4f6f9}
+.aurum-core-warning{color:#8a4c00;background:#fff7e4;padding:12px;border-radius:6px}.aurum-core-pagination{margin-top:16px}
+.aurum-core-pagination .page-numbers{display:inline-block;padding:7px 10px}.aurum-core #aurum-csv-progress{font-weight:600}
+@media(max-width:782px){.aurum-core-head{padding:20px}.aurum-core-panel{padding:16px}.aurum-core .form-table th{padding-bottom:4px}.aurum-core .regular-text{width:100%}.aurum-core-cards{grid-template-columns:1fr}}

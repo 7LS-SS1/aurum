@@ -25,7 +25,10 @@ await new Promise((resolve, reject) => {
   output.on("error", reject);
   archive.on("error", reject);
   archive.pipe(output);
-  archive.directory(pluginDir, "aurum-video-core");
+  archive.glob("{aurum-video-core.php,README.md,includes/**,assets/**}", {
+    cwd: pluginDir,
+    ignore: ["**/*.zip", "**/.DS_Store", "**/Thumbs.db"],
+  }, { prefix: "aurum-video-core" });
   void archive.finalize();
 });
 const stableZipPath = path.join(dist, "aurum-video-core.zip");

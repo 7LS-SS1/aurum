@@ -13,6 +13,7 @@ const decryptMock = vi.fn();
 const listAllPostsMock = vi.fn();
 const updatePostMetaMock = vi.fn();
 const distributeToSiteMock = vi.fn();
+const refreshMovieMock = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -39,6 +40,7 @@ vi.mock("@/lib/distributor", () => ({
   distributeToSite: distributeToSiteMock,
   ACTOR_SYNC_SELECT: { id: true, name: true },
 }));
+vi.mock("./repair-service", () => ({ REPAIR_STATUSES: ["APPROVED", "DONE", "PARTIAL", "FAILED"], refreshRepairedMovieStatus: refreshMovieMock }));
 
 const { runScanAndCompare, runPushBatch, runWorkerTick } = await import("./job-runner");
 
@@ -89,6 +91,8 @@ beforeEach(() => {
   siteSyncJobUpdate.mockResolvedValue({});
   siteSyncJobLogCreate.mockResolvedValue({});
   distributionUpsert.mockResolvedValue({});
+  siteSyncJobUpdateMany.mockReset().mockResolvedValue({ count: 1 });
+  refreshMovieMock.mockResolvedValue(undefined);
 });
 
 describe("runScanAndCompare", () => {
@@ -230,17 +234,14 @@ describe("runPushBatch", () => {
   it("completes immediately (COMPLETED, 100%) when the push queue is already empty", async () => {
     await runPushBatch(fakeJob({ phase: "pushing", queuedMovies: 0, processedMovies: 0, failedCount: 0, cursor: { pushQueue: [] } }));
     expect(distributeToSiteMock).not.toHaveBeenCalled();
-    expect(siteSyncJobUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED", progress: 100 }) }));
+    expect(siteSyncJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED", progress: 100 }) }));
   });
 });
 
 describe("runWorkerTick claim/lock", () => {
   it("does not process the same job twice when a second tick's claim update reports 0 rows affected", async () => {
     siteSyncJobFindMany.mockResolvedValue([{ id: "job-1" }]);
-    siteSyncJobUpdateMany
-      .mockResolvedValueOnce({ count: 1 }) // tick 1: claim succeeds
-      .mockResolvedValueOnce({ count: 0 }) // tick 1: release (already finalized elsewhere, harmless)
-      .mockResolvedValueOnce({ count: 0 }); // tick 2: claim fails — someone else already has it / it's finalized
+    siteSyncJobUpdateMany.mockImplementation(({ data }) => Promise.resolve({ count: data.lockedBy === "worker-A" ? 1 : 0 }));
     siteSyncJobFindUnique.mockResolvedValueOnce(fakeJob({ phase: "pushing", queuedMovies: 0, cursor: { pushQueue: [] } }));
 
     const tick1 = await runWorkerTick("worker-A");
@@ -261,6 +262,56 @@ describe("runWorkerTick claim/lock", () => {
     const tick = await runWorkerTick("worker-A");
 
     expect(tick.claimed).toBe(1);
-    expect(siteSyncJobUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+    expect(siteSyncJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+  });
+});
+
+describe("failed distribution repair", () => {
+  beforeEach(() => {
+    movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie", status: "FAILED" }]);
+    movieSiteDraftFindMany.mockResolvedValue([]);
+    distributionFindMany.mockResolvedValue([{ movieId: "m1", status: "FAILED", remotePostId: "77" }]);
+    distributeToSiteMock.mockResolvedValue({ status: "success", postId: 77 });
+  });
+  const repairJob = (extra: Record<string, unknown> = {}) => fakeJob({ phase: "pushing", queuedMovies: 2, cursor: { repair: true, mode: "overwrite_editorial", pushQueue: ["m1", "m2"] }, ...extra });
+
+  it("sends only one failed movie per tick and preserves repair mode for the next tick", async () => {
+    await runPushBatch(repairJob());
+    expect(distributeToSiteMock).toHaveBeenCalledTimes(1);
+    expect(distributeToSiteMock).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), expect.anything(), undefined, "overwrite_editorial");
+    expect(siteSyncJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ processedMovies: 1, cursor: { repair: true, mode: "overwrite_editorial", pushQueue: ["m2"] } }) }));
+    expect(refreshMovieMock).toHaveBeenCalledWith("m1");
+  });
+  it("does not send a movie that was archived after queuing", async () => {
+    movieFindMany.mockResolvedValue([{ id: "m1", status: "ARCHIVED" }]);
+    await runPushBatch(repairJob());
+    expect(distributeToSiteMock).not.toHaveBeenCalled();
+    expect(siteSyncJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ successCount: 0, failedCount: 0, skippedMovies: 1 }) }));
+  });
+  it("does not retry a success and refreshes the movie aggregate after a crashed tick", async () => {
+    distributionFindMany.mockResolvedValue([{ movieId: "m1", status: "SUCCESS", remotePostId: "77" }]);
+    await runPushBatch(repairJob());
+    expect(distributeToSiteMock).not.toHaveBeenCalled();
+    expect(refreshMovieMock).toHaveBeenCalledWith("m1");
+  });
+  it("does not start a cancelled repair", async () => {
+    siteSyncJobUpdateMany.mockResolvedValue({ count: 0 });
+    await runPushBatch(repairJob());
+    expect(distributeToSiteMock).not.toHaveBeenCalled();
+    expect(movieFindMany).not.toHaveBeenCalled();
+  });
+  it("rejects an inactive site before doing any work", async () => {
+    await expect(runPushBatch(repairJob({ site: fakeSite({ isActive: false }) }))).rejects.toThrow("site_inactive");
+    expect(distributeToSiteMock).not.toHaveBeenCalled();
+  });
+  it("guards final progress against cancellation during the WordPress write", async () => {
+    await runPushBatch(repairJob());
+    expect(siteSyncJobUpdateMany.mock.calls.at(-1)?.[0].where).toEqual({ id: "job-1", status: "PROCESSING" });
+    expect(siteSyncJobUpdate).not.toHaveBeenCalled();
+  });
+  it("retains the checkpoint when local status verification fails after publication", async () => {
+    refreshMovieMock.mockRejectedValue(new Error("database unavailable"));
+    await expect(runPushBatch(repairJob())).rejects.toThrow("repair_step_failed");
+    expect(siteSyncJobUpdateMany).toHaveBeenCalledTimes(1); // start only; no cursor consumed
   });
 });

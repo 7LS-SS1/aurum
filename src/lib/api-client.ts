@@ -1,9 +1,11 @@
 /** Thin fetch wrapper for client components — same-origin only, credentials always included. */
 export class ApiClientError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -29,7 +31,7 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     // Preserve every server-side validation issue so multi-file forms can
     // show the complete actionable error instead of hiding all but the first.
     const message = (issues.length ? issues.join(" • ") : undefined) ?? (typeof data?.error === "string" ? data.error : `HTTP ${res.status}`);
-    throw new ApiClientError(message, res.status);
+    throw new ApiClientError(message, res.status, typeof data?.code === "string" ? data.code : undefined);
   }
   return data as T;
 }

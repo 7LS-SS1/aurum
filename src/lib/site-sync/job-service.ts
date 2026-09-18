@@ -47,16 +47,23 @@ export function toPublicJob(job: SiteSyncJob & { site?: { id: string; name: stri
  * the same `activeSiteId`, and Postgres's unique index guarantees exactly one
  * of them wins (the loser gets a P2002 and we hand back the winner's job).
  */
-export async function startSyncJob(siteId: string, actor: Actor): Promise<StartJobResult> {
+export interface RepairCursor {
+  repair: true;
+  pushQueue: string[];
+  mode: "video_only" | "overwrite_editorial";
+}
+
+export async function startSyncJob(siteId: string, actor: Actor, repair?: RepairCursor): Promise<StartJobResult> {
   try {
     const job = await prisma.siteSyncJob.create({
       data: {
         siteId,
         requestedById: actor.id,
         status: "QUEUED",
-        phase: "queued",
+        phase: repair ? "pushing" : "queued",
         activeSiteId: siteId,
-        cursor: {},
+        cursor: repair ? { ...repair } : {},
+        ...(repair ? { totalMovies: repair.pushQueue.length, queuedMovies: repair.pushQueue.length } : {}),
       },
     });
     return { created: true, job };
@@ -67,6 +74,8 @@ export async function startSyncJob(siteId: string, actor: Actor): Promise<StartJ
         orderBy: { createdAt: "desc" },
       });
       if (existing) return { created: false, job: existing };
+      const cancelling = await prisma.siteSyncJob.findFirst({ where: { activeSiteId: siteId, status: "CANCELLED" } });
+      if (cancelling) return { created: false, job: cancelling };
     }
     throw err;
   }
@@ -149,8 +158,10 @@ export async function cancelJob(jobId: string): Promise<SiteSyncJob> {
       status: "CANCELLED",
       phase: "cancelled",
       finishedAt: new Date(),
-      activeSiteId: null,
-      lockedUntil: null,
+      // Keep the site slot until an in-flight worker finishes its last write.
+      // Otherwise a new repair can race the cancelled request on WordPress.
+      activeSiteId: job.lockedUntil && job.lockedUntil > new Date() ? job.activeSiteId : null,
+      lockedUntil: job.lockedUntil && job.lockedUntil > new Date() ? job.lockedUntil : null,
     },
   });
 }
@@ -165,5 +176,9 @@ export async function retryJob(jobId: string, actor: Actor): Promise<StartJobRes
   const job = await prisma.siteSyncJob.findUnique({ where: { id: jobId } });
   if (!job) throw new ApiError("job_not_found", 404);
   if (job.status !== "FAILED") throw new ApiError("job_not_failed", 409);
+  const cursor = job.cursor as Partial<RepairCursor> | null;
+  if (cursor?.repair === true && Array.isArray(cursor.pushQueue)) {
+    return startSyncJob(job.siteId, actor, { repair: true, mode: cursor.mode === "overwrite_editorial" ? "overwrite_editorial" : "video_only", pushQueue: cursor.pushQueue.filter((id): id is string => typeof id === "string") });
+  }
   return startSyncJob(job.siteId, actor);
 }

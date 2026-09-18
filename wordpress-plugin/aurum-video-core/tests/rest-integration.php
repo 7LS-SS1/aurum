@@ -20,7 +20,7 @@ if ( ! $wp_load || ! is_file( $wp_load ) ) {
 }
 
 require $wp_load;
-require dirname( __DIR__ ) . '/aurum-video-core.php';
+require_once dirname( __DIR__ ) . '/aurum-video-core.php';
 
 $admins = get_users( array( 'role' => 'administrator', 'number' => 1, 'fields' => 'ID' ) );
 if ( empty( $admins ) ) {

@@ -1,4 +1,5 @@
 import { actorFingerprint, actorSyncLookupSchema, actorSyncRemoteSchema, type ActorSyncPayload, type ActorSyncRemote } from "./actor-sync-contract";
+import { assessWordPressIntegration, type WordPressIntegrationHealth } from "./wordpress-integration-health";
 
 /**
  * Thin client for one destination WordPress site's REST API.
@@ -263,6 +264,16 @@ export class WordPressClient {
   /** `/users/me` 401s on bad credentials — used for the site health check. */
   async ping(): Promise<{ id: number; name: string }> {
     return this.json(`${this.api}/users/me?context=edit`);
+  }
+
+  /** Authenticated read-only check for Core registration and site-profile compatibility. */
+  async integrationHealth(): Promise<WordPressIntegrationHealth> {
+    const data = await this.json<unknown>(this.baseUrl + "/wp-json/aurum-video-core/v1/diagnostics");
+    return assessWordPressIntegration(data, {
+      postType: this.postType,
+      categoryRestBase: this.categoryRestBase,
+      tagRestBase: this.tagRestBase,
+    });
   }
 
   /**

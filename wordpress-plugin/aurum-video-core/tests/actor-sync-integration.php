@@ -37,6 +37,9 @@ try {
  $term_id = (int) ( $data['termId'] ?? 0 );
  actor_test_expect( $term_id > 0 && 'นักแสดงทดสอบ' === get_term( $term_id, 'aurum_video_actor' )->name, 'actor taxonomy term created' );
  actor_test_expect( $external === get_term_meta( $term_id, '_aurum_actor_id', true ), 'term identity stored' );
+ $term_url = get_term_link( $term_id, 'aurum_video_actor' );
+ actor_test_expect( ! is_wp_error( $term_url ) && $term_url === get_permalink( $id ), 'actor permalink points to public taxonomy profile' );
+ actor_test_expect( false !== strpos( $term_url, '/actres/' ), 'actor permalink uses /actres/' );
  actor_test_expect( '25' === (string) get_term_meta( $term_id, '_av123_actor_age', true ), 'term metadata stored' );
  actor_test_expect( $payload['profileImageUrl'] === get_term_meta( $term_id, '_av123_actor_profile_image_url', true ), 'external image URL stored' );
  for ( $i = 0; $i < 3; $i++ ) {

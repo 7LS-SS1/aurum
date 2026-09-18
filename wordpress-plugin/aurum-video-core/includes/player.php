@@ -57,10 +57,10 @@ function aurum_video_core_extract_fallback_url( $content ) {
 
 /** Identifies themes that already print their own player before the_content. */
 function aurum_video_core_theme_renders_player( $post_id ) {
-	if ( function_exists( 'misiav_get_video_url' ) && misiav_get_video_url( $post_id ) ) {
+	if ( is_singular( array( 'post', 'video' ) ) && (int) get_queried_object_id() === (int) $post_id && function_exists( 'misiav_has_video_payload' ) && misiav_has_video_payload( $post_id ) ) {
 		return true;
 	}
-	if ( function_exists( 'aurum_render_video_player' ) ) {
+	if ( is_singular( array( 'post', 'video' ) ) && (int) get_queried_object_id() === (int) $post_id && function_exists( 'aurum_render_video_player' ) && function_exists( 'aurum_get_video_meta' ) && ( ! empty( aurum_get_video_meta( $post_id )['video_url'] ) || ! empty( aurum_get_video_meta( $post_id )['iframe_url'] ) ) ) {
 		return true;
 	}
 	return (bool) apply_filters( 'aurum_video_core_theme_renders_player', false, $post_id );
@@ -91,7 +91,9 @@ function aurum_video_core_player_html( $post_id, $meta ) {
 		return '';
 	}
 
-	$type = aurum_video_core_is_hls( $video_url ) ? 'application/vnd.apple.mpegurl' : 'video/mp4';
+	$extension = strtolower( pathinfo( (string) wp_parse_url( $video_url, PHP_URL_PATH ), PATHINFO_EXTENSION ) );
+	$types = array( 'webm' => 'video/webm', 'ogg' => 'video/ogg', 'ogv' => 'video/ogg' );
+	$type = aurum_video_core_is_hls( $video_url ) ? 'application/vnd.apple.mpegurl' : ( isset( $types[ $extension ] ) ? $types[ $extension ] : 'video/mp4' );
 	return sprintf(
 		'<div class="aurum-video-core-player"><video controls playsinline preload="metadata" width="1280" height="720"%1$s data-aurum-video="1"><source src="%2$s" type="%3$s"><p>%4$s <a href="%2$s">%5$s</a></p></video></div>',
 		$poster ? ' poster="' . esc_url( $poster ) . '"' : '',
@@ -127,27 +129,36 @@ function aurum_video_core_filter_content( $content ) {
 	}
 
 	$clean = aurum_video_core_strip_fallback( $content );
-	if ( aurum_video_core_theme_renders_player( $post_id ) && ! $legacy ) {
+	if ( aurum_video_core_theme_renders_player( $post_id ) ) {
 		return $clean;
 	}
 
 	$player = aurum_video_core_player_html( $post_id, $meta );
-	return $player ? $player . $clean : $clean;
+	if ( ! $player ) {
+		return $clean;
+	}
+
+	// Assets are enqueued here, at the moment markup is actually produced, so a
+	// page that ends up without an AURUM player never carries its CSS or HLS script.
+	aurum_video_core_enqueue_player_assets( ! empty( $meta['iframe_url'] ) ? '' : ( isset( $meta['video_url'] ) ? $meta['video_url'] : '' ) );
+
+	return $player . $clean;
 }
 add_filter( 'the_content', 'aurum_video_core_filter_content', 8 );
 
-/** Loads player code only on singular pages that contain AURUM media. */
-function aurum_video_core_enqueue_assets() {
-	if ( ! is_singular() ) {
-		return;
-	}
-
-	$post_id = get_queried_object_id();
-	$meta    = aurum_video_core_get_meta( $post_id );
-	$content = (string) get_post_field( 'post_content', $post_id );
-	$url     = $meta['video_url'] ? $meta['video_url'] : aurum_video_core_extract_fallback_url( $content );
-
-	if ( empty( $url ) && empty( $meta['iframe_url'] ) ) {
+/**
+ * Enqueue the player stylesheet, and the HLS script only for an HLS source.
+ *
+ * Safe to call more than once and from either the enqueue pass or from inside
+ * the_content, so the assets can follow the markup rather than be guessed ahead
+ * of it.
+ *
+ * @since 1.2.0
+ *
+ * @param string $url Resolved media URL, if any.
+ */
+function aurum_video_core_enqueue_player_assets( $url = '' ) {
+	if ( wp_style_is( 'aurum-video-core-player', 'enqueued' ) ) {
 		return;
 	}
 
@@ -163,5 +174,34 @@ function aurum_video_core_enqueue_assets() {
 			'before'
 		);
 	}
+}
+
+/**
+ * Loads player code only on singular pages where AURUM will render the player.
+ *
+ * When another component claims the player, AURUM prints no markup, so nothing
+ * is enqueued here. Integrated themes that use the plugin's player helper
+ * enqueue its assets explicitly before wp_head. Legacy sources respect the
+ * same ownership signal as metadata sources.
+ */
+function aurum_video_core_enqueue_assets() {
+	if ( ! is_singular() ) {
+		return;
+	}
+
+	$post_id = get_queried_object_id();
+	if ( aurum_video_core_theme_renders_player( $post_id ) ) {
+		return;
+	}
+
+	$meta    = aurum_video_core_get_meta( $post_id );
+	$content = (string) get_post_field( 'post_content', $post_id );
+	$url     = $meta['video_url'] ? $meta['video_url'] : aurum_video_core_extract_fallback_url( $content );
+
+	if ( empty( $url ) && empty( $meta['iframe_url'] ) ) {
+		return;
+	}
+
+	aurum_video_core_enqueue_player_assets( ! empty( $meta['iframe_url'] ) ? '' : $url );
 }
 add_action( 'wp_enqueue_scripts', 'aurum_video_core_enqueue_assets', 20 );

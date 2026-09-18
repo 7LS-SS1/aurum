@@ -15,8 +15,10 @@ function aurum_video_core_has_video( $post_id ) {
 	return (bool) ( aurum_video_core_safe_url( $meta['video_url'] ) || aurum_video_core_safe_url( $meta['iframe_url'] ) );
 }
 
-/** Returns a stable poster URL, preferring canonical AURUM metadata. */
+/** Keep the schema poster consistent with the themes' editorial featured image. */
 function aurum_video_core_thumbnail_url( $post_id ) {
+	$featured = aurum_video_core_safe_url( get_the_post_thumbnail_url( $post_id, 'full' ) );
+	if ( $featured ) { return $featured; }
 	$meta = aurum_video_core_get_meta( $post_id );
 	$url  = aurum_video_core_safe_url( $meta['thumbnail_url'] );
 	if ( $url ) {
@@ -47,8 +49,25 @@ function aurum_video_core_is_explicit( $post_id ) {
 	return (bool) apply_filters( 'aurum_video_core_is_explicit', $explicit, $post_id );
 }
 
+/**
+ * Whether AURUM should print the adult rating meta tag.
+ *
+ * A theme or plugin that already owns this signal returns false so the page
+ * carries exactly one `rating` meta tag.
+ *
+ * @since 1.2.0
+ *
+ * @return bool
+ */
+function aurum_video_core_rating_meta_enabled() {
+	return (bool) apply_filters( 'aurum_video_core_enable_rating_meta', true );
+}
+
 /** Outputs the SafeSearch-compatible adult rating only for explicit pages. */
 function aurum_video_core_rating_meta() {
+	if ( ! aurum_video_core_rating_meta_enabled() ) {
+		return;
+	}
 	if ( is_singular() && aurum_video_core_is_explicit( get_queried_object_id() ) ) {
 		echo '<meta name="rating" content="adult">' . "\n";
 	}
@@ -197,6 +216,23 @@ function aurum_video_core_yoast_image( $value ) {
 add_filter( 'wpseo_opengraph_image', 'aurum_video_core_yoast_image' );
 add_filter( 'wpseo_twitter_image', 'aurum_video_core_yoast_image' );
 
+/**
+ * Whether AURUM owns the video sitemap on this site.
+ *
+ * Exactly one component may publish a video sitemap. A theme or plugin that
+ * already serves one returns false here; AURUM then stops rendering its own
+ * `/aurum-video-sitemap*.xml` responses and stops advertising them in
+ * robots.txt. The rewrite rules stay registered so no rewrite flush is needed
+ * when ownership changes back.
+ *
+ * @since 1.2.0
+ *
+ * @return bool
+ */
+function aurum_video_core_sitemap_enabled() {
+	return (bool) apply_filters( 'aurum_video_core_enable_sitemap', true );
+}
+
 /** Registers stable video-sitemap index and page routes. */
 function aurum_video_core_register_sitemap_rewrites() {
 	add_rewrite_rule( '^aurum-video-sitemap\.xml$', 'index.php?aurum_video_sitemap=index', 'top' );
@@ -280,6 +316,24 @@ function aurum_video_core_render_sitemap() {
 		return;
 	}
 
+	if ( ! aurum_video_core_sitemap_enabled() ) {
+		/*
+		 * The rewrite rule still matches, so returning quietly here would leave
+		 * WordPress holding a query it cannot satisfy: it resolves as a home
+		 * query and redirect_canonical() then 301s the URL to the front page.
+		 * A retired sitemap URL must never redirect to the homepage - that is a
+		 * soft 404 and search engines keep following it. Answer 410 Gone from
+		 * template_redirect priority 0, before redirect_canonical runs, so the
+		 * URL is dropped rather than redirected.
+		 */
+		status_header( 410 );
+		nocache_headers();
+		header( 'Content-Type: text/plain; charset=UTF-8' );
+		header( 'X-Robots-Tag: noindex', true );
+		echo 'This video sitemap is no longer published at this address.';
+		exit;
+	}
+
 	status_header( 200 );
 	header( 'Content-Type: application/xml; charset=UTF-8' );
 	header( 'X-Robots-Tag: noindex, follow', true );
@@ -311,6 +365,10 @@ add_action( 'template_redirect', 'aurum_video_core_render_sitemap', 0 );
 
 /** Makes the dedicated video sitemap discoverable without modifying robots rules. */
 function aurum_video_core_robots_sitemap( $output ) {
+	if ( ! aurum_video_core_sitemap_enabled() ) {
+		return $output;
+	}
+
 	$line = 'Sitemap: ' . home_url( '/aurum-video-sitemap.xml' );
 	return false === strpos( $output, $line ) ? rtrim( $output ) . "\n" . $line . "\n" : $output;
 }

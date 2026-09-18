@@ -56,7 +56,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="side-link" href="/admin/player">
             Media Player
           </Link>
-          {role === "HEAD" && <Link className="side-link" href="/admin/content-ai">ตั้งค่า OpenAI / SEO</Link>}
+          {role === "HEAD" && <Link className="side-link" href="/admin/content-ai">ตั้งค่า AI / SEO</Link>}
           <Link className="side-link" href="/admin/wp-theme">
             WordPress Theme
           </Link>

@@ -18,6 +18,7 @@ function register_post_meta( $post_type, $key, $args ) {
 	$GLOBALS['registered_meta'][ $post_type ][ $key ] = $args;
 	return true;
 }
+function add_post_type_support() {}
 function current_user_can() { return true; }
 function esc_url_raw( $url ) { return filter_var( $url, FILTER_VALIDATE_URL ) ? $url : ''; }
 function sanitize_text_field( $value ) { return trim( strip_tags( (string) $value ) ); }

@@ -5,6 +5,7 @@ import { WordPressClient, WordPressScanError } from "@/lib/wordpress-client";
 import { distributeToSite, ACTOR_SYNC_SELECT } from "@/lib/distributor";
 import { buildWpMatchIndex, findMatch, hasWeakIdentityCandidate, type MovieForMatch } from "./match";
 import { ELIGIBLE_SYNC_STATUSES } from "./job-service";
+import { REPAIR_STATUSES, refreshRepairedMovieStatus } from "./repair-service";
 
 /** How long a claim lease lasts before another worker tick may steal a stuck job — bounds crash recovery time. */
 const LEASE_MS = 120_000;
@@ -22,6 +23,8 @@ type JobWithSite = Prisma.SiteSyncJobGetPayload<{ include: { site: true } }>;
 
 interface PushCursor {
   pushQueue?: string[];
+  repair?: boolean;
+  mode?: "video_only" | "overwrite_editorial";
 }
 
 function truncateMessage(message: string, max = 1000): string {
@@ -64,6 +67,10 @@ async function writeLog(
  */
 export async function runWorkerTick(workerId: string): Promise<{ claimed: number; jobIds: string[] }> {
   const now = new Date();
+  await prisma.siteSyncJob.updateMany({
+    where: { status: "CANCELLED", activeSiteId: { not: null }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] },
+    data: { activeSiteId: null, lockedUntil: null },
+  });
   const candidates = await prisma.siteSyncJob.findMany({
     where: {
       status: { in: ["QUEUED", "SCANNING", "PROCESSING"] },
@@ -98,6 +105,16 @@ async function claimAndProcessJob(jobId: string, workerId: string): Promise<bool
   const job = await prisma.siteSyncJob.findUnique({ where: { id: jobId }, include: { site: true } });
   if (!job) return false;
 
+  // SEO retries plus WordPress verification can exceed one lease. Keep the
+  // claim alive so another worker cannot send the same batch concurrently.
+  const heartbeat = setInterval(() => {
+    prisma.siteSyncJob.updateMany({
+      where: { id: jobId, lockedBy: workerId, activeSiteId: job.siteId, status: { in: ["QUEUED", "SCANNING", "PROCESSING", "CANCELLED"] } },
+      data: { lockedUntil: new Date(Date.now() + LEASE_MS), heartbeatAt: new Date() },
+    }).catch(() => {});
+  }, LEASE_MS / 3);
+  heartbeat.unref();
+
   try {
     if (job.phase === "pushing") {
       await runPushBatch(job);
@@ -109,13 +126,19 @@ async function claimAndProcessJob(jobId: string, workerId: string): Promise<bool
     await finalizeJob(jobId, "FAILED", message);
     await writeLog(jobId, "ERROR", "job_failed", message);
     return true;
+  } finally {
+    clearInterval(heartbeat);
+    await prisma.siteSyncJob.updateMany({
+      where: { id: jobId, lockedBy: workerId, status: "CANCELLED" },
+      data: { activeSiteId: null, lockedUntil: null },
+    });
   }
 
   // Release the lease immediately if the job is still in-flight so the very
   // next cron tick can continue it without waiting out the full lease —
   // the lease's only job is bounding recovery time after a crash mid-tick.
   await prisma.siteSyncJob.updateMany({
-    where: { id: jobId, status: { in: ["QUEUED", "SCANNING", "PROCESSING"] } },
+    where: { id: jobId, lockedBy: workerId, status: { in: ["QUEUED", "SCANNING", "PROCESSING"] } },
     data: { lockedUntil: null },
   });
 
@@ -123,8 +146,8 @@ async function claimAndProcessJob(jobId: string, workerId: string): Promise<bool
 }
 
 async function finalizeJob(jobId: string, status: "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED", errorMessage?: string) {
-  await prisma.siteSyncJob.update({
-    where: { id: jobId },
+  await prisma.siteSyncJob.updateMany({
+    where: { id: jobId, status: { in: ["QUEUED", "SCANNING", "PROCESSING"] } },
     data: {
       status,
       phase: status.toLowerCase(),
@@ -291,6 +314,14 @@ export async function runScanAndCompare(job: JobWithSite): Promise<void> {
 
 export async function runPushBatch(job: JobWithSite): Promise<void> {
   const cursor = (job.cursor as PushCursor) ?? {};
+  if (job.site.isActive === false) throw new Error("site_inactive");
+  if (cursor.repair) {
+    const active = await prisma.siteSyncJob.updateMany({
+      where: { id: job.id, status: { in: ["QUEUED", "PROCESSING"] } },
+      data: { status: "PROCESSING", startedAt: job.startedAt ?? new Date() },
+    });
+    if (!active.count) return;
+  }
   const pushQueue = cursor.pushQueue ?? [];
   if (pushQueue.length === 0) {
     await finalizeJob(job.id, job.failedCount > 0 ? "PARTIAL" : "COMPLETED");
@@ -298,8 +329,10 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
     return;
   }
 
-  const batchIds = pushQueue.slice(0, PUSH_BATCH_SIZE);
-  const remaining = pushQueue.slice(PUSH_BATCH_SIZE);
+  const batchSize = cursor.repair ? 1 : PUSH_BATCH_SIZE;
+  const concurrency = cursor.repair ? 1 : PUSH_CONCURRENCY;
+  const batchIds = pushQueue.slice(0, batchSize);
+  const remaining = pushQueue.slice(batchSize);
 
   const [movies, drafts, distributions] = await Promise.all([
     prisma.movie.findMany({ where: { id: { in: batchIds } }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } }),
@@ -312,15 +345,16 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
 
   let batchSuccess = 0;
   let batchFailed = 0;
+  let batchSkipped = 0;
 
-  for (let i = 0; i < batchIds.length; i += PUSH_CONCURRENCY) {
-    const chunk = batchIds.slice(i, i + PUSH_CONCURRENCY);
+  for (let i = 0; i < batchIds.length; i += concurrency) {
+    const chunk = batchIds.slice(i, i + concurrency);
     const results = await Promise.allSettled(
       chunk.map(async (movieId) => {
         const movie = movieById.get(movieId);
         if (!movie) {
           await writeLog(job.id, "WARN", "movie_missing", "ไม่พบวิดีโอนี้แล้ว (อาจถูกลบ) — ข้าม", { movieId });
-          return { success: true };
+          return cursor.repair ? { success: false, skipped: true } : { success: true };
         }
 
         // Crash-recovery guard: if a previous tick's WordPress post actually
@@ -328,6 +362,11 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
         // were persisted, distributeToSite() already committed Distribution
         // to SUCCESS — re-checking here avoids creating a second WordPress post.
         const existing = distByMovieId.get(movieId);
+        if (cursor.repair && (!REPAIR_STATUSES.includes(movie.status) || existing?.status !== "FAILED")) {
+          if (existing?.status === "SUCCESS") await refreshRepairedMovieStatus(movieId);
+          await writeLog(job.id, "WARN", "repair_no_longer_eligible", "รายการนี้ไม่อยู่ในสถานะที่ซ่อมได้แล้ว — ข้าม", { movieId });
+          return { success: false, skipped: true };
+        }
         if (existing?.status === "SUCCESS" && existing.remotePostId) {
           await writeLog(job.id, "INFO", "already_published_skip", "พบว่าเผยแพร่สำเร็จแล้วจากรอบก่อนหน้า — ข้ามการส่งซ้ำ", {
             movieId,
@@ -337,7 +376,10 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
           return { success: true };
         }
 
-        const result = await distributeToSite(movie, job.site, draftByMovieId.get(movieId));
+        const result = cursor.repair
+          ? await distributeToSite(movie, job.site, draftByMovieId.get(movieId), cursor.mode ?? "video_only")
+          : await distributeToSite(movie, job.site, draftByMovieId.get(movieId));
+        if (cursor.repair) await refreshRepairedMovieStatus(movieId);
         if (result.status === "success") {
           await writeLog(job.id, "INFO", "published", `ส่งวิดีโอสำเร็จ: ${movie.title}`, {
             movieId,
@@ -361,7 +403,14 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
     );
 
     for (const r of results) {
-      if (r.status === "fulfilled" && r.value.success) batchSuccess += 1;
+      if (cursor.repair && r.status === "rejected") {
+        // Retain this checkpoint if the database/log/aggregate step failed
+        // after WordPress wrote the post. Retry will read SUCCESS and only
+        // repair the local status; it must not send that post again.
+        throw new Error("repair_step_failed: publication_or_status_verification_incomplete");
+      }
+      if (r.status === "fulfilled" && "skipped" in r.value && r.value.skipped) batchSkipped += 1;
+      else if (r.status === "fulfilled" && r.value.success) batchSuccess += 1;
       else batchFailed += 1;
     }
   }
@@ -374,13 +423,14 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
   const progress = Math.min(99, 30 + Math.round((70 * processedMovies) / job.queuedMovies));
 
   if (remaining.length === 0) {
-    await prisma.siteSyncJob.update({
+    await persistPushUpdate(job, cursor, {
       where: { id: job.id },
       data: {
         processedMovies,
         successCount,
         failedCount,
-        cursor: { pushQueue: [] } as Prisma.InputJsonValue,
+        skippedMovies: job.skippedMovies + batchSkipped,
+        cursor: { ...cursor, pushQueue: [] } as Prisma.InputJsonValue,
         status: failedCount > 0 ? "PARTIAL" : "COMPLETED",
         phase: failedCount > 0 ? "partial" : "completed",
         progress: 100,
@@ -393,16 +443,23 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
     return;
   }
 
-  await prisma.siteSyncJob.update({
+  await persistPushUpdate(job, cursor, {
     where: { id: job.id },
     data: {
       processedMovies,
       successCount,
       failedCount,
+      skippedMovies: job.skippedMovies + batchSkipped,
       progress,
-      cursor: { pushQueue: remaining } as Prisma.InputJsonValue,
+      cursor: { ...cursor, pushQueue: remaining } as Prisma.InputJsonValue,
     },
   });
+}
+
+async function persistPushUpdate(job: JobWithSite, cursor: PushCursor, update: Prisma.SiteSyncJobUpdateArgs) {
+  if (!cursor.repair) return prisma.siteSyncJob.update(update);
+  // A cancelled in-flight upload can finish, but must not resurrect the queue.
+  return prisma.siteSyncJob.updateMany({ where: { id: job.id, status: "PROCESSING" }, data: update.data as Prisma.SiteSyncJobUpdateManyMutationInput });
 }
 
 /** Gap between one self-chained tick finishing and the next firing — see scheduleFollowUpTick(). */

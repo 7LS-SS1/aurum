@@ -79,6 +79,8 @@ function aurum_video_core_register_meta() {
 	}
 
 	foreach ( $post_types as $post_type ) {
+		// WP REST exposes registered meta only for types supporting custom-fields.
+		add_post_type_support( $post_type, 'custom-fields' );
 		foreach ( aurum_video_core_meta_fields() as $meta_key => $kind ) {
 			$registered = register_post_meta(
 				$post_type,
@@ -157,6 +159,10 @@ function aurum_video_core_diagnostics() {
 	$post_types = aurum_video_core_post_types();
 	$fields     = array_keys( aurum_video_core_meta_fields() );
 	$missing    = array();
+	$profiles = array();
+	foreach ( array( 'post', 'video' ) as $type ) {
+		if ( post_type_exists( $type ) ) { $profiles[ $type ] = aurum_video_core_profile( $type ); }
+	}
 
 	foreach ( $post_types as $post_type ) {
 		$registered = get_registered_meta_keys( 'post', $post_type );
@@ -174,6 +180,9 @@ function aurum_video_core_diagnostics() {
 			'metaFields' => $fields,
 			'missing'    => $missing,
 			'yoast'      => defined( 'WPSEO_VERSION' ),
+			'profile'    => aurum_video_core_profile(),
+			'profiles'   => $profiles,
+			'capabilities' => array( 'management' => true, 'history' => true, 'csvSchema' => 1, 'identity' => 'aurum_movie_id' ),
 		)
 	);
 }

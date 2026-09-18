@@ -14,6 +14,14 @@ function aurum_actor_sync_register() {
 }
 add_action( 'init', 'aurum_actor_sync_register' );
 
+/** Attach synchronized actors after themes/plugins register their REST types. */
+function aurum_actor_sync_attach_post_types() {
+	foreach ( aurum_video_core_post_types() as $post_type ) {
+		register_taxonomy_for_object_type( 'aurum_video_actor', $post_type );
+	}
+}
+add_action( 'init', 'aurum_actor_sync_attach_post_types', 110 );
+
 /**
  * Video-facing actor taxonomy. Kept separate from the `aurum_actor` CPT
  * (which remains the actor directory/profile record) so existing CPT-based
@@ -37,6 +45,40 @@ function aurum_actor_sync_taxonomy_register() {
 	) );
 }
 add_action( 'init', 'aurum_actor_sync_taxonomy_register' );
+
+/** Resolve the public taxonomy profile paired with an internal actor record. */
+function aurum_actor_sync_public_url( $post_id ) {
+	$external_id = get_post_meta( $post_id, '_aurum_actor_id', true );
+	if ( ! is_string( $external_id ) || '' === $external_id ) {
+		return null;
+	}
+	$term = aurum_actor_sync_find_term( $external_id );
+	if ( ! $term || is_wp_error( $term ) ) {
+		return null;
+	}
+	$url = get_term_link( $term, 'aurum_video_actor' );
+	return is_wp_error( $url ) ? null : $url;
+}
+
+/** Never expose the internal `?aurum_actor=...` URL as the actor permalink. */
+add_filter( 'post_type_link', function ( $url, $post ) {
+	if ( ! $post instanceof WP_Post || 'aurum_actor' !== $post->post_type ) {
+		return $url;
+	}
+	return aurum_actor_sync_public_url( $post->ID ) ?: $url;
+}, 10, 2 );
+
+/** Preserve old indexed/query URLs while consolidating them onto `/actres/`. */
+add_action( 'template_redirect', function () {
+	if ( ! is_singular( 'aurum_actor' ) ) {
+		return;
+	}
+	$url = aurum_actor_sync_public_url( get_queried_object_id() );
+	if ( $url ) {
+		wp_safe_redirect( $url, 301, 'AURUM Video Core' );
+		exit;
+	}
+} );
 
 /** Logical actor field -> theme-compatible term-meta key (matches 123av's `_av123_actor_*` convention). */
 function aurum_actor_sync_term_meta_fields() {

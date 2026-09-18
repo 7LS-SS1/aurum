@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { auth } from "@/auth";
+import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { StatusBreakdownBar, type StatusBucket } from "@/components/admin/StatusBreakdownBar";
 
@@ -50,6 +52,9 @@ function badgeClass(status: string) {
 }
 
 export default async function AdminDashboardPage() {
+  const session = await auth();
+  const canRepair = !!session?.user && can(session.user.role, "movie:publish");
+  const repairHref = canRepair ? "/admin/distributions/repair" : "/admin/videos";
   const [
     totalMovies,
     reviewQueue,
@@ -113,7 +118,7 @@ export default async function AdminDashboardPage() {
           <strong>{reviewQueue}</strong>
           <span>รายการที่ต้องดำเนินการ</span>
         </Link>
-        <Link className="dash-card danger" href="/admin/videos">
+        <Link className="dash-card danger" href={repairHref}>
           <span className="dash-label">วิดีโอล้มเหลว</span>
           <strong>{failedMovies}</strong>
           <span>ต้องตรวจและ retry</span>
@@ -128,10 +133,10 @@ export default async function AdminDashboardPage() {
           <strong>ON</strong>
           <span>ตั้งค่า controller สำหรับ Bunny/native player</span>
         </Link>
-        <Link className="dash-card danger" href="/admin/videos">
+        <Link className="dash-card danger" href={repairHref}>
           <span className="dash-label">Distribution Failed</span>
           <strong>{failedDistributions}</strong>
-          <span>งานเผยแพร่ที่ล้มเหลว</span>
+          <span>{canRepair ? "ซ่อมและส่งซ้ำงานเผยแพร่ที่ล้มเหลว" : "งานเผยแพร่ที่ล้มเหลว"}</span>
         </Link>
       </div>
 

@@ -107,9 +107,22 @@ describe("cancelJob", () => {
     siteSyncJobFindUnique.mockResolvedValue({ id: "job-1", siteId: "site-1", status: "COMPLETED" });
     await expect(cancelJob("job-1")).rejects.toThrow("job_not_active");
   });
+  it("holds the site slot while a cancelled worker is still writing", async () => {
+    const lease = new Date(Date.now() + 60_000);
+    siteSyncJobFindUnique.mockResolvedValue({ id: "job-1", status: "PROCESSING", activeSiteId: "site-1", lockedUntil: lease });
+    await cancelJob("job-1");
+    expect(siteSyncJobUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CANCELLED", activeSiteId: "site-1", lockedUntil: lease }) }));
+  });
 });
 
 describe("retryJob", () => {
+  it("preserves a failed repair checkpoint rather than starting a generic resync", async () => {
+    const cursor = { repair: true, mode: "overwrite_editorial", pushQueue: ["m1"] };
+    siteSyncJobFindUnique.mockResolvedValue({ id: "old", siteId: "site-1", status: "FAILED", cursor });
+    siteSyncJobCreate.mockResolvedValue({ id: "new" });
+    await retryJob("old", { id: "user-1", role: "MANAGER" });
+    expect(siteSyncJobCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ phase: "pushing", cursor }) }));
+  });
   it("starts a brand-new job for the same site rather than resuming the failed one", async () => {
     siteSyncJobFindUnique.mockResolvedValue({ id: "job-old", siteId: "site-1", status: "FAILED" });
     siteSyncJobCreate.mockResolvedValue({ id: "job-new", siteId: "site-1", status: "QUEUED" });

@@ -8,8 +8,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "cross-env NODE_ENV=production next build",
-    "start": "next start",
+    "build": "cross-env NODE_ENV=production next build && node scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "build:player": "node scripts/build-aurum-player.mjs",

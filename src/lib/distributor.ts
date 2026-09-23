@@ -23,6 +23,8 @@ export interface DistributionResult {
   url?: string;
   error?: string;
   warnings?: string[];
+  /** Internal/public diagnostic hint; only safe transient failures are retried automatically. */
+  retryable?: boolean;
 }
 
 export interface DistributeSummary {
@@ -42,11 +44,23 @@ export const ACTOR_SYNC_SELECT = {
 } as const;
 type MovieActor = Pick<Actor, keyof typeof ACTOR_SYNC_SELECT>;
 
+const ACTOR_SYNC_CONCURRENCY = 4;
+const SITE_DISTRIBUTION_CONCURRENCY = 3;
+const TRANSIENT_RETRY_DELAY_MS = process.env.NODE_ENV === "test" ? 0 : 1_200;
+
 /** Movie.tags/actors are real relations now — every caller that touches merged content needs them eagerly loaded. */
 export type MovieWithTags = Movie & { tags: Pick<Tag, "name">[]; actors: MovieActor[] };
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+function isTransientDistributionError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (!(error instanceof Error)) return false;
+  if (["AbortError", "TimeoutError"].includes(error.name)) return true;
+  const status = "status" in error && typeof error.status === "number" ? error.status : undefined;
+  return status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500);
 }
 
 function buildContent(text: string, movie: MovieWithTags, iframeUrl?: string): string {
@@ -84,24 +98,59 @@ function mergeContent(movie: MovieWithTags, draft: MovieSiteDraft | undefined) {
  * distribution — the video still publishes with whatever actor terms did
  * resolve, and the failed actor can be retried from /admin/actors.
  */
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, task: (item: T, index: number) => Promise<R>): Promise<PromiseSettledResult<R>[]> {
+  const results = new Array<PromiseSettledResult<R>>(items.length);
+  let cursor = 0;
+  async function worker() {
+    for (;;) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      try {
+        results[index] = { status: "fulfilled", value: await task(items[index]!, index) };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, () => worker()));
+  return results;
+}
+
 async function syncMovieActors(client: WordPressClient, actors: MovieActor[], siteId: string): Promise<number[]> {
-  const termIds: number[] = [];
-  for (const actor of actors) {
+  const cached = await prisma.actorSync.findMany({
+    where: { siteId, actorId: { in: actors.map(actor => actor.id) }, termId: { not: null } },
+    select: { actorId: true, termId: true, payloadHash: true },
+  });
+  const cachedByActor = new Map(cached.map(row => [row.actorId, row]));
+  const termIds = new Array<number | null>(actors.length).fill(null);
+  const pending: { actor: MovieActor; index: number; payload: ReturnType<typeof actorPayload>; fingerprint: string }[] = [];
+
+  actors.forEach((actor, index) => {
+    const payload = actorPayload(actor);
+    const fingerprint = actorFingerprint(payload);
+    const existing = cachedByActor.get(actor.id);
+    if (existing?.termId && existing.payloadHash === fingerprint) {
+      termIds[index] = existing.termId;
+    } else {
+      pending.push({ actor, index, payload, fingerprint });
+    }
+  });
+
+  await mapWithConcurrency(pending, ACTOR_SYNC_CONCURRENCY, async ({ actor, index, payload, fingerprint }) => {
     try {
-      const payload = actorPayload(actor);
       const remote = await client.syncActor(payload);
       if (remote.status !== "existing") {
         await prisma.$executeRaw`INSERT INTO actor_syncs (actor_id, site_id, remote_id, term_id, payload_hash, synced_at)
-          VALUES (${actor.id}, ${siteId}, ${remote.remoteId}, ${remote.termId ?? null}, ${actorFingerprint(payload)}, NOW())
+          VALUES (${actor.id}, ${siteId}, ${remote.remoteId}, ${remote.termId ?? null}, ${fingerprint}, NOW())
           ON CONFLICT (actor_id, site_id) DO UPDATE SET remote_id = EXCLUDED.remote_id,
           term_id = EXCLUDED.term_id, payload_hash = EXCLUDED.payload_hash, synced_at = EXCLUDED.synced_at`;
       }
-      if (remote.termId) termIds.push(remote.termId);
+      if (remote.termId) termIds[index] = remote.termId;
     } catch {
       // Skip this actor; the video still publishes with the actors that did sync.
     }
-  }
-  return termIds;
+  });
+  return termIds.filter((termId): termId is number => termId !== null);
 }
 
 async function resolveIframeUrl(movie: Movie): Promise<string | undefined> {
@@ -333,6 +382,7 @@ export async function distributeToSite(
       postId: post.id, url: post.link, ...(warnings.length ? { warnings } : {}) };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown distribution error";
+    const retryable = isTransientDistributionError(err);
     await prisma.distribution.update({
       where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
       data: {
@@ -343,7 +393,7 @@ export async function distributeToSite(
           : {}),
       },
     });
-    return { siteId: site.id, site: site.name, status: "failed", title: publishedTitle, error: message,
+    return { siteId: site.id, site: site.name, status: "failed", title: publishedTitle, error: message, retryable,
       ...(createdPost ? { postId: createdPost.id, url: createdPost.link } : {}) };
   }
 }
@@ -362,13 +412,46 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
 
   await prisma.movie.update({ where: { id: movieId }, data: { status: "PUBLISHING" } });
 
-  const settled = await Promise.allSettled(sites.map((site) => distributeToSite(movie, site, draftBySite.get(site.id), mode)));
+  // A large simultaneous burst to WordPress sites that share hosting/database
+  // resources caused intermittent HTTP 500 and database-connection failures.
+  // Keep sites independent, but publish only a few at a time.
+  const settled = await mapWithConcurrency(
+    sites,
+    SITE_DISTRIBUTION_CONCURRENCY,
+    site => distributeToSite(movie, site, draftBySite.get(site.id), mode),
+  );
   const results = settled.map((r, index) =>
     r.status === "fulfilled" ? r.value : ({
       siteId: sites[index]?.id ?? "unknown", site: sites[index]?.name ?? "Unknown site", status: "failed", title: movie.title,
       error: r.reason?.message ?? "Unknown error",
     } as DistributionResult),
   );
+
+  // Retry one time only for failures that are safe and likely temporary. The
+  // second pass uses the normal aurum_movie_id reconciliation in
+  // distributeToSite(), so a lost create response is recovered as an update
+  // instead of blindly creating a duplicate WordPress post.
+  const retryIndexes = results
+    .map((result, index) => result.status === "failed" && result.retryable ? index : -1)
+    .filter(index => index >= 0);
+  if (retryIndexes.length) {
+    await new Promise(resolve => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+    const retried = await mapWithConcurrency(
+      retryIndexes,
+      SITE_DISTRIBUTION_CONCURRENCY,
+      index => distributeToSite(movie, sites[index]!, draftBySite.get(sites[index]!.id), "overwrite_editorial"),
+    );
+    retried.forEach((retry, retryIndex) => {
+      const resultIndex = retryIndexes[retryIndex]!;
+      results[resultIndex] = retry.status === "fulfilled" ? retry.value : ({
+        siteId: sites[resultIndex]?.id ?? "unknown",
+        site: sites[resultIndex]?.name ?? "Unknown site",
+        status: "failed",
+        title: movie.title,
+        error: retry.reason?.message ?? "Unknown error",
+      } as DistributionResult);
+    });
+  }
 
   const successCount = results.filter((r) => r.status === "success").length;
   const finalStatus = successCount === 0 ? "failed" : successCount === results.length ? "done" : "partial";

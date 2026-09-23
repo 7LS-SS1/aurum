@@ -5,6 +5,8 @@ import { requireMinRole } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { distributeMovie } from "@/lib/distributor";
 
+export const maxDuration = 600;
+
 const PROCESSABLE_FROM = ["DRAFT", "REJECTED"];
 const RETRYABLE_FROM = ["PARTIAL", "FAILED"];
 

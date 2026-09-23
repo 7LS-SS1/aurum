@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ensureSiteSeo } from "@/lib/content-ai";
 import { SeoGenerationValidationError } from "./content-seo";
+import { actorFingerprint, actorPayload } from "./actor-sync-contract";
 
 const movieFindUnique = vi.fn();
 const movieUpdate = vi.fn();
 const targetSiteFindMany = vi.fn();
 const targetSiteUpdate = vi.fn();
 const movieSiteDraftFindMany = vi.fn();
+const actorSyncFindMany = vi.fn();
 const distributionUpsert = vi.fn();
 const distributionUpdate = vi.fn();
 const decryptMock = vi.fn();
@@ -29,6 +31,7 @@ vi.mock("@/lib/prisma", () => ({
     movie: { findUnique: movieFindUnique, update: movieUpdate },
     targetSite: { findMany: targetSiteFindMany, update: targetSiteUpdate },
     movieSiteDraft: { findMany: movieSiteDraftFindMany },
+    actorSync: { findMany: actorSyncFindMany },
     distribution: { upsert: distributionUpsert, update: distributionUpdate },
     $executeRaw: executeRawMock,
   },
@@ -123,6 +126,7 @@ beforeEach(() => {
   distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: null });
   verifyVideoMetaMock.mockResolvedValue({ title: "Movie Title", meta: {} });
   executeRawMock.mockResolvedValue(undefined);
+  actorSyncFindMany.mockResolvedValue([]);
   findPostByAurumMovieIdMock.mockResolvedValue(null);
 });
 
@@ -450,6 +454,22 @@ describe("distributeToSite", () => {
     expect(payload.aurum_video_actor).toEqual([901]);
   });
 
+  it("reuses a matching cached actor term instead of pushing the same actor again", async () => {
+    const actor = { id: "a1", name: "Actor One", bio: "", profileImageUrl: null,
+      age: null, heightCm: null, weightKg: null, measurementBust: null, measurementWaist: null, measurementHip: null };
+    actorSyncFindMany.mockResolvedValueOnce([{
+      actorId: actor.id,
+      termId: 901,
+      payloadHash: actorFingerprint(actorPayload(actor)),
+    }]);
+    createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
+
+    await distributeToSite(fakeMovie({ actors: [actor] }) as never, fakeSite() as never, undefined);
+
+    expect(syncActorMock).not.toHaveBeenCalled();
+    expect(createPostMock.mock.calls[0]?.[0].aurum_video_actor).toEqual([901]);
+  });
+
   it("still publishes the video when an actor fails to sync", async () => {
     createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
     syncActorMock.mockRejectedValueOnce(new Error("actor sync failed"));
@@ -506,6 +526,34 @@ describe("distributeMovie", () => {
 
     expect(summary.status).toBe("partial");
     expect(movieUpdate).toHaveBeenLastCalledWith({ where: { id: "m1" }, data: { status: "PARTIAL" } });
+  });
+
+  it("automatically retries one transient WordPress failure and reconciles it without operator action", async () => {
+    movieFindUnique.mockResolvedValue(fakeMovie());
+    targetSiteFindMany.mockResolvedValue([fakeSite({ id: "s1" })]);
+    movieSiteDraftFindMany.mockResolvedValue([]);
+    createPostMock
+      .mockRejectedValueOnce(Object.assign(new Error("HTTP 500 Internal Server Error"), { status: 500 }))
+      .mockResolvedValueOnce({ id: 1, link: "https://x/1" });
+
+    const summary = await distributeMovie("m1", ["s1"]);
+
+    expect(summary.status).toBe("done");
+    expect(summary.summary).toEqual({ total: 1, success: 1 });
+    expect(createPostMock).toHaveBeenCalledTimes(2);
+    expect(distributionUpsert).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not automatically retry a permanent WordPress failure", async () => {
+    movieFindUnique.mockResolvedValue(fakeMovie());
+    targetSiteFindMany.mockResolvedValue([fakeSite({ id: "s1" })]);
+    movieSiteDraftFindMany.mockResolvedValue([]);
+    createPostMock.mockRejectedValue(Object.assign(new Error("HTTP 401 Unauthorized"), { status: 401 }));
+
+    const summary = await distributeMovie("m1", ["s1"]);
+
+    expect(summary.status).toBe("failed");
+    expect(createPostMock).toHaveBeenCalledTimes(1);
   });
 
   it("sets movie.status to FAILED when every site fails", async () => {

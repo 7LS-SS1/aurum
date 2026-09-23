@@ -10,6 +10,7 @@ import {
   syncJobsBatchSchema,
   jobLogsQuerySchema,
 } from "./validation";
+import { MAX_MOVIE_ACTORS } from "./movie-limits";
 
 describe("createMovieSchema", () => {
   it("accepts a minimal valid payload and fills in defaults", () => {
@@ -46,6 +47,18 @@ describe("createMovieSchema", () => {
 
   it("rejects a malformed thumbnailUrl", () => {
     expect(() => createMovieSchema.parse({ title: "x", mainCategory: "AV", thumbnailUrl: "not-a-url" })).toThrow();
+  });
+
+  it("accepts the current full actor catalogue instead of rejecting it at the former 50-actor limit", () => {
+    const actorIds = Array.from({ length: 201 }, (_, index) => `actor-${index}`);
+    expect(createMovieSchema.parse({ title: "x", mainCategory: "AV", actorIds }).actorIds).toHaveLength(201);
+  });
+
+  it("keeps actor requests bounded", () => {
+    const actorIds = Array.from({ length: MAX_MOVIE_ACTORS + 1 }, (_, index) => `actor-${index}`);
+    expect(() => createMovieSchema.parse({ title: "x", mainCategory: "AV", actorIds })).toThrow(
+      `เลือกนักแสดงได้สูงสุด ${MAX_MOVIE_ACTORS} คน`,
+    );
   });
 });
 

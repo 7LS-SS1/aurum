@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SLUG_PATTERN, SLUG_PATTERN_MESSAGE, slugifyTitle } from "@/lib/slug";
+import { MAX_MOVIE_ACTORS } from "@/lib/movie-limits";
 
 /** Shared string limits so a single bad request can't write unbounded rows. */
 const shortText = z.string().trim().min(1).max(500);
@@ -37,7 +38,10 @@ export const createMovieSchema = z.object({
   jwPlayerMediaId: z.string().trim().min(1).max(255).optional(),
   extraMeta: z.record(z.string(), z.unknown()).default({}),
   targetSiteIds: z.array(z.string().min(1)).max(200).default([]),
-  actorIds: z.array(z.string().min(1)).max(50).default([]),
+  actorIds: z
+    .array(z.string().min(1))
+    .max(MAX_MOVIE_ACTORS, `เลือกนักแสดงได้สูงสุด ${MAX_MOVIE_ACTORS} คน`)
+    .default([]),
 });
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 

@@ -263,7 +263,10 @@ export class WordPressClient {
 
   /** `/users/me` 401s on bad credentials — used for the site health check. */
   async ping(): Promise<{ id: number; name: string }> {
-    return this.json(`${this.api}/users/me?context=edit`);
+    // This is an idempotent read. Retrying transient 429/5xx/network failures
+    // avoids making an operator manually retry an otherwise healthy publish.
+    const { data } = await this.getWithRetry<{ id: number; name: string }>(`${this.api}/users/me?context=edit`);
+    return data;
   }
 
   /** Authenticated read-only check for Core registration and site-profile compatibility. */

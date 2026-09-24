@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AI_PROVIDER_DETAILS, aiResponsePrompt, type AiProvider } from "@/lib/ai-provider";
 
 export const SEO_VALIDATION_REASONS = [
   "seo_invalid_json", "seo_invalid_shape", "seo_title_empty", "seo_description_empty",
@@ -107,7 +108,7 @@ export function validateSeo(value: unknown, original: string, forbidden: string[
 }
 
 export async function generateSeo(input: {
-  apiKey: string; model: string; title: string; keywords: string[]; site: string; forbidden: string[];
+  apiKey: string; provider?: AiProvider; model: string; title: string; keywords: string[]; site: string; forbidden: string[];
   sourceContext?: string;
 }) {
   if (!titleIdentity(input.title)) throw new SeoGenerationValidationError("seo_source_title_invalid");
@@ -117,13 +118,13 @@ export async function generateSeo(input: {
   for (let attempt = 0; attempt < 3; attempt++) {
     let response: Response;
     try {
-      response = await fetch("https://api.openai.com/v1/responses", {
+      const provider = input.provider ?? "openai";
+      response = await fetch(`${AI_PROVIDER_DETAILS[provider].baseUrl}/responses`, {
         method: "POST", redirect: "error", signal: AbortSignal.timeout(45000),
         headers: { Authorization: `Bearer ${input.apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: input.model, store: false, max_output_tokens: 1500,
-          instructions: SEO_INSTRUCTIONS,
-          input: JSON.stringify({ originalTitle: input.title, sourceContext: input.sourceContext ?? "", keywords: input.keywords, destination: input.site, forbiddenTitles: forbidden, validationFeedback: correction }),
+          ...aiResponsePrompt(provider, SEO_INSTRUCTIONS, JSON.stringify({ originalTitle: input.title, sourceContext: input.sourceContext ?? "", keywords: input.keywords, destination: input.site, forbiddenTitles: forbidden, validationFeedback: correction })),
           text: { format: { type: "json_schema", name: "video_seo", strict: true, schema: {
             type: "object", properties: {
               // Fine-tuned models do not support these schema keywords;

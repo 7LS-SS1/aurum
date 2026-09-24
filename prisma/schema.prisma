@@ -2,9 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-/// Singleton OpenAI configuration. The API key is encrypted using the existing envelope.
+/// Active AI provider configuration. The API key is encrypted using the existing envelope.
 model ContentAiConfig {
   id String @id @default("default")
+  provider String @default("openai")
   enabled Boolean @default(false)
   model String
   apiKeyEnc String

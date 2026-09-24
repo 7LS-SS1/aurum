@@ -3,12 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
 import { generateSeo, keywordsSchema, seoSourceContext, titleIdentity, SeoGenerationValidationError } from "@/lib/content-seo";
 import { ApiError } from "@/lib/api-response";
+import { aiProvider, type AiProvider } from "@/lib/ai-provider";
 
-export async function readAiConfig(options: { requireStorage?: boolean } = {}) {
+export async function readAiConfig(options: { requireStorage?: boolean; provider?: AiProvider } = {}) {
   if (!prisma.contentAiConfig) {
     throw new ApiError("ระบบยังใช้ Prisma Client รุ่นเก่า กรุณารัน npx prisma generate แล้วเริ่มเซิร์ฟเวอร์ใหม่", 503);
   }
-  try { return await prisma.contentAiConfig.findUnique({ where: { id: "default" } }); }
+  try {
+    const config = await prisma.contentAiConfig.findUnique({ where: { id: options.provider ? `provider:${options.provider}` : "default" } });
+    if (config) {
+      const provider = aiProvider(config.provider);
+      if (options.provider && provider !== options.provider) throw new ApiError("ข้อมูลผู้ให้บริการ AI ไม่ตรงกัน กรุณาบันทึกการตั้งค่าใหม่", 503);
+    }
+    return config;
+  }
   catch (error) {
     // Older installations continue distributing normally until the migration is applied.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021") {
@@ -50,7 +58,7 @@ export async function ensureSiteSeo(movieId: string, siteId: string, requestedKe
     const keywords = keywordsSchema.parse(usableKeywords.slice(0, 15));
     const result = await generateSeo({
       apiKey: decrypt({ ciphertext: config.apiKeyEnc, iv: config.apiKeyIv, tag: config.apiKeyTag }),
-      model: config.model, title: movie.title, keywords, site: site.name,
+      provider: aiProvider(config.provider), model: config.model, title: movie.title, keywords, site: site.name,
       sourceContext: seoSourceContext(movie.content, movie.excerpt),
       forbidden: drafts.flatMap(draft => draft.title ? [draft.title] : []),
     });

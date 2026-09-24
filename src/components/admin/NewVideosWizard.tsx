@@ -217,6 +217,7 @@ export function NewVideosWizard({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatingText, setGeneratingText] = useState<"title" | "description" | null>(null);
   const [batchProgress, setBatchProgress] = useState({ completed: 0, total: 0 });
 
   const fileInput = useRef<HTMLInputElement>(null);
@@ -238,6 +239,28 @@ export function NewVideosWizard({
 
   function updateItem(key: string, patch: Partial<QueueItem>) {
     setQueue((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  }
+
+  async function generateEditorText(item: QueueItem, field: "title" | "description") {
+    const sourceTitle = item.title.trim() || titleFromFilename(item.file.name);
+    if (!sourceTitle) return notify("กรุณากรอกชื่อเรื่องหรือเลือกไฟล์ก่อนสร้างด้วย AI");
+    setGeneratingText(field);
+    try {
+      const actorNames = item.actorIds
+        .map((id) => actors.find((actor) => actor.id === id)?.name)
+        .filter((name): name is string => Boolean(name));
+      const result = await apiFetch<{ title: string; description: string; provider: string }>("/api/video-content/generate", {
+        method: "POST",
+        body: JSON.stringify({ sourceTitle, currentDescription: item.content || item.excerpt, categories: item.categories, tags: item.tags, actors: actorNames }),
+      });
+      if (field === "title") updateItem(item.key, { title: result.title, validationError: undefined });
+      else updateItem(item.key, { excerpt: result.description, content: result.description, validationError: undefined });
+      notify(`สร้าง${field === "title" ? "ชื่อเรื่อง" : "คำบรรยาย"}ด้วย ${result.provider} แล้ว — ตรวจแก้ก่อนเผยแพร่ได้`);
+    } catch (error) {
+      notify(error instanceof ApiClientError ? error.message : "สร้างข้อความด้วย AI ไม่สำเร็จ");
+    } finally {
+      setGeneratingText(null);
+    }
   }
 
   async function startUpload(item: QueueItem): Promise<QueueItem | null> {
@@ -785,7 +808,13 @@ export function NewVideosWizard({
                   <label>
                     ชื่อเรื่อง <span className="req">*</span>
                   </label>
-                  <input type="text" value={current.title} onChange={(e) => updateItem(current.key, { title: e.target.value, validationError: undefined })} placeholder="ใส่ชื่อวิดีโอ" />
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input style={{ flex: 1 }} type="text" value={current.title} onChange={(e) => updateItem(current.key, { title: e.target.value, validationError: undefined })} placeholder="ใส่ชื่อวิดีโอ" />
+                    <button type="button" className="btn btn-ghost" disabled={generatingText !== null} onClick={() => void generateEditorText(current, "title")}>
+                      {generatingText === "title" ? "กำลังสร้าง…" : "สร้างชื่อด้วย AI"}
+                    </button>
+                  </div>
+                  <div className="hint">ใช้ผู้ให้บริการที่เลือกใน ตั้งค่า AI / SEO และยังแก้ไขชื่อได้ก่อนเผยแพร่</div>
                 </div>
                 <div className="field">
                   <label>Slug (URL)</label>
@@ -799,6 +828,12 @@ export function NewVideosWizard({
                     onChange={(e) => updateItem(current.key, { excerpt: e.target.value, content: e.target.value })}
                     placeholder="ใส่คำอธิบายและเนื้อหาเพิ่มเติมสำหรับ WordPress"
                   />
+                  <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                    <button type="button" className="btn btn-ghost" disabled={generatingText !== null} onClick={() => void generateEditorText(current, "description")}>
+                      {generatingText === "description" ? "กำลังสร้าง…" : "สร้างคำบรรยายด้วย AI"}
+                    </button>
+                    <span className="hint">AI จะอ้างอิงชื่อ หมวดหมู่ แท็ก และนักแสดงที่เลือกเท่านั้น</span>
+                  </div>
                 </div>
 
                 <div className="field">

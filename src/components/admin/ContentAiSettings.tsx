@@ -25,13 +25,13 @@ export function ContentAiSettings() {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
       await apiFetch("/api/content-ai", { method: "PUT", body: JSON.stringify({ provider, enabled, model, ...(apiKey ? { apiKey } : {}) }) });
-      setApiKey(""); setHasKey(true); setMessage("บันทึกแล้ว — ไปที่หน้าวิดีโอ > ชื่อและ SEO รายเว็บไซต์ เพื่อสร้างและตรวจเนื้อหา");
+      setApiKey(""); setHasKey(true); setMessage("บันทึกแล้ว — ใช้ปุ่มสร้างชื่อและคำบรรยายด้วย AI ในหน้าเพิ่มวิดีโอใหม่ได้ทันที");
       setProfiles(current => ({ ...current, [provider]: { model, hasApiKey: true } }));
     } catch (error) { setMessage(error instanceof Error ? error.message : "บันทึกไม่สำเร็จ"); }
     finally { setBusy(false); }
   }}>
-    <label><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> เปิดสร้างชื่อและ SEO ก่อนนำเข้าวิดีโอใหม่แต่ละเว็บไซต์</label>
-    <p>ใช้ได้กับหัวข้อทั่วไป โดยยึดชื่อและเนื้อหาต้นฉบับ ไม่เพิ่มข้อเท็จจริงนอกเรื่อง ใช้แท็กวิดีโอเป็น Keywords อัตโนมัติ หรือระบุในหน้าสร้าง SEO ชื่อที่บันทึกไว้แล้วจะถูกนำกลับมาใช้ การอัปเดตเฉพาะวิดีโอไม่แก้ชื่อหรือ SEO บน WordPress</p>
+    <label><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} /> เปิดใช้ AI สำหรับสร้างชื่อเรื่องและคำบรรยายตอนเพิ่มวิดีโอใหม่</label>
+    <p>AI ใช้ข้อมูลชื่อเดิม คำบรรยาย หมวดหมู่ แท็ก และนักแสดงในฟอร์มวิดีโอเท่านั้น ผลลัพธ์จะถูกใส่ในฟอร์มเพื่อให้ตรวจแก้ก่อนเผยแพร่</p>
     <div className="field"><label htmlFor="ai-provider">ผู้ให้บริการ AI</label>
       <select id="ai-provider" disabled={busy || !loaded} value={provider} onChange={e => { const next = e.target.value as AiProvider; setProvider(next); setModel(profiles[next].model); setHasKey(profiles[next].hasApiKey); setApiKey(""); }}>
         <option value="openai">OpenAI</option><option value="grok">Grok (xAI)</option>
@@ -45,7 +45,6 @@ export function ContentAiSettings() {
     <div className="field"><label htmlFor="ai-key">{AI_PROVIDER_DETAILS[provider].label} API key {hasKey && "(บันทึกไว้แล้ว — เว้นว่างเพื่อใช้ค่าเดิม)"}</label>
       <input id="ai-key" type="password" autoComplete="new-password" required={!hasKey} value={apiKey} onChange={e => setApiKey(e.target.value)} />
     </div>
-    <p>ติดตั้ง AURUM Rank Math Bridge และเปิด Rank Math บนเว็บปลายทางก่อนนำเข้า ข้อมูล AI จะถูกส่งไปพร้อมวิดีโอและตรวจการบันทึกกลับ</p>
     <button className="btn btn-gold" disabled={busy || !loaded}>บันทึกการตั้งค่า</button>
     <button className="btn btn-ghost" type="button" disabled={busy || !loaded || !hasKey} onClick={async () => {
       setBusy(true);

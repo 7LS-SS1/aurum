@@ -334,13 +334,11 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
   const batchIds = pushQueue.slice(0, batchSize);
   const remaining = pushQueue.slice(batchSize);
 
-  const [movies, drafts, distributions] = await Promise.all([
+  const [movies, distributions] = await Promise.all([
     prisma.movie.findMany({ where: { id: { in: batchIds } }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } }),
-    prisma.movieSiteDraft.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
     prisma.distribution.findMany({ where: { siteId: job.siteId, movieId: { in: batchIds } } }),
   ]);
   const movieById = new Map(movies.map((m) => [m.id, m]));
-  const draftByMovieId = new Map(drafts.map((d) => [d.movieId, d]));
   const distByMovieId = new Map(distributions.map((d) => [d.movieId, d]));
 
   let batchSuccess = 0;
@@ -377,8 +375,8 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
         }
 
         const result = cursor.repair
-          ? await distributeToSite(movie, job.site, draftByMovieId.get(movieId), cursor.mode ?? "video_only")
-          : await distributeToSite(movie, job.site, draftByMovieId.get(movieId));
+          ? await distributeToSite(movie, job.site, cursor.mode ?? "video_only")
+          : await distributeToSite(movie, job.site);
         if (cursor.repair) await refreshRepairedMovieStatus(movieId);
         if (result.status === "success") {
           await writeLog(job.id, "INFO", "published", `ส่งวิดีโอสำเร็จ: ${movie.title}`, {
@@ -387,10 +385,7 @@ export async function runPushBatch(job: JobWithSite): Promise<void> {
             remotePostUrl: result.url,
           });
           if (result.warnings?.length) {
-            const seoWarning = result.warnings.find(warning => warning.startsWith("seo_generation_validation_failed:"));
-            await writeLog(job.id, "WARN", "published_with_warnings", seoWarning
-              ? `ส่งวิดีโอสำเร็จด้วยข้อมูลเดิม — กรุณาตรวจชื่อและ SEO รายเว็บไซต์ (${seoWarning})`
-              : "ส่งวิดีโอสำเร็จ แต่ข้อมูลเสริมบางส่วนยังไม่พร้อม กรุณาตรวจการเชื่อมต่อ SEO", {
+            await writeLog(job.id, "WARN", "published_with_warnings", "ส่งวิดีโอสำเร็จ แต่ข้อมูลเสริมบางส่วนยังไม่พร้อม", {
               movieId, remotePostId: result.postId ? String(result.postId) : undefined,
               metadata: { warnings: result.warnings },
             });

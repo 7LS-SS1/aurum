@@ -135,7 +135,6 @@ function distributionErrorMessage(error?: string) {
   if (error.includes("parameter(s) ไม่ถูกต้อง: status")) return "WordPress ปฏิเสธตัวกรองสถานะขณะตรวจโพสต์เดิม";
   if (error.includes("rest_forbidden_context") || error.includes("ไม่ได้รับอนุญาต") || error.includes("ไม่ได้อยู่ในระบบ")) return "ข้อมูลเข้าสู่ระบบ WordPress หมดอายุ ไม่ถูกต้อง หรือไม่มีสิทธิ์เผยแพร่";
   if (error.includes("did not persist REST meta")) return "ปลั๊กอิน AURUM Video Core ไม่ได้บันทึก metadata ที่จำเป็น";
-  if (error === "wordpress_rank_math_bridge_not_ready") return "Rank Math หรือ AURUM Rank Math Bridge ยังไม่พร้อมใช้งาน";
   if (error === "openai_insufficient_quota") return "เครดิต OpenAI ไม่เพียงพอ";
   if (error === "openai_rate_limit") return "OpenAI จำกัดจำนวนคำขอชั่วคราว";
   return error;
@@ -158,12 +157,6 @@ function DistributionResults({ report }: { report?: DistributionReport | null })
             </a>
           )}
           {result.status === "failed" && <div className="upload-site-error">{distributionErrorMessage(result.error)}</div>}
-          {result.warnings?.includes("wordpress_rank_math_bridge_not_ready") && (
-            <div className="upload-site-warning">เผยแพร่วิดีโอแล้ว แต่ข้าม Rank Math SEO เพราะยังไม่ได้ติดตั้งหรือเปิดใช้ AURUM Rank Math Bridge</div>
-          )}
-          {result.warnings?.some(warning => warning.startsWith("seo_generation_validation_failed:")) && (
-            <div className="upload-site-warning">เผยแพร่วิดีโอแล้วโดยใช้ข้อมูลเดิมของรายการ เพราะ SEO ที่ AI สร้างยังไม่ผ่านการตรวจ กรุณาตรวจชื่อและ SEO รายเว็บไซต์</div>
-          )}
         </div>
       ))}
     </div>
@@ -814,7 +807,7 @@ export function NewVideosWizard({
                       {generatingText === "title" ? "กำลังสร้าง…" : "สร้างชื่อด้วย AI"}
                     </button>
                   </div>
-                  <div className="hint">ใช้ผู้ให้บริการที่เลือกใน ตั้งค่า AI / SEO และยังแก้ไขชื่อได้ก่อนเผยแพร่</div>
+                  <div className="hint">ใช้ผู้ให้บริการที่เลือกใน ตั้งค่า AI วิดีโอ และยังแก้ไขชื่อได้ก่อนเผยแพร่</div>
                 </div>
                 <div className="field">
                   <label>Slug (URL)</label>

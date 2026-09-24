@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if (!(await rateLimit(`video-content-generate:${actor.id}`, { limit: 10, windowMs: 60_000 })).success) throw new ApiError("too_many_requests", 429);
     const input = schema.parse(await req.json());
     const config = await readAiConfig({ requireStorage: true });
-    if (!config?.enabled) throw new ApiError("กรุณาเปิดใช้งาน AI ในหน้า ตั้งค่า AI / SEO ก่อน", 422);
+    if (!config?.enabled) throw new ApiError("กรุณาเปิดใช้งาน AI ในหน้า ตั้งค่า AI วิดีโอ ก่อน", 422);
     const provider = aiProvider(config.provider);
     const result = await generateVideoText({
       apiKey: decrypt({ ciphertext: config.apiKeyEnc, iv: config.apiKeyIv, tag: config.apiKeyTag }),
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     await logAudit({ actor, action: "video.generate_editor_text", resourceType: "VideoDraft", metadata: { provider } });
     return jsonOk({ ...result, provider: AI_PROVIDER_DETAILS[provider].label });
   } catch (error) {
-    if (error instanceof Error && error.message === "content_ai_http_401") return apiError(new ApiError("AI ไม่ยอมรับ API key ที่บันทึกไว้ กรุณาตรวจในการตั้งค่า AI / SEO", 422));
+    if (error instanceof Error && error.message === "content_ai_http_401") return apiError(new ApiError("AI ไม่ยอมรับ API key ที่บันทึกไว้ กรุณาตรวจในการตั้งค่า AI วิดีโอ", 422));
     if (error instanceof Error && error.message === "content_ai_http_429") return apiError(new ApiError("AI จำกัดคำขอหรือโควตาชั่วคราว กรุณาลองใหม่ภายหลัง", 429));
     if (error instanceof Error && error.message.startsWith("content_ai_")) return apiError(new ApiError("AI สร้างข้อความที่ใช้ไม่ได้หรือเชื่อมต่อไม่สำเร็จ กรุณาลองใหม่", 422));
     return apiError(error);

@@ -8,7 +8,6 @@ const siteSyncJobLogCreate = vi.fn();
 const movieFindMany = vi.fn();
 const distributionFindMany = vi.fn();
 const distributionUpsert = vi.fn();
-const movieSiteDraftFindMany = vi.fn();
 const decryptMock = vi.fn();
 const listAllPostsMock = vi.fn();
 const updatePostMetaMock = vi.fn();
@@ -21,7 +20,6 @@ vi.mock("@/lib/prisma", () => ({
     siteSyncJobLog: { create: siteSyncJobLogCreate },
     movie: { findMany: movieFindMany },
     distribution: { findMany: distributionFindMany, upsert: distributionUpsert },
-    movieSiteDraft: { findMany: movieSiteDraftFindMany },
   },
 }));
 
@@ -168,9 +166,9 @@ describe("runScanAndCompare", () => {
 });
 
 describe("runPushBatch", () => {
-  it("reports a delivered video with SEO warnings as success and records a WARN event", async () => {
-    movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]); movieSiteDraftFindMany.mockResolvedValue([]); distributionFindMany.mockResolvedValue([]);
-    const warnings = ["seo_generation_validation_failed:seo_description_keyword_required"];
+  it("reports a delivered video with warnings as success and records a WARN event", async () => {
+    movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]); distributionFindMany.mockResolvedValue([]);
+    const warnings = ["non_fatal_delivery_warning"];
     distributeToSiteMock.mockResolvedValue({ status: "success", postId: 1, warnings });
     await runPushBatch(fakeJob({ phase: "pushing", queuedMovies: 1, cursor: { pushQueue: ["m1"] } }));
     expect(siteSyncJobUpdate.mock.calls[0]![0].data).toMatchObject({ status: "COMPLETED", successCount: 1, failedCount: 0 });
@@ -180,7 +178,6 @@ describe("runPushBatch", () => {
     // 10 queued total, only PUSH_BATCH_SIZE (6) are taken this tick — 4 remain, so the job isn't done yet.
     const ids = Array.from({ length: 10 }, (_, i) => `m${i + 1}`);
     movieFindMany.mockResolvedValue(ids.slice(0, 6).map((id) => ({ id, title: `Movie ${id}` })));
-    movieSiteDraftFindMany.mockResolvedValue([]);
     distributionFindMany.mockResolvedValue([]);
     distributeToSiteMock.mockResolvedValue({ status: "success", postId: 1, url: "https://x/1" });
 
@@ -197,7 +194,6 @@ describe("runPushBatch", () => {
 
   it("finishes at exactly 100% and COMPLETED when the last batch item is processed with no failures", async () => {
     movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]);
-    movieSiteDraftFindMany.mockResolvedValue([]);
     distributionFindMany.mockResolvedValue([]);
     distributeToSiteMock.mockResolvedValue({ status: "success", postId: 1, url: "https://x/1" });
 
@@ -209,7 +205,6 @@ describe("runPushBatch", () => {
 
   it("finishes PARTIAL when at least one movie in the final batch failed", async () => {
     movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]);
-    movieSiteDraftFindMany.mockResolvedValue([]);
     distributionFindMany.mockResolvedValue([]);
     distributeToSiteMock.mockResolvedValue({ status: "failed", error: "wp down" });
 
@@ -221,7 +216,6 @@ describe("runPushBatch", () => {
 
   it("never calls distributeToSite again for a movie a previous (possibly crashed) tick already marked SUCCESS", async () => {
     movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie 1" }]);
-    movieSiteDraftFindMany.mockResolvedValue([]);
     distributionFindMany.mockResolvedValue([{ movieId: "m1", status: "SUCCESS", remotePostId: "777", remotePostUrl: "https://x/777" }]);
 
     await runPushBatch(fakeJob({ phase: "pushing", queuedMovies: 1, processedMovies: 0, cursor: { pushQueue: ["m1"] } }));
@@ -269,7 +263,6 @@ describe("runWorkerTick claim/lock", () => {
 describe("failed distribution repair", () => {
   beforeEach(() => {
     movieFindMany.mockResolvedValue([{ id: "m1", title: "Movie", status: "FAILED" }]);
-    movieSiteDraftFindMany.mockResolvedValue([]);
     distributionFindMany.mockResolvedValue([{ movieId: "m1", status: "FAILED", remotePostId: "77" }]);
     distributeToSiteMock.mockResolvedValue({ status: "success", postId: 77 });
   });
@@ -278,7 +271,7 @@ describe("failed distribution repair", () => {
   it("sends only one failed movie per tick and preserves repair mode for the next tick", async () => {
     await runPushBatch(repairJob());
     expect(distributeToSiteMock).toHaveBeenCalledTimes(1);
-    expect(distributeToSiteMock).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), expect.anything(), undefined, "overwrite_editorial");
+    expect(distributeToSiteMock).toHaveBeenCalledWith(expect.objectContaining({ id: "m1" }), expect.anything(), "overwrite_editorial");
     expect(siteSyncJobUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ processedMovies: 1, cursor: { repair: true, mode: "overwrite_editorial", pushQueue: ["m2"] } }) }));
     expect(refreshMovieMock).toHaveBeenCalledWith("m1");
   });

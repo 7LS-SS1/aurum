@@ -115,8 +115,8 @@ model User {
   @@map("users")
 }
 
-/// Master content record — uploaded once, video_url is shared by every
-/// distribution. Per-site text/metadata overrides live in MovieSiteDraft.
+/// Master content record — uploaded once, video_url and editorial text are
+/// shared by every distribution.
 model Movie {
   id              String      @id @default(cuid())
   title           String
@@ -145,7 +145,6 @@ model Movie {
   createdBy User? @relation("MovieCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   reviewer  User? @relation("MovieReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 
-  siteDrafts    MovieSiteDraft[]
   distributions Distribution[]
   reactions     MovieReaction[]
   watchLaters   WatchLater[]
@@ -254,36 +253,11 @@ model TargetSite {
   lastCheckedAt    DateTime?    @map("last_checked_at")
   createdAt        DateTime     @default(now()) @map("created_at")
 
-  siteDrafts    MovieSiteDraft[]
   distributions Distribution[]
   actorSyncs    ActorSync[]
   syncJobs      SiteSyncJob[]
 
   @@map("target_sites")
-}
-
-/// Per-(movie, site) content override. Any null field falls back to the
-/// parent Movie's value when the distribution payload is built — the video
-/// itself is never overridden here, it always comes from Movie.videoUrl.
-model MovieSiteDraft {
-  id         String   @id @default(cuid())
-  movieId    String   @map("movie_id")
-  siteId     String   @map("site_id")
-  title      String?
-  slug       String?
-  excerpt    String?
-  content    String?
-  categories Json?
-  tags       Json?
-  extraMeta  Json?    @map("extra_meta")
-  status     String   @default("draft")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  movie Movie      @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  site  TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  @@unique([movieId, siteId])
-  @@map("movie_site_drafts")
 }
 
 /// Per-(movie, site) distribution status/history. Idempotent — one row per

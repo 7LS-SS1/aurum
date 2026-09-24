@@ -47,17 +47,6 @@ export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 
 export const updateMovieSchema = createMovieSchema.partial();
 
-export const movieSiteDraftSchema = z.object({
-  title: shortText.optional(),
-  slug: z.string().trim().max(500).optional(),
-  excerpt: longText,
-  content: longText,
-  categories: taxonomyList.optional(),
-  tags: taxonomyList.optional(),
-  extraMeta: z.record(z.string(), z.unknown()).optional(),
-});
-export type MovieSiteDraftInput = z.infer<typeof movieSiteDraftSchema>;
-
 export const createSiteSchema = z.object({
   name: shortText,
   baseUrl: urlField,

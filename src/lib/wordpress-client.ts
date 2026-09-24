@@ -213,17 +213,6 @@ export class WordPressClient {
     throw lastErr;
   }
 
-  /** Verify the destination can persist the SEO fields before publishing. */
-  async checkSeoSupport(): Promise<void> {
-    const { data } = await this.getWithRetry<{ rankMathActive?: boolean; postTypes?: string[]; keys?: string[] }>(
-      this.baseUrl + "/wp-json/aurum-video-core/v1/seo-capabilities", 1,
-    );
-    if (!data.rankMathActive || !data.postTypes?.includes(this.postType) ||
-        !["rank_math_title", "rank_math_description", "rank_math_focus_keyword"].every(key => data.keys?.includes(key))) {
-      throw new Error("wordpress_rank_math_bridge_not_ready");
-    }
-  }
-
   /** Actor endpoint alone is idempotent; never retry the general createPost API. */
   async checkActorSyncSupport(): Promise<void> {
     const url = this.baseUrl + "/wp-json/aurum-video-core/v1/actors/aurum-capability-probe";

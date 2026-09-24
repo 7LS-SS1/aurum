@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { VideoForm } from "@/components/admin/VideoForm";
 
@@ -36,7 +35,6 @@ export default async function EditVideoPage({ params }: { params: Promise<{ id: 
           <span className="g">แก้ไข</span>วิดีโอ
         </h1>
         <p>{movie.title}</p>
-        <Link className="btn" href={`/admin/videos/${id}/seo`}>ชื่อและ SEO รายเว็บไซต์</Link>
       </div>
       <VideoForm sites={sites} categories={categories} mainCategories={mainCategories} actors={actors} initialMovie={initialMovie} />
     </section>

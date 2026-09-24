@@ -1,9 +1,7 @@
-import type { Actor, Movie, MovieSiteDraft, Tag, TargetSite } from "@prisma/client";
+import type { Actor, Movie, Tag, TargetSite } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { invalidatePublicMovieCaches } from "@/lib/cache";
 import { decrypt } from "@/lib/crypto";
-import { ensureSiteSeo } from "@/lib/content-ai";
-import { SEO_KEYS, seoValidationReason } from "@/lib/content-seo";
 import {
   AURUM_VIDEO_META_KEYS,
   WordPressClient,
@@ -73,17 +71,16 @@ function buildContent(text: string, movie: MovieWithTags, iframeUrl?: string): s
   return html;
 }
 
-function mergeContent(movie: MovieWithTags, draft: MovieSiteDraft | undefined) {
+function mergeContent(movie: MovieWithTags) {
   const extraMeta = (movie.extraMeta as Record<string, unknown>) ?? {};
-  const draftExtraMeta = (draft?.extraMeta as Record<string, unknown> | null) ?? {};
   return {
-    title: draft?.title ?? movie.title,
-    slug: draft?.slug ?? movie.slug ?? undefined,
-    excerpt: draft?.excerpt ?? movie.excerpt ?? "",
-    content: draft?.content ?? movie.content ?? "",
-    categories: draft?.categories ? asStringArray(draft.categories) : asStringArray(movie.categories),
-    tags: draft?.tags ? asStringArray(draft.tags) : movie.tags.map((t) => t.name),
-    extraMeta: { ...extraMeta, ...draftExtraMeta },
+    title: movie.title,
+    slug: movie.slug ?? undefined,
+    excerpt: movie.excerpt ?? "",
+    content: movie.content ?? "",
+    categories: asStringArray(movie.categories),
+    tags: movie.tags.map((t) => t.name),
+    extraMeta,
   };
 }
 
@@ -178,19 +175,9 @@ export function buildVideoMeta(movie: Movie, iframeUrl?: string): AurumVideoMeta
   };
 }
 
-async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, draft: MovieSiteDraft | undefined) {
-  const merged = mergeContent(movie, draft);
+async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite) {
+  const merged = mergeContent(movie);
   const warnings: string[] = [];
-  if (SEO_KEYS.some(key => key in merged.extraMeta)) {
-    try {
-      await client.checkSeoSupport();
-    } catch {
-      // SEO is optional enrichment. A missing bridge must not block the video
-      // itself; omit only Rank Math fields and report the skipped integration.
-      for (const key of SEO_KEYS) delete merged.extraMeta[key];
-      warnings.push("wordpress_rank_math_bridge_not_ready");
-    }
-  }
   const iframeUrl = await resolveIframeUrl(movie);
 
   const payload: Record<string, unknown> = {
@@ -254,10 +241,9 @@ function protectedSnapshot(post: WpEditablePost): string {
 export async function distributeToSite(
   movie: MovieWithTags,
   site: TargetSite,
-  draft: MovieSiteDraft | undefined,
   mode: DistributionWriteMode = "video_only",
 ): Promise<DistributionResult> {
-  let publishedTitle = mergeContent(movie, draft).title;
+  const publishedTitle = mergeContent(movie).title;
   const distribution = await prisma.distribution.upsert({
     where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
     update: { status: "PROCESSING", attempts: { increment: 1 } },
@@ -325,26 +311,11 @@ export async function distributeToSite(
         protectedBefore = protectedSnapshot(remote);
         payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
       } else {
-        ({ payload, warnings } = await buildPayload(client, movie, site, draft));
+        ({ payload, warnings } = await buildPayload(client, movie, site));
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
-      // Automatic SEO enriches publication; invalid AI copy must not prevent
-      // delivery of the existing AURUM source. Manual SEO generation stays strict.
-      if (!draft?.title) {
-        try {
-          const generatedDraft = await ensureSiteSeo(movie.id, site.id);
-          if (generatedDraft) {
-            draft = generatedDraft;
-            publishedTitle = mergeContent(movie, draft).title;
-          }
-        } catch (error) {
-          const reason = seoValidationReason(error);
-          if (!reason) throw error;
-          warnings.push(`seo_generation_validation_failed:${reason}`);
-        }
-      }
-      const built = await buildPayload(client, movie, site, draft);
+      const built = await buildPayload(client, movie, site);
       payload = built.payload;
       warnings.push(...built.warnings);
       createdPost = await client.createPost(payload);
@@ -354,14 +325,6 @@ export async function distributeToSite(
       AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
     ) as AurumVideoMeta;
     const verified = await client.verifyVideoMeta(createdPost.id, expectedMeta);
-    for (const key of SEO_KEYS) {
-      if (key in sentMeta && verified.meta[key] !== sentMeta[key]) {
-        throw new Error(`wordpress_seo_verification_failed:${key}`);
-      }
-    }
-    if (SEO_KEYS.some(key => key in sentMeta) && verified.title !== payload.title) {
-      throw new Error("wordpress_seo_verification_failed:title");
-    }
     if (protectedBefore !== null && protectedSnapshot(verified) !== protectedBefore) {
       throw new Error("wordpress_protected_fields_changed");
     }
@@ -402,13 +365,8 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
   const movie = await prisma.movie.findUnique({ where: { id: movieId }, include: { tags: true, actors: { select: ACTOR_SYNC_SELECT } } });
   if (!movie) throw new Error("Movie not found");
 
-  const [sites, drafts] = await Promise.all([
-    prisma.targetSite.findMany({ where: { id: { in: siteIds }, isActive: true } }),
-    prisma.movieSiteDraft.findMany({ where: { movieId, siteId: { in: siteIds } } }),
-  ]);
+  const sites = await prisma.targetSite.findMany({ where: { id: { in: siteIds }, isActive: true } });
   if (!sites.length) throw new Error("No active destination sites found for the given siteIds");
-
-  const draftBySite = new Map(drafts.map((d) => [d.siteId, d]));
 
   await prisma.movie.update({ where: { id: movieId }, data: { status: "PUBLISHING" } });
 
@@ -418,7 +376,7 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
   const settled = await mapWithConcurrency(
     sites,
     SITE_DISTRIBUTION_CONCURRENCY,
-    site => distributeToSite(movie, site, draftBySite.get(site.id), mode),
+    site => distributeToSite(movie, site, mode),
   );
   const results = settled.map((r, index) =>
     r.status === "fulfilled" ? r.value : ({
@@ -439,7 +397,7 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
     const retried = await mapWithConcurrency(
       retryIndexes,
       SITE_DISTRIBUTION_CONCURRENCY,
-      index => distributeToSite(movie, sites[index]!, draftBySite.get(sites[index]!.id), "overwrite_editorial"),
+      index => distributeToSite(movie, sites[index]!, "overwrite_editorial"),
     );
     retried.forEach((retry, retryIndex) => {
       const resultIndex = retryIndexes[retryIndex]!;

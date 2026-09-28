@@ -32,6 +32,10 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "content_ai_http_401") return apiError(new ApiError("AI ไม่ยอมรับ API key ที่บันทึกไว้ กรุณาตรวจในการตั้งค่า AI วิดีโอ", 422));
     if (error instanceof Error && error.message === "content_ai_http_429") return apiError(new ApiError("AI จำกัดคำขอหรือโควตาชั่วคราว กรุณาลองใหม่ภายหลัง", 429));
+    if (error instanceof Error && error.message === "content_ai_connection_failed") return apiError(new ApiError("AI ใช้เวลาตอบนานเกินไปหรือเชื่อมต่อไม่สำเร็จ กรุณาลองใหม่", 504));
+    if (error instanceof Error && error.message === "content_ai_invalid_response") return apiError(new ApiError("AI ส่งชื่อหรือคำบรรยายไม่ตรงเงื่อนไข กรุณาลองใหม่", 422));
+    if (error instanceof Error && error.message === "content_ai_incomplete_response") return apiError(new ApiError("AI สร้างข้อความไม่เสร็จ กรุณาลองใหม่", 422));
+    if (error instanceof Error && error.message === "content_ai_refused") return apiError(new ApiError("AI ปฏิเสธการสร้างข้อความนี้ กรุณาปรับชื่อหรือข้อมูลแล้วลองใหม่", 422));
     if (error instanceof Error && error.message.startsWith("content_ai_")) return apiError(new ApiError("AI สร้างข้อความที่ใช้ไม่ได้หรือเชื่อมต่อไม่สำเร็จ กรุณาลองใหม่", 422));
     return apiError(error);
   }

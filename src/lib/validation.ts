@@ -99,6 +99,8 @@ export const jobLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024 * 1024; // 20 GiB
+
 export const presignSchema = z.object({
   provider: z.enum(["r2", "bunny"]),
   filename: z
@@ -112,7 +114,7 @@ export const presignSchema = z.object({
     .number()
     .int()
     .positive()
-    .max(10 * 1024 * 1024 * 1024) // 10 GB hard ceiling
+    .max(MAX_VIDEO_BYTES)
     .optional(),
 });
 
@@ -143,7 +145,6 @@ const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avi
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/mp2t"]);
 const THEME_PACKAGE_TYPES = new Set(["application/zip", "application/x-zip-compressed", "application/octet-stream"]);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB
-const MAX_VIDEO_BYTES = 8 * 1024 * 1024 * 1024; // 8 GB
 const MAX_THEME_PACKAGE_BYTES = 80 * 1024 * 1024; // 80 MB
 
 export const reviewActionSchema = z.object({

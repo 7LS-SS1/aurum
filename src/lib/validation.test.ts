@@ -12,6 +12,8 @@ import {
 } from "./validation";
 import { MAX_MOVIE_ACTORS } from "./movie-limits";
 
+const MAX_VIDEO_BYTES = 20 * 1024 * 1024 * 1024;
+
 describe("createMovieSchema", () => {
   it("accepts a minimal valid payload and fills in defaults", () => {
     const result = createMovieSchema.parse({ title: "My Movie", mainCategory: "AV" });
@@ -74,9 +76,15 @@ describe("presignSchema", () => {
     expect(result.filename).toBe("thumb.png");
   });
 
-  it("rejects a size above the 10 GB ceiling", () => {
+  it("accepts a video at the 20 GiB ceiling", () => {
     expect(() =>
-      presignSchema.parse({ provider: "bunny", filename: "v.mp4", contentType: "video/mp4", size: 11 * 1024 * 1024 * 1024 }),
+      presignSchema.parse({ provider: "bunny", filename: "v.mp4", contentType: "video/mp4", size: MAX_VIDEO_BYTES }),
+    ).not.toThrow();
+  });
+
+  it("rejects a size above the 20 GiB ceiling", () => {
+    expect(() =>
+      presignSchema.parse({ provider: "bunny", filename: "v.mp4", contentType: "video/mp4", size: MAX_VIDEO_BYTES + 1 }),
     ).toThrow();
   });
 });
@@ -108,7 +116,13 @@ describe("assertUploadAllowed", () => {
   });
 
   it("allows a supported video type under its own, much larger, ceiling", () => {
-    expect(() => assertUploadAllowed("video", "video/mp4", 1024 * 1024 * 1024)).not.toThrow();
+    expect(() => assertUploadAllowed("video", "video/mp4", MAX_VIDEO_BYTES)).not.toThrow();
+  });
+
+  it("rejects a video one byte above the 20 GiB ceiling", () => {
+    expect(() => assertUploadAllowed("video", "video/mp4", MAX_VIDEO_BYTES + 1)).toThrow(
+      `video exceeds maximum allowed size of ${MAX_VIDEO_BYTES} bytes`,
+    );
   });
 });
 

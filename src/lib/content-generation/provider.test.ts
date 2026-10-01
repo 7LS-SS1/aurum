@@ -29,7 +29,13 @@ describe("batch content provider", () => {
 
     await expect(generateSiteContent(input)).resolves.toEqual(output);
     const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(request.input[0].content).not.toContain(input.source.title);
+    const sentInstructions = request.input[0].content as string;
+    expect(sentInstructions).not.toContain(input.source.title);
+    expect(sentInstructions).toContain("กฎเหล็ก:");
+    expect(sentInstructions).toContain("หี, ควย, เย็ด, แตกใน, น้ำเงี่ยน, คราง, ซอย, อม, เลีย");
+    expect(sentInstructions).toContain("titleShort คือชื่อสั้น");
+    expect(sentInstructions).toContain("descriptionLong คือคำบรรยายยาว 3-5 ประโยค");
+    expect(sentInstructions).toContain("focusKeyword คือคำหลัก 1 คำหรือวลีสั้น ๆ");
     expect(JSON.parse(request.input[1].content)).toMatchObject({ source: input.source, trendKeywords: ["มาแรง"] });
   });
 

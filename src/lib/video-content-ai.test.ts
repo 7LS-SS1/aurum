@@ -41,8 +41,13 @@ describe("generateVideoText", () => {
     })).resolves.toEqual(generated);
 
     const requestBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(requestBody.input[0].content).toContain("sourceTitle");
-    expect(requestBody.input[0].content).not.toContain(sourceTitle);
+    const sentInstructions = requestBody.input[0].content as string;
+    expect(sentInstructions).toContain("sourceTitle");
+    expect(sentInstructions).toContain("กฎ:");
+    expect(sentInstructions).toContain("หี ควย เย็ด แตกใน น้ำเงี่ยน ครางเสียว ซอยรัว อม เลีย");
+    expect(sentInstructions).toContain("title คือชื่อเรื่อง");
+    expect(sentInstructions).toContain("description คือคำบรรยายฉากแบบเห็นภาพ");
+    expect(sentInstructions).not.toContain(sourceTitle);
     expect(JSON.parse(requestBody.input[1].content)).toMatchObject({ sourceTitle });
   });
 

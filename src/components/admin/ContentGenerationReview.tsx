@@ -32,6 +32,12 @@ type ContentItem = {
   approvedAt: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  publishStatus: "NOT_PUBLISHED" | "PUBLISHING" | "PUBLISHED" | "FAILED";
+  publishError: string | null;
+  publishAttemptedAt: string | null;
+  publishedAt: string | null;
+  publishedPostId: string | null;
+  publishedPostUrl: string | null;
   movie: { title: string };
   site: { name: string; baseUrl: string };
 };
@@ -82,6 +88,7 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
   const [job, setJob] = useState(initialJob);
   const [drafts, setDrafts] = useState<Record<string, DraftState>>(() => Object.fromEntries(initialJob.items.map(item => [item.id, draftFromItem(item)])));
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [publishingAll, setPublishingAll] = useState(false);
   const [message, setMessage] = useState("");
   const active = ["QUEUED", "PROCESSING"].includes(job.status);
   const progress = job.totalItems ? Math.round((job.processedItems / job.totalItems) * 100) : 0;
@@ -188,13 +195,55 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
     }
   }
 
+  async function publish(item: ContentItem) {
+    if (!item.draftFingerprint || !window.confirm(`เผยแพร่ draft นี้ไป ${item.site.name} ใช่หรือไม่?`)) return;
+    setBusyId(item.id);
+    setMessage("");
+    try {
+      const response = await apiFetch<{ result: { status: "success" | "failed"; url?: string; error?: string } }>(`/api/content-generation/items/${item.id}/publish`, {
+        method: "POST",
+        body: JSON.stringify({
+          expectedSourceFingerprint: item.sourceFingerprint,
+          expectedDraftFingerprint: item.draftFingerprint,
+        }),
+      });
+      setMessage(response.result.status === "success"
+        ? `เผยแพร่ไป ${item.site.name} สำเร็จ`
+        : `เผยแพร่ไป ${item.site.name} ไม่สำเร็จ: ${response.result.error ?? "WordPress ไม่ตอบกลับ"}`);
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof ApiClientError ? error.message : "เผยแพร่ไป WordPress ไม่สำเร็จ");
+      await refresh().catch(() => undefined);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function publishAll() {
+    const count = job.items.filter(item => item.status === "APPROVED" && ["NOT_PUBLISHED", "FAILED"].includes(item.publishStatus)).length;
+    if (!count || !window.confirm(`เผยแพร่ draft ที่อนุมัติแล้ว ${count} รายการไปยัง WordPress ใช่หรือไม่?`)) return;
+    setPublishingAll(true);
+    setMessage("");
+    try {
+      const result = await apiFetch<{ total: number; success: number; failed: number }>(`/api/content-generation/jobs/${job.id}/publish-approved`, { method: "POST" });
+      setMessage(`เผยแพร่สำเร็จ ${result.success}/${result.total} รายการ${result.failed ? ` · ล้มเหลว ${result.failed} รายการ` : ""}`);
+      await refresh();
+    } catch (error) {
+      setMessage(error instanceof ApiClientError ? error.message : "เผยแพร่ทั้งหมดไม่สำเร็จ");
+      await refresh().catch(() => undefined);
+    } finally {
+      setPublishingAll(false);
+    }
+  }
+
   const grouped = useMemo(() => {
     return [...job.items].sort((a, b) => a.site.name.localeCompare(b.site.name, "th") || a.sourceTitle.localeCompare(b.sourceTitle, "th"));
   }, [job.items]);
+  const publishableCount = job.items.filter(item => item.status === "APPROVED" && ["NOT_PUBLISHED", "FAILED"].includes(item.publishStatus)).length;
 
   return (
     <div className="cg-review">
-      <div className="cg-product-note"><strong>Approval gate เปิดอยู่</strong><span>Approve บันทึก draft และผู้อนุมัติเท่านั้น ไม่มี WordPress request</span></div>
+      <div className="cg-product-note"><strong>Approval gate เปิดอยู่</strong><span>Approve บันทึก draft ก่อน จากนั้นผู้ดูแลจึงกดเผยแพร่ไป WordPress แยกตามเว็บไซต์</span></div>
       <div className="panel cg-job-hero">
         <div><span className="eyebrow">{job.provider.toUpperCase()} · {job.model}</span><h2>Batch {job.id.slice(-8)}</h2><p>{new Date(job.createdAt).toLocaleString("th-TH")}</p></div>
         <div className="cg-hero-stats"><strong>{progress}%</strong><span>{job.processedItems}/{job.totalItems} รายการ</span></div>
@@ -212,6 +261,7 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
           const meta = ITEM_STATUS[item.status] ?? { label: item.status, tone: "neutral" };
           const draft = drafts[item.id] ?? draftFromItem(item);
           const canReview = item.status === "READY_FOR_REVIEW" && Boolean(item.draftFingerprint);
+          const canPublish = item.status === "APPROVED" && ["NOT_PUBLISHED", "FAILED"].includes(item.publishStatus);
           return (
             <article className="panel cg-review-card" key={item.id}>
               <header><div><span className="eyebrow">{item.site.name}</span><h3>{item.sourceTitle}</h3><a href={item.site.baseUrl} target="_blank" rel="noreferrer">{item.site.baseUrl}</a></div><span className={`badge ${meta.tone}`}>{meta.label}</span></header>
@@ -227,7 +277,13 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
               )}
               {item.generatedAt && <details className="cg-variants"><summary>ดูตัวเลือกที่ AI สร้าง</summary><dl><dt>ชื่อสั้น</dt><dd>{item.generatedTitleShort}</dd><dt>ชื่อยาว</dt><dd>{item.generatedTitleLong}</dd><dt>คำอธิบายสั้น</dt><dd>{item.generatedDescriptionShort}</dd></dl></details>}
               {canReview && <div className="cg-review-actions"><button type="button" className="btn btn-gold" disabled={busyId === item.id || !draft.title.trim() || !draft.description.trim() || !draft.focusKeyword.trim()} onClick={() => void approve(item)}>Approve draft</button><input value={draft.reason} onChange={event => updateDraft(item.id, { reason: event.target.value })} placeholder="เหตุผลเมื่อต้องการ Reject" /><button type="button" className="btn btn-ghost" disabled={busyId === item.id || !draft.reason.trim()} onClick={() => void reject(item)}>Reject</button></div>}
-              {item.status === "APPROVED" && <p className="cg-approved-note">อนุมัติเมื่อ {item.approvedAt ? new Date(item.approvedAt).toLocaleString("th-TH") : "-"} · รอขั้นตอนนำไปใช้แยกต่างหาก</p>}
+              {item.status === "APPROVED" && <div className="cg-publish-actions">
+                <p className="cg-approved-note">อนุมัติเมื่อ {item.approvedAt ? new Date(item.approvedAt).toLocaleString("th-TH") : "-"}</p>
+                {canPublish && <button type="button" className="btn btn-gold" disabled={busyId === item.id || publishingAll} onClick={() => void publish(item)}>{item.publishStatus === "FAILED" ? "ลองเผยแพร่ไป WordPress อีกครั้ง" : "เผยแพร่ไป WordPress"}</button>}
+                {item.publishStatus === "PUBLISHING" && <span className="badge warn">กำลังเผยแพร่</span>}
+                {item.publishStatus === "FAILED" && <p className="cg-error">{item.publishError ?? "เผยแพร่ไม่สำเร็จ"}</p>}
+                {item.publishStatus === "PUBLISHED" && <p className="cg-published-note">เผยแพร่แล้ว {item.publishedAt ? new Date(item.publishedAt).toLocaleString("th-TH") : ""}{item.publishedPostUrl && <> · <a href={item.publishedPostUrl} target="_blank" rel="noreferrer">เปิดโพสต์ WordPress</a></>}</p>}
+              </div>}
               {item.status === "REJECTED" && <p className="cg-rejected-note">เหตุผล: {item.rejectionReason}</p>}
             </article>
           );
@@ -235,6 +291,10 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
       </div>
 
       <details className="panel cg-job-logs"><summary>ประวัติ Worker ({job.logs.length})</summary>{job.logs.map(log => <div className="sync-log-line" key={log.id}><span className="sync-log-time">{new Date(log.createdAt).toLocaleTimeString("th-TH")}</span><span className={`badge sync-log-level ${log.level === "ERROR" ? "bad" : log.level === "WARN" ? "warn" : "neutral"}`}>{log.level}</span><span className="sync-log-message">{log.message}</span></div>)}</details>
+      <div className="panel cg-publish-all">
+        <div><strong>เผยแพร่รายการที่อนุมัติแล้วทั้งหมด</strong><p>ระบบส่ง draft แยกตามเว็บไซต์ และข้ามรายการที่เผยแพร่สำเร็จแล้ว</p></div>
+        <button type="button" className="btn btn-gold" disabled={publishingAll || publishableCount === 0 || busyId !== null} onClick={() => void publishAll()}>{publishingAll ? "กำลังเผยแพร่…" : `เผยแพร่ไป WordPress ทั้งหมด (${publishableCount})`}</button>
+      </div>
     </div>
   );
 }

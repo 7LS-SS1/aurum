@@ -4199,6 +4199,12 @@ body.mside-open .scrim {
 .cg-approved-note { color: var(--ok); margin-top: 12px; }
 .cg-rejected-note { color: var(--muted); margin-top: 12px; }
 .cg-job-logs { display: grid; gap: 6px; }
+.cg-publish-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.cg-publish-actions p { margin: 0; }
+.cg-published-note { color: var(--ok); }
+.cg-published-note a { color: var(--gold-bright); text-decoration: underline; }
+.cg-publish-all { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 16px; }
+.cg-publish-all p { margin: 4px 0 0; color: var(--muted); }
 
 @media (max-width: 1050px) {
   .cg-create-grid { grid-template-columns: 1fr; }
@@ -4214,6 +4220,8 @@ body.mside-open .scrim {
   .cg-review-actions { grid-template-columns: 1fr; }
   .cg-description-field { grid-column: auto; }
   .cg-review-toolbar { flex-wrap: wrap; }
+  .cg-publish-all { align-items: stretch; flex-direction: column; }
+  .cg-publish-all .btn { width: 100%; }
 }
 
 /* ===== OLD-VIDEO-SYNC: persistent multi-job toast stack ===== */

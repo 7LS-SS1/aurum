@@ -34,6 +34,12 @@ export interface DistributeSummary {
 
 export type DistributionWriteMode = "video_only" | "overwrite_editorial";
 
+export interface DistributionEditorialOverride {
+  title: string;
+  description: string;
+  focusKeyword: string;
+}
+
 /** Fields actorPayload() needs; also the Prisma `select` every findMany/findUnique below reuses. */
 export const ACTOR_SYNC_SELECT = {
   id: true, name: true, bio: true, profileImageUrl: true,
@@ -71,16 +77,21 @@ function buildContent(text: string, movie: MovieWithTags, iframeUrl?: string): s
   return html;
 }
 
-function mergeContent(movie: MovieWithTags) {
+function mergeContent(movie: MovieWithTags, editorial?: DistributionEditorialOverride) {
   const extraMeta = (movie.extraMeta as Record<string, unknown>) ?? {};
   return {
-    title: movie.title,
+    title: editorial?.title ?? movie.title,
     slug: movie.slug ?? undefined,
-    excerpt: movie.excerpt ?? "",
-    content: movie.content ?? "",
+    excerpt: editorial?.description ?? movie.excerpt ?? "",
+    content: editorial?.description ?? movie.content ?? "",
     categories: asStringArray(movie.categories),
     tags: movie.tags.map((t) => t.name),
-    extraMeta,
+    extraMeta: editorial ? {
+      ...extraMeta,
+      rank_math_title: editorial.title,
+      rank_math_description: editorial.description,
+      rank_math_focus_keyword: editorial.focusKeyword,
+    } : extraMeta,
   };
 }
 
@@ -175,8 +186,8 @@ export function buildVideoMeta(movie: Movie, iframeUrl?: string): AurumVideoMeta
   };
 }
 
-async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite) {
-  const merged = mergeContent(movie);
+async function buildPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, editorial?: DistributionEditorialOverride) {
+  const merged = mergeContent(movie, editorial);
   const warnings: string[] = [];
   const iframeUrl = await resolveIframeUrl(movie);
 
@@ -242,8 +253,9 @@ export async function distributeToSite(
   movie: MovieWithTags,
   site: TargetSite,
   mode: DistributionWriteMode = "video_only",
+  editorial?: DistributionEditorialOverride,
 ): Promise<DistributionResult> {
-  const publishedTitle = mergeContent(movie).title;
+  const publishedTitle = mergeContent(movie, editorial).title;
   const distribution = await prisma.distribution.upsert({
     where: { movieId_siteId: { movieId: movie.id, siteId: site.id } },
     update: { status: "PROCESSING", attempts: { increment: 1 } },
@@ -311,11 +323,11 @@ export async function distributeToSite(
         protectedBefore = protectedSnapshot(remote);
         payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
       } else {
-        ({ payload, warnings } = await buildPayload(client, movie, site));
+        ({ payload, warnings } = await buildPayload(client, movie, site, editorial));
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
-      const built = await buildPayload(client, movie, site);
+      const built = await buildPayload(client, movie, site, editorial);
       payload = built.payload;
       warnings.push(...built.warnings);
       createdPost = await client.createPost(payload);

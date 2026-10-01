@@ -167,6 +167,31 @@ describe("distributeToSite", () => {
     );
   });
 
+  it("publishes an approved site-specific editorial draft without changing video identity", async () => {
+    createPostMock.mockResolvedValue({ id: 11, link: "https://wp.example.com/?p=11" });
+
+    const result = await distributeToSite(fakeMovie() as never, fakeSite() as never, "overwrite_editorial", {
+      title: "ชื่อเฉพาะเว็บไซต์",
+      description: "คำบรรยายเฉพาะเว็บไซต์",
+      focusKeyword: "คีย์เวิร์ดเฉพาะ",
+    });
+
+    const payload = createPostMock.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({
+      title: "ชื่อเฉพาะเว็บไซต์",
+      excerpt: "คำบรรยายเฉพาะเว็บไซต์",
+      meta: {
+        rank_math_title: "ชื่อเฉพาะเว็บไซต์",
+        rank_math_description: "คำบรรยายเฉพาะเว็บไซต์",
+        rank_math_focus_keyword: "คีย์เวิร์ดเฉพาะ",
+        aurum_movie_id: "m1",
+      },
+    });
+    expect(payload.content).toContain("คำบรรยายเฉพาะเว็บไซต์");
+    expect(payload.content).toContain("aurum-video");
+    expect(result).toMatchObject({ status: "success", postId: 11 });
+  });
+
   it("fails closed and preserves the created post id when WordPress silently drops video meta", async () => {
     createPostMock.mockResolvedValue({ id: 48, link: "https://wp.example.com/?p=48" });
     verifyVideoMetaMock.mockRejectedValue(

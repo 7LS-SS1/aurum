@@ -88,6 +88,30 @@ Content-Type: application/json
 }
 ```
 
+## เผยแพร่ไป WordPress
+
+หลัง Approve แล้ว ผู้ใช้ `MANAGER` ขึ้นไปจึงกดเผยแพร่ได้จากหน้า Batch การเผยแพร่รายเว็บไซต์ส่ง fingerprint ที่ได้รับจากหน้า review:
+
+```http
+POST /api/content-generation/items/{itemId}/publish
+Content-Type: application/json
+
+{
+  "expectedSourceFingerprint": "<64-char sha256>",
+  "expectedDraftFingerprint": "<64-char sha256>"
+}
+```
+
+ระบบเขียน `draftTitle`, `draftDescription` และ `draftFocusKeyword` ไปยังเว็บไซต์ของ item เท่านั้น พร้อม Rank Math metadata และข้อมูลวิดีโอเดิม ใช้ Distribution identity `(movieId, siteId)` เพื่ออัปเดตโพสต์เดิมเมื่อมีอยู่และป้องกันการสร้างโพสต์ซ้ำ
+
+ปุ่มด้านล่างของหน้าเรียก endpoint นี้เพื่อเผยแพร่รายการที่อนุมัติแล้วทั้งหมด โดยข้ามรายการที่สำเร็จแล้ว:
+
+```http
+POST /api/content-generation/jobs/{jobId}/publish-approved
+```
+
+สถานะการเผยแพร่ (`NOT_PUBLISHED`, `PUBLISHING`, `PUBLISHED`, `FAILED`), ผู้เผยแพร่, เวลา, post ID, URL และข้อผิดพลาดถูกบันทึกแยกจากสถานะการตรวจ draft รายการที่ล้มเหลวสามารถกด Retry ได้โดยไม่ต้อง Generate หรือ Approve ใหม่
+
 ## ลำดับติดตั้ง
 
 1. สำรองฐานข้อมูลและตรวจว่า release ใช้ Prisma schema revision นี้
@@ -98,5 +122,6 @@ Content-Type: application/json
 6. สร้าง batch ขนาดเล็ก 1 วิดีโอ × 1 เว็บไซต์ ตรวจ log และ draft
 7. ทดสอบแก้ draft, stale fingerprint, duplicate title, approve และ reject
 8. ยืนยันว่าไม่มี WordPress request เกิดขึ้นจาก generate/approve ก่อนเปิด batch ขนาดใหญ่
+9. กดเผยแพร่รายเว็บไซต์หนึ่งรายการ ตรวจ Title/Description/Rank Math และ URL ที่ระบบบันทึก ก่อนใช้ปุ่มเผยแพร่ทั้งหมด
 
-การนำ draft ที่อนุมัติแล้วไปเผยแพร่ WordPress เป็นขั้นถัดไปและต้องเป็น action แยกที่ผู้ใช้สั่งชัดเจน เพื่อรักษา approval gate
+การเผยแพร่เป็น action แยกหลัง Approve เสมอ ไม่มีการส่ง WordPress อัตโนมัติจาก generate หรือ approve

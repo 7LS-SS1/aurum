@@ -37,6 +37,9 @@ export type Action =
   | "site:view"
   | "site:manage"
   | "site:delete"
+  | "content-generation:view"
+  | "content-generation:create"
+  | "content-generation:review"
   | "player:view"
   | "player:manage"
   | "player:delete"
@@ -59,6 +62,9 @@ const MIN_ROLE: Record<Action, Exclude<Role, "SYSTEM">> = {
   "site:view": "STAFF",
   "site:manage": "MANAGER",
   "site:delete": "HEAD",
+  "content-generation:view": "MANAGER",
+  "content-generation:create": "MANAGER",
+  "content-generation:review": "MANAGER",
   "player:view": "STAFF",
   "player:manage": "MANAGER",
   "player:delete": "HEAD",

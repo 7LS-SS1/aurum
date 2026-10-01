@@ -82,6 +82,30 @@ enum SiteSyncLogLevel {
   ERROR
 }
 
+enum ContentGenerationJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIAL_FAILED
+  FAILED
+  CANCELLED
+}
+
+enum ContentGenerationItemStatus {
+  QUEUED
+  GENERATING
+  READY_FOR_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum ContentGenerationLogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
 enum ComicType {
   MANGA
   DOUJIN
@@ -105,12 +129,17 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  createdMovies   Movie[]          @relation("MovieCreatedBy")
-  reviewedMovies  Movie[]          @relation("MovieReviewer")
-  auditLogs       AuditLog[]
-  wordpressThemes WordpressTheme[] @relation("WordpressThemeCreatedBy")
-  siteSyncJobs    SiteSyncJob[]    @relation("SiteSyncJobRequestedBy")
-  createdComics   Comic[]          @relation("ComicCreatedBy")
+  createdMovies                  Movie[]                 @relation("MovieCreatedBy")
+  reviewedMovies                 Movie[]                 @relation("MovieReviewer")
+  auditLogs                      AuditLog[]
+  wordpressThemes                WordpressTheme[]        @relation("WordpressThemeCreatedBy")
+  siteSyncJobs                   SiteSyncJob[]           @relation("SiteSyncJobRequestedBy")
+  createdComics                  Comic[]                 @relation("ComicCreatedBy")
+  contentGenerationJobs          ContentGenerationJob[]  @relation("ContentGenerationJobRequestedBy")
+  editedContentGenerationItems   ContentGenerationItem[] @relation("ContentGenerationItemEditedBy")
+  reviewedContentGenerationItems ContentGenerationItem[] @relation("ContentGenerationItemReviewedBy")
+  approvedContentGenerationItems ContentGenerationItem[] @relation("ContentGenerationItemApprovedBy")
+  rejectedContentGenerationItems ContentGenerationItem[] @relation("ContentGenerationItemRejectedBy")
 
   @@map("users")
 }
@@ -145,11 +174,12 @@ model Movie {
   createdBy User? @relation("MovieCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   reviewer  User? @relation("MovieReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 
-  distributions Distribution[]
-  reactions     MovieReaction[]
-  watchLaters   WatchLater[]
-  tags          Tag[]
-  actors        Actor[]
+  distributions          Distribution[]
+  reactions              MovieReaction[]
+  watchLaters            WatchLater[]
+  tags                   Tag[]
+  actors                 Actor[]
+  contentGenerationItems ContentGenerationItem[]
 
   @@index([status])
   @@index([status, createdAt(sort: Desc)])
@@ -253,9 +283,10 @@ model TargetSite {
   lastCheckedAt    DateTime?    @map("last_checked_at")
   createdAt        DateTime     @default(now()) @map("created_at")
 
-  distributions Distribution[]
-  actorSyncs    ActorSync[]
-  syncJobs      SiteSyncJob[]
+  distributions          Distribution[]
+  actorSyncs             ActorSync[]
+  syncJobs               SiteSyncJob[]
+  contentGenerationItems ContentGenerationItem[]
 
   @@map("target_sites")
 }
@@ -362,6 +393,122 @@ model SiteSyncJobLog {
 
   @@index([jobId, createdAt])
   @@map("site_sync_job_logs")
+}
+
+/// Durable batch of site-specific AI editorial drafts. Worker claims live on
+/// the job so one provider/model configuration and one cursor are advanced by
+/// at most one worker at a time; retry state remains on each item.
+model ContentGenerationJob {
+  id                 String                     @id @default(cuid())
+  idempotencyKey     String                     @unique @map("idempotency_key")
+  requestFingerprint String                     @map("request_fingerprint")
+  provider           String
+  model              String
+  status             ContentGenerationJobStatus @default(QUEUED)
+  phase              String                     @default("queued")
+  totalItems         Int                        @default(0) @map("total_items")
+  processedItems     Int                        @default(0) @map("processed_items")
+  readyItems         Int                        @default(0) @map("ready_items")
+  approvedItems      Int                        @default(0) @map("approved_items")
+  rejectedItems      Int                        @default(0) @map("rejected_items")
+  failedItems        Int                        @default(0) @map("failed_items")
+  cursor             Json                       @default("{}")
+  lockedBy           String?                    @map("locked_by")
+  lockedUntil        DateTime?                  @map("locked_until")
+  heartbeatAt        DateTime?                  @map("heartbeat_at")
+  requestedById      String?                    @map("requested_by_id")
+  startedAt          DateTime?                  @map("started_at")
+  finishedAt         DateTime?                  @map("finished_at")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+
+  requestedBy User?                     @relation("ContentGenerationJobRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  items       ContentGenerationItem[]
+  logs        ContentGenerationJobLog[]
+
+  @@index([status, createdAt])
+  @@index([lockedUntil])
+  @@index([heartbeatAt])
+  @@map("content_generation_jobs")
+}
+
+/// One immutable source snapshot and one editable draft for a movie/site pair.
+/// approvedTitleNormalized is populated only on approval; its compound unique
+/// constraint makes same-site title reservation atomic under concurrent review.
+model ContentGenerationItem {
+  id                        String                      @id @default(cuid())
+  jobId                     String                      @map("job_id")
+  movieId                   String                      @map("movie_id")
+  siteId                    String                      @map("site_id")
+  idempotencyKey            String                      @unique @map("idempotency_key")
+  status                    ContentGenerationItemStatus @default(QUEUED)
+  sourceTitle               String                      @map("source_title") @db.Text
+  sourceDescription         String                      @default("") @map("source_description") @db.Text
+  sourceCategories          Json                        @default("[]") @map("source_categories")
+  sourceTags                Json                        @default("[]") @map("source_tags")
+  sourceActors              Json                        @default("[]") @map("source_actors")
+  sourceFingerprint         String                      @map("source_fingerprint")
+  generatedTitleShort       String?                     @map("generated_title_short") @db.Text
+  generatedTitleLong        String?                     @map("generated_title_long") @db.Text
+  generatedDescriptionShort String?                     @map("generated_description_short") @db.Text
+  generatedDescriptionLong  String?                     @map("generated_description_long") @db.Text
+  focusKeyword              String?                     @map("focus_keyword") @db.Text
+  draftTitle                String?                     @map("draft_title") @db.Text
+  draftDescription          String?                     @map("draft_description") @db.Text
+  draftFocusKeyword         String?                     @map("draft_focus_keyword") @db.Text
+  draftFingerprint          String?                     @map("draft_fingerprint")
+  approvedTitleNormalized   String?                     @map("approved_title_normalized")
+  trendKeywords             Json                        @default("[]") @map("trend_keywords")
+  retryCount                Int                         @default(0) @map("retry_count")
+  maxRetries                Int                         @default(4) @map("max_retries")
+  nextRetryAt               DateTime?                   @map("next_retry_at")
+  errorMessage              String?                     @map("error_message") @db.Text
+  generatedAt               DateTime?                   @map("generated_at")
+  lastEditedById            String?                     @map("last_edited_by_id")
+  lastEditedAt              DateTime?                   @map("last_edited_at")
+  reviewedById              String?                     @map("reviewed_by_id")
+  reviewedAt                DateTime?                   @map("reviewed_at")
+  approvedById              String?                     @map("approved_by_id")
+  approvedAt                DateTime?                   @map("approved_at")
+  rejectedById              String?                     @map("rejected_by_id")
+  rejectedAt                DateTime?                   @map("rejected_at")
+  rejectionReason           String?                     @map("rejection_reason") @db.Text
+  createdAt                 DateTime                    @default(now()) @map("created_at")
+  updatedAt                 DateTime                    @updatedAt @map("updated_at")
+
+  job          ContentGenerationJob      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  movie        Movie                     @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  site         TargetSite                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  lastEditedBy User?                     @relation("ContentGenerationItemEditedBy", fields: [lastEditedById], references: [id], onDelete: SetNull)
+  reviewedBy   User?                     @relation("ContentGenerationItemReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvedBy   User?                     @relation("ContentGenerationItemApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy   User?                     @relation("ContentGenerationItemRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  logs         ContentGenerationJobLog[]
+
+  @@unique([jobId, movieId, siteId])
+  @@unique([siteId, approvedTitleNormalized])
+  @@index([jobId, status, nextRetryAt])
+  @@index([movieId, siteId])
+  @@index([siteId, draftTitle])
+  @@map("content_generation_items")
+}
+
+model ContentGenerationJobLog {
+  id        String                    @id @default(cuid())
+  jobId     String                    @map("job_id")
+  itemId    String?                   @map("item_id")
+  level     ContentGenerationLogLevel @default(INFO)
+  event     String
+  message   String                    @db.Text
+  metadata  Json                      @default("{}")
+  createdAt DateTime                  @default(now()) @map("created_at")
+
+  job  ContentGenerationJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  item ContentGenerationItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([jobId, createdAt])
+  @@index([itemId])
+  @@map("content_generation_job_logs")
 }
 
 /// Immutable trail of every sensitive admin action — who did what to which

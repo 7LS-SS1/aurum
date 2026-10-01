@@ -1,0 +1,42 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ContentGenerationProviderError, generateSiteContent } from "./provider";
+
+const input = {
+  apiKey: "secret",
+  provider: "grok" as const,
+  model: "grok-4.6",
+  source: { title: "ABC-123 Actor", description: "ข้อมูลต้นทาง", categories: ["AV"], tags: ["HD"], actors: ["Actor"] },
+  site: { id: "site-1", name: "Site", baseUrl: "https://example.com" },
+  trendKeywords: ["มาแรง"],
+  avoidTitles: ["ABC-123 Actor ชื่อเดิม"],
+};
+
+describe("batch content provider", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns all generated variants and keeps source data in the user payload", async () => {
+    const output = {
+      titleShort: "ABC-123 Actor คลิปใหม่",
+      titleLong: "ABC-123 Actor ผลงานมาแรงที่น่าติดตาม",
+      descriptionShort: "คำบรรยายสั้น",
+      descriptionLong: "คำบรรยายฉบับยาว",
+      focusKeyword: "ABC-123",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(output) }] }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateSiteContent(input)).resolves.toEqual(output);
+    const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(request.input[0].content).not.toContain(input.source.title);
+    expect(JSON.parse(request.input[1].content)).toMatchObject({ source: input.source, trendKeywords: ["มาแรง"] });
+  });
+
+  it.each([[429, true], [500, true], [400, false]])("classifies HTTP %s retryability", async (status, retryable) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status })));
+    const promise = generateSiteContent(input);
+    await expect(promise).rejects.toBeInstanceOf(ContentGenerationProviderError);
+    await promise.catch(error => expect((error as ContentGenerationProviderError).retryable).toBe(retryable));
+  });
+});

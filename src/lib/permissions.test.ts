@@ -38,6 +38,17 @@ describe("can", () => {
     expect(can("HEAD", "user:manage")).toBe(true);
     expect(can("MANAGER", "user:manage")).toBe(false);
   });
+
+  it.each([
+    "content-generation:view",
+    "content-generation:create",
+    "content-generation:review",
+  ] as const)("restricts %s to MANAGER and HEAD", action => {
+    expect(can("STAFF", action)).toBe(false);
+    expect(can("SENIOR", action)).toBe(false);
+    expect(can("MANAGER", action)).toBe(true);
+    expect(can("HEAD", action)).toBe(true);
+  });
 });
 
 describe("hasMinRole", () => {

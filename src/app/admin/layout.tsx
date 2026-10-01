@@ -56,6 +56,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="side-link" href="/admin/player">
             Media Player
           </Link>
+          {role && can(role, "content-generation:view") && (
+            <Link className="side-link" href="/admin/content-generation">
+              AI Content Queue
+            </Link>
+          )}
           {role === "HEAD" && <Link className="side-link" href="/admin/content-ai">ตั้งค่า AI วิดีโอ</Link>}
           <Link className="side-link" href="/admin/wp-theme">
             WordPress Theme

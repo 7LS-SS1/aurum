@@ -276,7 +276,7 @@ async function processClaimedJob(job: ClaimedJob, workerId: string): Promise<voi
   }
 }
 
-export async function runContentGenerationWorkerTick(workerId = `content:${randomUUID()}`): Promise<{ claimed: number; jobIds: string[] }> {
+export async function runContentGenerationWorkerTick(workerId = `content:${randomUUID()}`): Promise<{ claimed: number; jobIds: string[]; nextRunAt: string | null }> {
   const now = new Date();
   const candidates = await prisma.contentGenerationJob.findMany({
     where: {
@@ -295,7 +295,22 @@ export async function runContentGenerationWorkerTick(workerId = `content:${rando
     if (job) claimed.push(job);
   }
   await Promise.allSettled(claimed.map(job => processClaimedJob(job, workerId)));
-  return { claimed: claimed.length, jobIds: claimed.map(job => job.id) };
+  const nextQueuedItem = await prisma.contentGenerationItem.findFirst({
+    where: {
+      status: "QUEUED",
+      job: {
+        status: { in: ["QUEUED", "PROCESSING"] },
+        OR: [{ lockedUntil: null }, { lockedUntil: { lt: new Date() } }],
+      },
+    },
+    orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }],
+    select: { nextRetryAt: true },
+  });
+  return {
+    claimed: claimed.length,
+    jobIds: claimed.map(job => job.id),
+    nextRunAt: nextQueuedItem ? (nextQueuedItem.nextRetryAt ?? new Date()).toISOString() : null,
+  };
 }
 
 export function triggerContentGenerationWorkerBestEffort(origin: string, systemKey: string | undefined): void {
@@ -303,7 +318,9 @@ export function triggerContentGenerationWorkerBestEffort(origin: string, systemK
   fetch(`${origin}/api/cron/content-generation-worker`, { method: "POST", headers: { "x-system-key": systemKey } }).catch(() => {});
 }
 
-export function scheduleContentGenerationFollowUp(origin: string, systemKey: string | undefined, claimed: number): void {
-  if (!systemKey || claimed === 0) return;
-  setTimeout(() => triggerContentGenerationWorkerBestEffort(origin, systemKey), FOLLOW_UP_DELAY_MS);
+export function scheduleContentGenerationFollowUp(origin: string, systemKey: string | undefined, claimed: number, nextRunAt: string | null): void {
+  if (!systemKey || (claimed === 0 && !nextRunAt)) return;
+  const retryDelay = nextRunAt ? Date.parse(nextRunAt) - Date.now() + 500 : FOLLOW_UP_DELAY_MS;
+  const delay = Math.max(FOLLOW_UP_DELAY_MS, Math.min(15 * 60_000, retryDelay));
+  setTimeout(() => triggerContentGenerationWorkerBestEffort(origin, systemKey), delay);
 }

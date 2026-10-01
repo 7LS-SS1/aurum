@@ -13,7 +13,7 @@ async function tick(req: Request) {
     const workerId = `${req.headers.get("x-worker-id") ?? "cron"}:${randomUUID()}`;
     const result = await runContentGenerationWorkerTick(workerId);
     await logAudit({ actor, action: "content_generation.worker_tick", resourceType: "ContentGenerationJob", metadata: result });
-    scheduleContentGenerationFollowUp(new URL(req.url).origin, env().SYSTEM_API_KEY, result.claimed);
+    scheduleContentGenerationFollowUp(new URL(req.url).origin, env().SYSTEM_API_KEY, result.claimed, result.nextRunAt);
     return jsonOk(result);
   } catch (error) {
     return apiError(error);

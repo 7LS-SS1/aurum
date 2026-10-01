@@ -79,6 +79,7 @@ export function ContentGenerationDashboard({
   const [trends, setTrends] = useState("");
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const filteredMovies = useMemo(() => {
@@ -110,6 +111,21 @@ export function ContentGenerationDashboard({
         setMessage(batchErrorMessage(error));
       }
     });
+  }
+
+  async function cancelJob(job: JobRow) {
+    if (!window.confirm("ยกเลิก Process นี้ใช่หรือไม่? รายการที่ยังไม่เริ่มจะหยุดทันที")) return;
+    setCancellingJobId(job.id);
+    setMessage("");
+    try {
+      await apiFetch(`/api/content-generation/jobs/${job.id}/cancel`, { method: "POST" });
+      setMessage("ยกเลิก Process แล้ว");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof ApiClientError ? error.message : "ยกเลิก Process ไม่สำเร็จ");
+    } finally {
+      setCancellingJobId(null);
+    }
   }
 
   return (
@@ -180,12 +196,15 @@ export function ContentGenerationDashboard({
             const meta = JOB_STATUS[job.status] ?? { label: job.status, tone: "neutral" };
             const progress = job.totalItems ? Math.round((job.processedItems / job.totalItems) * 100) : 0;
             return (
-              <Link href={`/admin/content-generation/${job.id}`} className="cg-job-row" key={job.id}>
-                <div><strong>{job.provider.toUpperCase()}</strong><small>{job.model} · {new Date(job.createdAt).toLocaleString("th-TH")}</small></div>
-                <div className="cg-job-progress"><span style={{ width: `${progress}%` }} /></div>
-                <div className="cg-job-counts"><span>{job.processedItems}/{job.totalItems}</span><span>รอตรวจ {job.readyItems}</span><span>อนุมัติ {job.approvedItems}</span>{job.failedItems > 0 && <span className="bad">ล้มเหลว {job.failedItems}</span>}</div>
-                <span className={`badge ${meta.tone}`}>{meta.label}</span>
-              </Link>
+              <div className="cg-job-row" key={job.id}>
+                <Link href={`/admin/content-generation/${job.id}`} className="cg-job-row-link">
+                  <div><strong>{job.provider.toUpperCase()}</strong><small>{job.model} · {new Date(job.createdAt).toLocaleString("th-TH")}</small></div>
+                  <div className="cg-job-progress"><span style={{ width: `${progress}%` }} /></div>
+                  <div className="cg-job-counts"><span>{job.processedItems}/{job.totalItems}</span><span>รอตรวจ {job.readyItems}</span><span>อนุมัติ {job.approvedItems}</span>{job.failedItems > 0 && <span className="bad">ล้มเหลว {job.failedItems}</span>}</div>
+                  <span className={`badge ${meta.tone}`}>{meta.label}</span>
+                </Link>
+                {["QUEUED", "PROCESSING"].includes(job.status) && <button type="button" className="btn btn-danger cg-job-cancel" disabled={cancellingJobId === job.id} onClick={() => void cancelJob(job)}>{cancellingJobId === job.id ? "กำลังยกเลิก…" : "ยกเลิก Process"}</button>}
+              </div>
             );
           })}
           {!initialJobs.length && <p className="hint">ยังไม่มี Batch</p>}

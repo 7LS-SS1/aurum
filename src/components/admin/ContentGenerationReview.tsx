@@ -89,6 +89,7 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
   const [drafts, setDrafts] = useState<Record<string, DraftState>>(() => Object.fromEntries(initialJob.items.map(item => [item.id, draftFromItem(item)])));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [publishingAll, setPublishingAll] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState("");
   const active = ["QUEUED", "PROCESSING"].includes(job.status);
   const progress = job.totalItems ? Math.round((job.processedItems / job.totalItems) * 100) : 0;
@@ -185,13 +186,17 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
   }
 
   async function cancel() {
+    if (!window.confirm("ยกเลิก Process นี้ใช่หรือไม่? รายการที่ยังไม่เริ่มจะหยุดทันที")) return;
+    setCancelling(true);
     setMessage("");
     try {
       await apiFetch(`/api/content-generation/jobs/${job.id}/cancel`, { method: "POST" });
       await refresh();
-      setMessage("ยกเลิก Batch แล้ว");
+      setMessage("ยกเลิก Process แล้ว รายการที่ยังไม่เริ่มจะไม่ถูกส่งไปยัง AI");
     } catch (error) {
       setMessage(error instanceof ApiClientError ? error.message : "ยกเลิกไม่สำเร็จ");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -247,7 +252,7 @@ export function ContentGenerationReview({ initialJob }: { initialJob: JobDetail 
       <div className="panel cg-job-hero">
         <div><span className="eyebrow">{job.provider.toUpperCase()} · {job.model}</span><h2>Batch {job.id.slice(-8)}</h2><p>{new Date(job.createdAt).toLocaleString("th-TH")}</p></div>
         <div className="cg-hero-stats"><strong>{progress}%</strong><span>{job.processedItems}/{job.totalItems} รายการ</span></div>
-        {active && <button type="button" className="btn btn-ghost" onClick={cancel}>ยกเลิก Batch</button>}
+        {active && <button type="button" className="btn btn-danger" disabled={cancelling} onClick={() => void cancel()}>{cancelling ? "กำลังยกเลิก…" : "ยกเลิก Process"}</button>}
       </div>
       <div className="sync-progress-track cg-main-progress"><div className="sync-progress-bar" style={{ width: `${progress}%` }} /></div>
       <div className="cg-summary-grid">

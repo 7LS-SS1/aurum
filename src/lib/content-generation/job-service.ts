@@ -165,12 +165,19 @@ export async function listContentGenerationJobs(limit = 30) {
 }
 
 export async function cancelContentGenerationJob(jobId: string): Promise<ContentGenerationJob> {
-  const job = await prisma.contentGenerationJob.findUnique({ where: { id: jobId } });
-  if (!job) throw new ApiError("content_generation_job_not_found", 404);
-  if (!ACTIVE_CONTENT_JOB_STATUSES.includes(job.status)) throw new ApiError("content_generation_job_not_active", 409);
-  return prisma.contentGenerationJob.update({
-    where: { id: jobId },
-    data: { status: "CANCELLED", phase: "cancelled", finishedAt: new Date() },
+  return prisma.$transaction(async tx => {
+    const cancelled = await tx.contentGenerationJob.updateMany({
+      where: { id: jobId, status: { in: ACTIVE_CONTENT_JOB_STATUSES } },
+      data: { status: "CANCELLED", phase: "cancelled", finishedAt: new Date() },
+    });
+    if (cancelled.count !== 1) {
+      const exists = await tx.contentGenerationJob.findUnique({ where: { id: jobId }, select: { id: true } });
+      throw new ApiError(exists ? "content_generation_job_not_active" : "content_generation_job_not_found", exists ? 409 : 404);
+    }
+    await tx.contentGenerationJobLog.create({
+      data: { jobId, level: "WARN", event: "job_cancelled", message: "ผู้ใช้ยกเลิก Process" },
+    });
+    return tx.contentGenerationJob.findUniqueOrThrow({ where: { id: jobId } });
   });
 }
 

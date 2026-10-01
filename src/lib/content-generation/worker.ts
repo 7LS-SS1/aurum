@@ -242,7 +242,7 @@ async function processClaimedJob(job: ClaimedJob, workerId: string): Promise<voi
         OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: new Date() } }],
       },
       orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }],
-      take: ITEMS_PER_JOB_TICK,
+      take: aiProvider(job.provider) === "grok" ? 2 : ITEMS_PER_JOB_TICK,
     });
     for (const item of items) {
       const state = await prisma.contentGenerationJob.findUnique({ where: { id: job.id }, select: { status: true } });

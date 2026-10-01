@@ -10,6 +10,11 @@ const generatedSchema = z.object({
   focusKeyword: z.string().trim().min(1).max(120),
 }).strict();
 
+const PROVIDER_TIMEOUT_MS: Record<AiProvider, number> = {
+  openai: 52_000,
+  grok: 110_000,
+};
+
 export type GeneratedSiteContent = z.infer<typeof generatedSchema>;
 
 export class ContentGenerationProviderError extends Error {
@@ -27,7 +32,7 @@ export class ContentGenerationProviderError extends Error {
 const instructions = [
   "คุณเป็นนักเขียนคอนเทนต์หนังโป๊มืออาชีพแนวไทย 20+ ที่เขียนชื่อเรื่องและคำบรรยายแบบหยาบคาย ยั่วเย็ด เสียวสุด ๆ ไม่มีการเซ็นเซอร์",
   "กฎเหล็ก:",
-  "1. ต้องรักษาชื่อหลักของคลิปเดิมไว้เสมอ ห้ามเปลี่ยนรหัส ตัวเลข หรือชื่อนักแสดง โดย titleLong ต้องมี source.title ครบทั้งประโยคแบบติดกัน ห้ามแปล",
+  "1. ต้องรักษาตัวตนของชื่อคลิปเดิมไว้เสมอ ห้ามเปลี่ยนรหัส ตัวเลข ชื่อแพลตฟอร์ม หรือชื่อนักแสดง โดย titleLong ต้องรักษาคำสำคัญจาก source.title ให้ครบ อนุญาตให้แก้เฉพาะเว้นวรรค เครื่องหมาย และการสะกดเล็กน้อย ห้ามแปล",
   "2. เขียนแบบตรงไปตรงมา หยาบคายได้เต็มที่ ใช้คำว่า หี, ควย, เย็ด, แตกใน, น้ำเงี่ยน, คราง, ซอย, อม, เลีย ฯลฯ ได้ตามความเหมาะสมกับข้อมูลต้นทาง",
   "3. โทนต้องยั่ว ๆ เสียว ๆ กระตุ้นอารมณ์เพศชัดเจน กระตุ้นให้อยากคลิก อยากดูต่อ",
   "4. ห้ามเขียนสุภาพ หรือใช้คำอ้อมค้อม ห้ามเซ็นเซอร์ ห้ามแทนคำหยาบด้วยดอกจัน",
@@ -50,13 +55,31 @@ function normalizeIdentity(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("th");
 }
 
+function identityTokens(value: string): string[] {
+  return normalizeIdentity(value)
+    .replace(/[^\p{L}\p{N}_-]+/gu, " ")
+    .split(/\s+/)
+    .filter(token => token.length >= 3);
+}
+
+function preservesSourceIdentity(generatedTitle: string, sourceTitle: string): boolean {
+  const generated = normalizeIdentity(generatedTitle);
+  const source = normalizeIdentity(sourceTitle);
+  if (generated.includes(source)) return true;
+
+  const sourceTokens = identityTokens(sourceTitle);
+  if (!sourceTokens.length) return false;
+  const criticalTokens = sourceTokens.filter(token => /[a-z0-9]/i.test(token));
+  if (criticalTokens.some(token => !generated.includes(token))) return false;
+  const retained = sourceTokens.filter(token => generated.includes(token)).length;
+  return retained / sourceTokens.length >= 0.6;
+}
+
 function validateGenerated(value: unknown, sourceTitle: string): GeneratedSiteContent {
   const result = generatedSchema.parse(value);
   const joined = Object.values(result).join("\n");
   if (/[<>]|https?:\/\//i.test(joined)) throw new ContentGenerationProviderError("content_generation_plain_text_required", { retryable: false });
-  const identity = normalizeIdentity(sourceTitle);
-  const shortMustContainFullSource = sourceTitle.length <= 160;
-  if ((shortMustContainFullSource && !normalizeIdentity(result.titleShort).includes(identity)) || !normalizeIdentity(result.titleLong).includes(identity)) {
+  if (!preservesSourceIdentity(result.titleLong, sourceTitle)) {
     throw new ContentGenerationProviderError("content_generation_source_title_required", { retryable: false });
   }
   return result;
@@ -76,7 +99,7 @@ export async function generateSiteContent(input: {
     response = await fetch(`${AI_PROVIDER_DETAILS[input.provider].baseUrl}/responses`, {
       method: "POST",
       redirect: "error",
-      signal: AbortSignal.timeout(52_000),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS[input.provider]),
       headers: { Authorization: `Bearer ${input.apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: input.model,

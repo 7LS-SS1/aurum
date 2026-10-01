@@ -55,6 +55,22 @@ describe("batch content provider", () => {
     await expect(generateSiteContent({ ...input, source: { ...input.source, title: longSourceTitle } })).resolves.toEqual(output);
   });
 
+  it("accepts minor spelling changes while preserving clip codes and source identity", async () => {
+    const sourceTitle = "PRED-880 คลิปหลุด mlive nornor น้องนอนอ โชวน์จุกหุ่นดีมาก Suzu Otonashi";
+    const output = {
+      titleShort: "PRED-880 น้องนอนอคลิปใหม่",
+      titleLong: "PRED-880 คลิปหลุด mlive nornor น้องนอนอ โชว์จุกหุ่นดีมาก Suzu Otonashi ฉบับมาแรง",
+      descriptionShort: "คำบรรยายสั้น",
+      descriptionLong: "คำบรรยายฉบับยาว",
+      focusKeyword: "PRED-880",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(output) }] }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+
+    await expect(generateSiteContent({ ...input, source: { ...input.source, title: sourceTitle } })).resolves.toEqual(output);
+  });
+
   it.each([[429, true], [500, true], [400, false]])("classifies HTTP %s retryability", async (status, retryable) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status })));
     const promise = generateSiteContent(input);

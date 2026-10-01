@@ -48,6 +48,21 @@ function toggle(setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: s
   });
 }
 
+function batchIdempotencyKey(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return `admin-${uuid ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+}
+
+function batchErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiClientError)) return error instanceof Error ? error.message : "สร้าง Batch ไม่สำเร็จ";
+  const messages: Record<string, string> = {
+    unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง",
+    content_ai_disabled: "ยังไม่ได้เปิดใช้งาน AI Provider ที่เลือก",
+    internal_server_error: "เซิร์ฟเวอร์สร้าง Batch ไม่สำเร็จ กรุณาลองอีกครั้ง",
+  };
+  return messages[error.code ?? error.message] ?? error.message;
+}
+
 export function ContentGenerationDashboard({
   initialMovies,
   initialSites,
@@ -82,7 +97,7 @@ export function ContentGenerationDashboard({
       try {
         const result = await apiFetch<{ job: { id: string }; reused: boolean }>("/api/content-generation/jobs", {
           method: "POST",
-          headers: { "Idempotency-Key": `admin-${crypto.randomUUID()}` },
+          headers: { "Idempotency-Key": batchIdempotencyKey() },
           body: JSON.stringify({
             movieIds: [...movieIds],
             siteIds: [...siteIds],
@@ -92,7 +107,7 @@ export function ContentGenerationDashboard({
         });
         router.push(`/admin/content-generation/${result.job.id}`);
       } catch (error) {
-        setMessage(error instanceof ApiClientError ? error.message : "สร้าง Batch ไม่สำเร็จ");
+        setMessage(batchErrorMessage(error));
       }
     });
   }

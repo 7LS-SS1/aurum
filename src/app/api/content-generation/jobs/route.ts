@@ -11,8 +11,8 @@ const words = z.array(z.string().trim().min(1).max(100)).max(30).default([]);
 const idempotencyKeySchema = z.string().trim().min(8).max(160);
 const schema = z.object({
   idempotencyKey: idempotencyKeySchema.optional(),
-  movieIds: z.array(z.string().trim().min(1).max(100)).min(1).max(100),
-  siteIds: z.array(z.string().trim().min(1).max(100)).min(1).max(50),
+  movieIds: z.array(z.string().trim().min(1).max(100)).min(1).max(500),
+  siteIds: z.array(z.string().trim().min(1).max(100)).min(1).max(500),
   provider: z.enum(AI_PROVIDERS).optional(),
   trendKeywords: words,
 }).strict();

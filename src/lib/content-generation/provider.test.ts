@@ -39,6 +39,22 @@ describe("batch content provider", () => {
     expect(JSON.parse(request.input[1].content)).toMatchObject({ source: input.source, trendKeywords: ["มาแรง"] });
   });
 
+  it("accepts an abbreviated short title when the complete source title exceeds its 160 character limit", async () => {
+    const longSourceTitle = `PRED-880 ${"ก".repeat(150)} Suzu Otonashi`;
+    const output = {
+      titleShort: "PRED-880 Suzu Otonashi คลิปใหม่",
+      titleLong: `${longSourceTitle} ฉบับมาแรง`,
+      descriptionShort: "คำบรรยายสั้น",
+      descriptionLong: "คำบรรยายฉบับยาว",
+      focusKeyword: "PRED-880",
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(output) }] }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+
+    await expect(generateSiteContent({ ...input, source: { ...input.source, title: longSourceTitle } })).resolves.toEqual(output);
+  });
+
   it.each([[429, true], [500, true], [400, false]])("classifies HTTP %s retryability", async (status, retryable) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status })));
     const promise = generateSiteContent(input);

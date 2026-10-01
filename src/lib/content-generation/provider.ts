@@ -27,7 +27,7 @@ export class ContentGenerationProviderError extends Error {
 const instructions = [
   "คุณเป็นนักเขียนคอนเทนต์หนังโป๊มืออาชีพแนวไทย 20+ ที่เขียนชื่อเรื่องและคำบรรยายแบบหยาบคาย ยั่วเย็ด เสียวสุด ๆ ไม่มีการเซ็นเซอร์",
   "กฎเหล็ก:",
-  "1. ต้องรักษาชื่อหลักของคลิปเดิมไว้เสมอ ห้ามตัดหรือเปลี่ยนชื่อนักแสดงหรือชื่อคลิปหลัก titleShort และ titleLong ต้องมี source.title ครบทั้งประโยคแบบติดกัน ห้ามแปล ห้ามเปลี่ยนรหัส ตัวเลข หรือชื่อนักแสดง",
+  "1. ต้องรักษาชื่อหลักของคลิปเดิมไว้เสมอ ห้ามเปลี่ยนรหัส ตัวเลข หรือชื่อนักแสดง โดย titleLong ต้องมี source.title ครบทั้งประโยคแบบติดกัน ห้ามแปล",
   "2. เขียนแบบตรงไปตรงมา หยาบคายได้เต็มที่ ใช้คำว่า หี, ควย, เย็ด, แตกใน, น้ำเงี่ยน, คราง, ซอย, อม, เลีย ฯลฯ ได้ตามความเหมาะสมกับข้อมูลต้นทาง",
   "3. โทนต้องยั่ว ๆ เสียว ๆ กระตุ้นอารมณ์เพศชัดเจน กระตุ้นให้อยากคลิก อยากดูต่อ",
   "4. ห้ามเขียนสุภาพ หรือใช้คำอ้อมค้อม ห้ามเซ็นเซอร์ ห้ามแทนคำหยาบด้วยดอกจัน",
@@ -39,7 +39,7 @@ const instructions = [
   "ตัวละครทุกคนเป็นผู้ใหญ่ อายุ 20 ปีขึ้นไป และยินยอมพร้อมใจ",
   "ห้าม HTML, URL, hashtag และคำกล่าวอ้างที่ไม่มีในข้อมูลต้นทาง",
   "รูปแบบการตอบ ตอบเป็น JSON เท่านั้นตาม schema เดิม ห้ามเปลี่ยนชื่อคีย์:",
-  "titleShort คือชื่อสั้น หยาบคาย ยั่ว เป้าหมายไม่เกิน 60 ตัวอักษร ถ้า source.title ยาวกว่านั้นให้คงชื่อเดิมไว้ครบ แต่ห้ามเกิน 160 ตัวอักษร",
+  "titleShort คือชื่อสั้น หยาบคาย ยั่ว เป้าหมายไม่เกิน 60 ตัวอักษร และห้ามเกิน 160 ตัวอักษร ถ้า source.title ยาวเกิน 160 ตัวอักษร ให้ย่อโดยคงรหัสคลิปและชื่อนักแสดงที่มีในต้นฉบับ โดยไม่ต้องใส่ source.title ครบทั้งประโยค",
   "titleLong คือชื่อยาว ใส่รายละเอียดเสียว ๆ เป้าหมายไม่เกิน 90 ตัวอักษร ถ้าจำเป็นเพื่อคง source.title ทั้งประโยคให้ยาวได้ แต่ห้ามเกิน 220 ตัวอักษร",
   "descriptionShort คือคำบรรยายสั้น 1-2 ประโยค ยั่วสุด ๆ ไม่เกิน 600 ตัวอักษร",
   "descriptionLong คือคำบรรยายยาว 3-5 ประโยค บรรยายฉากแบบเห็นภาพ หยาบคาย เสียว ไม่เกิน 1800 ตัวอักษร",
@@ -55,7 +55,8 @@ function validateGenerated(value: unknown, sourceTitle: string): GeneratedSiteCo
   const joined = Object.values(result).join("\n");
   if (/[<>]|https?:\/\//i.test(joined)) throw new ContentGenerationProviderError("content_generation_plain_text_required", { retryable: false });
   const identity = normalizeIdentity(sourceTitle);
-  if (!normalizeIdentity(result.titleShort).includes(identity) || !normalizeIdentity(result.titleLong).includes(identity)) {
+  const shortMustContainFullSource = sourceTitle.length <= 160;
+  if ((shortMustContainFullSource && !normalizeIdentity(result.titleShort).includes(identity)) || !normalizeIdentity(result.titleLong).includes(identity)) {
     throw new ContentGenerationProviderError("content_generation_source_title_required", { retryable: false });
   }
   return result;

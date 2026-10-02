@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import { ApiError } from "@/lib/api-response";
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), read: vi.fn(), find: vi.fn(), upsert: vi.fn(), transaction: vi.fn(), lock: vi.fn(), encrypt: vi.fn(), audit: vi.fn() }));
 vi.mock("@/lib/authz", () => ({ requireAdmin: mocks.auth }));
@@ -43,6 +44,28 @@ describe("content AI settings", () => {
     expect(await response.json()).toEqual({ saved: true });
     expect(JSON.stringify(mocks.upsert.mock.calls)).not.toContain("sample-key-only");
     expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain("sample-key-only");
+  });
+  it("returns a retry message when the database cannot be reached", async () => {
+    mocks.read.mockRejectedValue(new Prisma.PrismaClientKnownRequestError(
+      "Can't reach database server at `pooled.db.prisma.io:5432`",
+      { code: "P1001", clientVersion: "6.19.3" },
+    ));
+    const response = await PUT(request({ enabled: true, model: "gpt-4.1-mini" }));
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body).toEqual({ error: "เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง" });
+    expect(JSON.stringify(body)).not.toContain("prisma.io");
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+  it("uses the same safe database error for settings reads", async () => {
+    mocks.read.mockRejectedValue(new Prisma.PrismaClientInitializationError(
+      "Can't reach database server at `pooled.db.prisma.io:5432`",
+      "6.19.3",
+      "P1001",
+    ));
+    const response = await GET();
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง" });
   });
   it("does not read credentials when authorization is denied", async () => {
     mocks.auth.mockRejectedValue(new ApiError("forbidden", 403));

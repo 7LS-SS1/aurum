@@ -32,10 +32,10 @@ describe("batch content provider", () => {
     const sentInstructions = request.input[0].content as string;
     expect(sentInstructions).not.toContain(input.source.title);
     expect(sentInstructions).toContain("กฎเหล็ก:");
-    expect(sentInstructions).toContain("หี, ควย, เย็ด, แตกใน, น้ำเงี่ยน, คราง, ซอย, อม, เลีย");
-    expect(sentInstructions).toContain("titleShort คือชื่อสั้น");
-    expect(sentInstructions).toContain("descriptionLong คือคำบรรยายยาว 3-5 ประโยค");
-    expect(sentInstructions).toContain("focusKeyword คือคำหลัก 1 คำหรือวลีสั้น ๆ");
+    expect(sentInstructions).toContain("โทนต้องหยาบ ยั่ว เห็นภาพ");
+    expect(sentInstructions).toContain("- titleShort: ชื่อสั้น");
+    expect(sentInstructions).toContain("- descriptionLong: คำบรรยายยาว");
+    expect(sentInstructions).toContain("- focusKeyword: คำหลัก 1 คำหรือวลีสั้น ๆ");
     expect(JSON.parse(request.input[1].content)).toMatchObject({ source: input.source, trendKeywords: ["มาแรง"] });
   });
 

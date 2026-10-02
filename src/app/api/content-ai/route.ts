@@ -6,6 +6,13 @@ import { ApiError, apiError, jsonOk } from "@/lib/api-response";
 import { readAiConfig } from "@/lib/content-ai";
 import { logAudit } from "@/lib/audit";
 import { aiProvider, AI_PROVIDERS, AI_PROVIDER_DETAILS } from "@/lib/ai-provider";
+import { isTransientDatabaseDisconnect, withPrismaTransactionStartReconnect } from "@/lib/prisma-reconnect";
+
+function contentAiError(error: unknown) {
+  return apiError(isTransientDatabaseDisconnect(error)
+    ? new ApiError("เชื่อมต่อฐานข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง", 503)
+    : error);
+}
 
 const schema = z.object({ provider: z.enum(AI_PROVIDERS).optional(), enabled: z.boolean(), model: z.string().trim().min(1).max(100), apiKey: z.string().trim().min(10).max(512).optional() });
 export async function GET() {
@@ -18,7 +25,7 @@ export async function GET() {
       return [name, { model: saved?.model ?? "", hasApiKey: !!saved }];
     })));
     return jsonOk({ provider, enabled: config?.enabled ?? false, model: config?.model ?? "", hasApiKey: !!config, profiles });
-  } catch (error) { return apiError(error); }
+  } catch (error) { return contentAiError(error); }
 }
 export async function PUT(req: Request) {
   try {
@@ -26,7 +33,8 @@ export async function PUT(req: Request) {
     const input = schema.parse(await req.json());
     await readAiConfig({ requireStorage: true });
     const key = input.apiKey ? encrypt(input.apiKey) : null;
-    const provider = await prisma.$transaction(async tx => {
+    const provider = await withPrismaTransactionStartReconnect(markStarted => prisma.$transaction(async tx => {
+      markStarted();
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"content-ai-config"}))`;
       const previous = await tx.contentAiConfig.findUnique({ where: { id: "default" } });
       const previousProvider = aiProvider(previous?.provider);
@@ -43,10 +51,10 @@ export async function PUT(req: Request) {
       const data = { provider: selected, enabled: input.enabled, model: input.model, ...secret };
       for (const id of [`provider:${selected}`, "default"]) await tx.contentAiConfig.upsert({ where: { id }, create: { id, ...data }, update: data });
       return selected;
-    });
+    }));
     await logAudit({ actor, action: "content_ai.configure", resourceType: "ContentAiConfig", metadata: { provider, enabled: input.enabled, model: input.model } });
     return jsonOk({ saved: true });
-  } catch (error) { return apiError(error); }
+  } catch (error) { return contentAiError(error); }
 }
 
 /** Validate the saved account/model without generating billable content. */
@@ -74,5 +82,5 @@ export async function POST() {
       throw new ApiError(messages[response.status] ?? `${details.label} ตอบกลับ HTTP ${response.status} กรุณาลองอีกครั้ง`, 422);
     }
     return jsonOk({ connected: true });
-  } catch (error) { return apiError(error); }
+  } catch (error) { return contentAiError(error); }
 }

@@ -2,13 +2,14 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-response";
 import { aiProvider, type AiProvider } from "@/lib/ai-provider";
+import { withPrismaReadReconnect } from "@/lib/prisma-reconnect";
 
 export async function readAiConfig(options: { requireStorage?: boolean; provider?: AiProvider } = {}) {
   if (!prisma.contentAiConfig) {
     throw new ApiError("ระบบยังใช้ Prisma Client รุ่นเก่า กรุณารัน npx prisma generate แล้วเริ่มเซิร์ฟเวอร์ใหม่", 503);
   }
   try {
-    const config = await prisma.contentAiConfig.findUnique({ where: { id: options.provider ? `provider:${options.provider}` : "default" } });
+    const config = await withPrismaReadReconnect(() => prisma.contentAiConfig.findUnique({ where: { id: options.provider ? `provider:${options.provider}` : "default" } }));
     if (config) {
       const provider = aiProvider(config.provider);
       if (options.provider && provider !== options.provider) throw new ApiError("ข้อมูลผู้ให้บริการ AI ไม่ตรงกัน กรุณาบันทึกการตั้งค่าใหม่", 503);

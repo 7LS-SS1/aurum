@@ -115,7 +115,10 @@ describe("runScanAndCompare", () => {
     expect(distributionUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { movieId_siteId: { movieId: "m1", siteId: "site-1" } },
-        update: expect.objectContaining({ status: "SUCCESS", remotePostId: "99" }),
+        update: expect.objectContaining({
+          status: "SUCCESS", remotePostId: "99", remotePostType: "posts",
+          remoteCategoryRestBase: "categories", remoteTagRestBase: "tags",
+        }),
       }),
     );
     // aurum_movie_id already matched — no need to backfill the meta field again.

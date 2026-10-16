@@ -37,6 +37,10 @@ function makeClient(site: {
   postType: string;
   categoryRestBase: string;
   tagRestBase: string;
+}, remote: {
+  remotePostType: string | null;
+  remoteCategoryRestBase: string | null;
+  remoteTagRestBase: string | null;
 }) {
   const credential = decrypt({
     ciphertext: site.credentialEnc,
@@ -49,9 +53,9 @@ function makeClient(site: {
     authType: site.authType,
     username: site.wpUsername,
     credential,
-    postType: site.postType,
-    categoryRestBase: site.categoryRestBase,
-    tagRestBase: site.tagRestBase,
+    postType: remote.remotePostType || site.postType,
+    categoryRestBase: remote.remoteCategoryRestBase || site.categoryRestBase,
+    tagRestBase: remote.remoteTagRestBase || site.tagRestBase,
   });
 }
 
@@ -75,7 +79,7 @@ export async function syncWordPressEngagement(options: SyncWpEngagementOptions =
     if (!postId) continue;
 
     try {
-      const client = makeClient(row.site);
+      const client = makeClient(row.site, row);
       const engagement = await client.getAurumEngagement(postId);
       const views = Number.isFinite(engagement.views) ? Math.max(0, Math.floor(engagement.views)) : 0;
 

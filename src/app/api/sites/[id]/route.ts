@@ -34,22 +34,48 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const enc = input.credential ? encrypt(input.credential) : null;
 
-    const site = await prisma.targetSite.update({
-      where: { id },
-      data: {
-        name: input.name,
-        baseUrl: input.baseUrl,
-        authType: input.authType,
-        wpUsername: input.wpUsername,
-        postType: input.postType,
-        categoryRestBase: input.categoryRestBase,
-        tagRestBase: input.tagRestBase,
-        defaultStatus: input.defaultStatus,
-        mainCategories: input.mainCategories,
-        isActive: input.isActive,
-        ...(enc ? { credentialEnc: enc.ciphertext, credentialIv: enc.iv, credentialTag: enc.tag } : {}),
-      },
-      select: SITE_PUBLIC_SELECT,
+    const nextProfile = {
+      postType: input.postType ?? existing.postType,
+      categoryRestBase: input.categoryRestBase ?? existing.categoryRestBase,
+      tagRestBase: input.tagRestBase ?? existing.tagRestBase,
+    };
+    const profileChanged = nextProfile.postType !== existing.postType
+      || nextProfile.categoryRestBase !== existing.categoryRestBase
+      || nextProfile.tagRestBase !== existing.tagRestBase;
+
+    const site = await prisma.$transaction(async (tx) => {
+      if (profileChanged) {
+        // Freeze the old REST route on every existing remote record before the
+        // site starts publishing new records to another collection. Without
+        // this snapshot, later updates/engagement sync would address an old
+        // `posts/{id}` record as `video/{id}` (or vice versa).
+        await tx.distribution.updateMany({
+          where: { siteId: id, remotePostId: { not: null }, remotePostType: null },
+          data: {
+            remotePostType: existing.postType,
+            remoteCategoryRestBase: existing.categoryRestBase,
+            remoteTagRestBase: existing.tagRestBase,
+          },
+        });
+      }
+
+      return tx.targetSite.update({
+        where: { id },
+        data: {
+          name: input.name,
+          baseUrl: input.baseUrl,
+          authType: input.authType,
+          wpUsername: input.wpUsername,
+          postType: input.postType,
+          categoryRestBase: input.categoryRestBase,
+          tagRestBase: input.tagRestBase,
+          defaultStatus: input.defaultStatus,
+          mainCategories: input.mainCategories,
+          isActive: input.isActive,
+          ...(enc ? { credentialEnc: enc.ciphertext, credentialIv: enc.iv, credentialTag: enc.tag } : {}),
+        },
+        select: SITE_PUBLIC_SELECT,
+      });
     });
 
     const action = input.isActive === false && existing.isActive ? "disable_site" : input.isActive === true && !existing.isActive ? "enable_site" : "update_site";

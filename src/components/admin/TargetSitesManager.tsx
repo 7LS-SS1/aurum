@@ -12,6 +12,8 @@ interface VideoSiteRow {
   name: string;
   baseUrl: string;
   postType: string;
+  categoryRestBase: string;
+  tagRestBase: string;
   mainCategories: unknown;
   isActive: boolean;
   healthStatus: "OK" | "ERROR" | "UNKNOWN";
@@ -35,7 +37,12 @@ interface MainCategoryRow {
 }
 
 type SiteType = "video" | "doujin";
+type VideoWpProfile = "posts" | "video";
 const COMIC_TYPE_LABEL: Record<string, string> = { MANGA: "Manga", DOUJIN: "Doujin" };
+const VIDEO_WP_PROFILES: Record<VideoWpProfile, { label: string; postType: string; categoryRestBase: string; tagRestBase: string }> = {
+  posts: { label: "บทความ WordPress (posts)", postType: "posts", categoryRestBase: "categories", tagRestBase: "tags" },
+  video: { label: "วิดีโอแยกจากบทความ (video)", postType: "video", categoryRestBase: "video_category", tagRestBase: "video_tag" },
+};
 
 function toStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
@@ -58,6 +65,7 @@ export function TargetSitesManager({
   const [pending, startTransition] = useTransition();
   const [selectedSiteIds, setSelectedSiteIds] = useState<Set<string>>(new Set());
   const [newSiteType, setNewSiteType] = useState<SiteType | null>(null);
+  const [newVideoProfile, setNewVideoProfile] = useState<VideoWpProfile>("video");
   const [form, setForm] = useState({ name: "", baseUrl: "", wpUsername: "", credential: "" });
 
   const canManage = can(role, "site:manage");
@@ -107,9 +115,20 @@ export function TargetSitesManager({
     startTransition(async () => {
       try {
         const endpoint = newSiteType === "video" ? "/api/sites" : "/api/comic-sites";
+        const profile = VIDEO_WP_PROFILES[newVideoProfile];
         const site = await apiFetch<VideoSiteRow | ComicSiteRow>(endpoint, {
           method: "POST",
-          body: JSON.stringify({ name: form.name, baseUrl: form.baseUrl, wpUsername: form.wpUsername, credential: form.credential }),
+          body: JSON.stringify({
+            name: form.name,
+            baseUrl: form.baseUrl,
+            wpUsername: form.wpUsername,
+            credential: form.credential,
+            ...(newSiteType === "video" ? {
+              postType: profile.postType,
+              categoryRestBase: profile.categoryRestBase,
+              tagRestBase: profile.tagRestBase,
+            } : {}),
+          }),
         });
         if (newSiteType === "video") setVideoSites((prev) => [...prev, site as VideoSiteRow]);
         else setComicSites((prev) => [...prev, site as ComicSiteRow]);
@@ -175,6 +194,32 @@ export function TargetSitesManager({
         notify(next.length ? "ตั้งค่าหมวดหมู่หลักแล้ว — กด \"ซิงก์วิดีโอเก่า\" เพื่อดึงคลิปหมวดหมู่นี้ที่มีอยู่แล้วเข้าเว็บนี้" : "ตั้งเป็นรับทุกหมวดหมู่แล้ว");
       } catch (err) {
         notify(err instanceof ApiClientError ? err.message : "อัปเดตหมวดหมู่ไม่สำเร็จ");
+      }
+    });
+  }
+
+  function setVideoWordPressProfile(site: VideoSiteRow, profileName: VideoWpProfile) {
+    const profile = VIDEO_WP_PROFILES[profileName];
+    const current = site.postType === profile.postType && site.categoryRestBase === profile.categoryRestBase && site.tagRestBase === profile.tagRestBase;
+    if (current) return;
+    const message = profileName === "video"
+      ? "เปลี่ยนให้วิดีโอใหม่จาก AURUM ส่งเข้า post type video? โพสต์เดิมจะไม่ถูกย้ายอัตโนมัติ"
+      : "เปลี่ยนให้วิดีโอใหม่ส่งเข้า posts? ใช้เฉพาะเว็บที่ตั้งใจเก็บวิดีโอรวมกับบทความ";
+    if (!confirm(message)) return;
+    startTransition(async () => {
+      try {
+        const updated = await apiFetch<VideoSiteRow>(`/api/sites/${site.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            postType: profile.postType,
+            categoryRestBase: profile.categoryRestBase,
+            tagRestBase: profile.tagRestBase,
+          }),
+        });
+        setVideoSites((prev) => prev.map((item) => (item.id === site.id ? updated : item)));
+        notify(profileName === "video" ? "แยกวิดีโอออกจากบทความแล้ว — กดตรวจสอบการเชื่อมต่อก่อนส่งงาน" : "เปลี่ยนกลับไปใช้ posts แล้ว");
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "เปลี่ยนโปรไฟล์ WordPress ไม่สำเร็จ");
       }
     });
   }
@@ -287,6 +332,17 @@ export function TargetSitesManager({
             </div>
             {canManage && s.type === "video" && (
               <div style={{ padding: "0 12px 12px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>รูปแบบ WordPress:</span>
+                {(["video", "posts"] as const).map((profileName) => {
+                  const profile = VIDEO_WP_PROFILES[profileName];
+                  const active = s.postType === profile.postType && s.categoryRestBase === profile.categoryRestBase && s.tagRestBase === profile.tagRestBase;
+                  return (
+                    <button key={profileName} type="button" className={`chip ${active ? "active" : ""}`} disabled={pending} onClick={() => setVideoWordPressProfile(s, profileName)}>
+                      {profile.label}
+                    </button>
+                  );
+                })}
+                <span style={{ flexBasis: "100%", height: 0 }} />
                 <span style={{ fontSize: 12, color: "var(--muted)" }}>หมวดหมู่หลักที่รับ:</span>
                 {mainCategories.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>ยังไม่มีหมวดหมู่หลักในระบบ</span>}
                 {mainCategories.map((mc) => {
@@ -380,6 +436,16 @@ export function TargetSitesManager({
                   <input type="password" value={form.credential} onChange={(e) => setForm({ ...form, credential: e.target.value })} placeholder="xxxx xxxx xxxx xxxx" />
                   <div className="hint">เข้ารหัสด้วย AES-256-GCM ก่อนบันทึกเสมอ</div>
                 </div>
+                {newSiteType === "video" && (
+                  <div className="field">
+                    <label>รูปแบบเนื้อหา WordPress</label>
+                    <select value={newVideoProfile} onChange={(e) => setNewVideoProfile(e.target.value as VideoWpProfile)}>
+                      <option value="video">วิดีโอแยกจากบทความ (แนะนำ)</option>
+                      <option value="posts">รวมเป็นบทความ WordPress แบบเดิม</option>
+                    </select>
+                    <div className="hint">โหมด video ต้องเปิดโปรไฟล์ “วิดีโอ” ใน AURUM Video Core ที่เว็บปลายทางก่อน</div>
+                  </div>
+                )}
                 <button className="btn btn-gold btn-block" type="submit" disabled={pending}>
                   เพิ่มเว็บ
                 </button>

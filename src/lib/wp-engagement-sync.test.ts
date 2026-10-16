@@ -20,6 +20,7 @@ vi.mock("@/lib/wordpress-client", () => ({
   WordPressClient: vi.fn().mockImplementation(() => ({ getAurumEngagement: getAurumEngagementMock })),
 }));
 
+const { WordPressClient } = await import("@/lib/wordpress-client");
 const { syncWordPressEngagement } = await import("./wp-engagement-sync");
 
 function fakeRow(overrides: Record<string, unknown> = {}) {
@@ -28,6 +29,9 @@ function fakeRow(overrides: Record<string, unknown> = {}) {
     movieId: "m1",
     siteId: "s1",
     remotePostId: "10",
+    remotePostType: null,
+    remoteCategoryRestBase: null,
+    remoteTagRestBase: null,
     site: {
       baseUrl: "https://wp.example.com",
       authType: "APP_PASSWORD",
@@ -92,6 +96,28 @@ describe("syncWordPressEngagement", () => {
     expect(result).toEqual(
       expect.objectContaining({ scanned: 1, success: 1, failed: 0, moviesUpdated: 1 }),
     );
+  });
+
+  it("reads engagement through the remote record's original REST profile", async () => {
+    distributionFindMany.mockResolvedValue([fakeRow({
+      remotePostType: "posts",
+      remoteCategoryRestBase: "categories",
+      remoteTagRestBase: "tags",
+      site: {
+        ...fakeRow().site,
+        postType: "video",
+        categoryRestBase: "video_category",
+        tagRestBase: "video_tag",
+      },
+    })]);
+    getAurumEngagementMock.mockResolvedValue({ postId: 10, views: 2, likes: 0, dislikes: 0 });
+    distributionAggregate.mockResolvedValue({ _sum: { remoteViewCount: 2 } });
+
+    await syncWordPressEngagement();
+
+    expect(WordPressClient).toHaveBeenLastCalledWith(expect.objectContaining({
+      postType: "posts", categoryRestBase: "categories", tagRestBase: "tags",
+    }));
   });
 
   it("never touches Movie.status", async () => {

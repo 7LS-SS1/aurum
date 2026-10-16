@@ -63,6 +63,7 @@ vi.mock("@/lib/wordpress-client", () => ({
   })),
 }));
 
+const { WordPressClient } = await import("./wordpress-client");
 const { distributeToSite, distributeMovie } = await import("./distributor");
 
 function fakeMovie(overrides: Record<string, unknown> = {}) {
@@ -144,6 +145,33 @@ describe("distributeToSite", () => {
         create: { movieId: "m1", siteId: "s1", status: "PROCESSING", attempts: 1 },
       }),
     );
+  });
+
+  it("keeps using the distribution's original REST profile after the site switches to video", async () => {
+    distributionUpsert.mockResolvedValue({
+      id: "dist1",
+      remotePostId: "48",
+      remotePostType: "posts",
+      remoteCategoryRestBase: "categories",
+      remoteTagRestBase: "tags",
+    });
+    getPostMock.mockResolvedValue({
+      id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "old",
+      title: "Old", content: "Old", excerpt: "Old", categories: [], tags: [], featuredMedia: 0,
+      meta: { aurum_movie_id: "m1" },
+    });
+    updatePostMock.mockResolvedValue({ id: 48, link: "https://wp.example.com/?p=48" });
+
+    await distributeToSite(fakeMovie() as never, fakeSite({
+      postType: "video", categoryRestBase: "video_category", tagRestBase: "video_tag",
+    }) as never, undefined);
+
+    expect(WordPressClient).toHaveBeenLastCalledWith(expect.objectContaining({
+      postType: "posts", categoryRestBase: "categories", tagRestBase: "tags",
+    }));
+    expect(distributionUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ remotePostType: "posts", remoteCategoryRestBase: "categories", remoteTagRestBase: "tags" }),
+    }));
   });
 
   it("on success, updates the distribution to SUCCESS with the remote post id/url", async () => {

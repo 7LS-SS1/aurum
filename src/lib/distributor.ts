@@ -263,6 +263,17 @@ export async function distributeToSite(
   });
 
   let createdPost: WpPost | undefined;
+  const remoteProfile = distribution.remotePostId && distribution.remotePostType
+    ? {
+        postType: distribution.remotePostType,
+        categoryRestBase: distribution.remoteCategoryRestBase || site.categoryRestBase,
+        tagRestBase: distribution.remoteTagRestBase || site.tagRestBase,
+      }
+    : {
+        postType: site.postType,
+        categoryRestBase: site.categoryRestBase,
+        tagRestBase: site.tagRestBase,
+      };
   try {
     const credential = decrypt({
       ciphertext: site.credentialEnc,
@@ -275,9 +286,7 @@ export async function distributeToSite(
       authType: site.authType,
       username: site.wpUsername,
       credential,
-      postType: site.postType,
-      categoryRestBase: site.categoryRestBase,
-      tagRestBase: site.tagRestBase,
+      ...remoteProfile,
     });
 
     // The dashboard's saved health flag can be months old. Verify the same
@@ -348,6 +357,9 @@ export async function distributeToSite(
         status: "SUCCESS",
         remotePostId: String(post.id),
         remotePostUrl: post.link,
+        remotePostType: remoteProfile.postType,
+        remoteCategoryRestBase: remoteProfile.categoryRestBase,
+        remoteTagRestBase: remoteProfile.tagRestBase,
         errorMessage: null,
         distributedAt: new Date(),
       },
@@ -364,7 +376,13 @@ export async function distributeToSite(
         status: "FAILED",
         errorMessage: message.slice(0, 1000),
         ...(createdPost
-          ? { remotePostId: String(createdPost.id), remotePostUrl: createdPost.link }
+          ? {
+              remotePostId: String(createdPost.id),
+              remotePostUrl: createdPost.link,
+              remotePostType: remoteProfile.postType,
+              remoteCategoryRestBase: remoteProfile.categoryRestBase,
+              remoteTagRestBase: remoteProfile.tagRestBase,
+            }
           : {}),
       },
     });

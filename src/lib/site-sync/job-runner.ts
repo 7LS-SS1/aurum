@@ -231,8 +231,17 @@ export async function runScanAndCompare(job: JobWithSite): Promise<void> {
       skippedMovies += 1;
       await prisma.distribution.upsert({
         where: { movieId_siteId: { movieId: movie.id, siteId: job.siteId } },
-        update: { status: "SUCCESS", remotePostId: String(match.entry.id), remotePostUrl: match.entry.link, errorMessage: null, distributedAt: new Date() },
-        create: { movieId: movie.id, siteId: job.siteId, status: "SUCCESS", remotePostId: String(match.entry.id), remotePostUrl: match.entry.link, distributedAt: new Date(), attempts: 1 },
+        update: {
+          status: "SUCCESS", remotePostId: String(match.entry.id), remotePostUrl: match.entry.link,
+          remotePostType: job.site.postType, remoteCategoryRestBase: job.site.categoryRestBase,
+          remoteTagRestBase: job.site.tagRestBase, errorMessage: null, distributedAt: new Date(),
+        },
+        create: {
+          movieId: movie.id, siteId: job.siteId, status: "SUCCESS",
+          remotePostId: String(match.entry.id), remotePostUrl: match.entry.link,
+          remotePostType: job.site.postType, remoteCategoryRestBase: job.site.categoryRestBase,
+          remoteTagRestBase: job.site.tagRestBase, distributedAt: new Date(), attempts: 1,
+        },
       });
       await writeLog(job.id, "INFO", "reconciled", `พบโพสต์เดิมบนเว็บไซต์ — ข้าม (${match.strategy})`, {
         movieId: movie.id,

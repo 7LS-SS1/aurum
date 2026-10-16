@@ -11,6 +11,8 @@ export default async function SitesPage() {
         name: true,
         baseUrl: true,
         postType: true,
+        categoryRestBase: true,
+        tagRestBase: true,
         mainCategories: true,
         isActive: true,
         healthStatus: true,

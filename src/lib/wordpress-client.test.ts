@@ -53,6 +53,20 @@ describe("WordPressClient construction", () => {
     expect(c.categoryRestBase).toBe("categories");
     expect(c.tagRestBase).toBe("tags");
   });
+
+  it("reads taxonomy ids from the destination profile REST field names", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      id: 9, link: "https://example.com/videos/9", status: "publish", slug: "v9",
+      title: { raw: "Video" }, content: { raw: "" }, excerpt: { raw: "" },
+      video_category: [21, 22], video_tag: [31], featured_media: 0, meta: {},
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const post = await client({ postType: "video", categoryRestBase: "video_category", tagRestBase: "video_tag" }).getPost(9);
+    expect(post.categories).toEqual([21, 22]);
+    expect(post.tags).toEqual([31]);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain(encodeURIComponent("video_category"));
+    expect(fetchMock.mock.calls[0]?.[0]).toContain(encodeURIComponent("video_tag"));
+  });
 });
 
 describe("auth header", () => {

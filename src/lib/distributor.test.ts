@@ -49,7 +49,9 @@ vi.mock("@/lib/wordpress-client", () => ({
     "preview_url",
     "jwplayer_media_id",
   ],
-  WordPressClient: vi.fn().mockImplementation(() => ({
+  WordPressClient: vi.fn().mockImplementation((options: { categoryRestBase?: string; tagRestBase?: string }) => ({
+    categoryRestBase: options.categoryRestBase ?? "categories",
+    tagRestBase: options.tagRestBase ?? "tags",
     createPost: createPostMock,
     ping: pingMock,
     updatePost: updatePostMock,
@@ -291,6 +293,26 @@ describe("distributeToSite", () => {
     expect(payload).not.toHaveProperty("slug");
     expect(payload).not.toHaveProperty("content");
     expect(payload).not.toHaveProperty("excerpt");
+  });
+
+  it("uses custom taxonomy REST field names from the saved remote profile", async () => {
+    distributionUpsert.mockResolvedValue({
+      id: "dist1", remotePostId: "48", remotePostType: "video",
+      remoteCategoryRestBase: "video_category", remoteTagRestBase: "video_tag",
+    });
+    resolveCategoryTreeMock.mockResolvedValue([21]);
+    resolveTermsMock.mockResolvedValue([31]);
+    const remote = { id: 48, link: "https://wp.example.com/videos/48", status: "publish", slug: "v", title: "T", content: "C", excerpt: "E", categories: [], tags: [], featuredMedia: 0, meta: { aurum_movie_id: "m1" } };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue({ ...remote, categories: [21], tags: [31] });
+
+    const result = await distributeToSite(fakeMovie({ mainCategory: "Main", tags: [{ name: "Tag" }] }) as never, fakeSite() as never, "video_only");
+
+    expect(result.status).toBe("success");
+    expect(updatePostMock).toHaveBeenCalledWith(48, expect.objectContaining({ video_category: [21], video_tag: [31] }));
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("categories");
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("tags");
   });
 
   it("fails closed when WordPress drops a requested taxonomy assignment", async () => {

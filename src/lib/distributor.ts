@@ -226,10 +226,10 @@ async function buildTaxonomyPayload(client: WordPressClient, movie: MovieWithTag
   const taxonomy: Record<string, number[]> = {};
   const mainCategory = movie.mainCategory ?? "";
   if (mainCategory || merged.categories.length) {
-    taxonomy.categories = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
+    taxonomy[site.categoryRestBase] = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
   }
   if (merged.tags.length) {
-    taxonomy.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
+    taxonomy[site.tagRestBase] = await client.resolveTerms(site.tagRestBase, merged.tags);
   }
   return taxonomy;
 }
@@ -251,15 +251,19 @@ function protectedSnapshot(post: WpEditablePost): string {
   });
 }
 
-function verifyTaxonomyAssignment(post: WpEditablePost, payload: Record<string, unknown>) {
-  for (const field of ["categories", "tags"] as const) {
-    const expected = payload[field];
+function verifyTaxonomyAssignment(post: WpEditablePost, payload: Record<string, unknown>, client: WordPressClient) {
+  const fields = [
+    { payloadKey: client.categoryRestBase, postKey: "categories" as const },
+    { payloadKey: client.tagRestBase, postKey: "tags" as const },
+  ];
+  for (const { payloadKey, postKey } of fields) {
+    const expected = payload[payloadKey];
     if (!Array.isArray(expected)) continue;
-    const actual = Array.isArray(post[field]) ? post[field] : [];
+    const actual = Array.isArray(post[postKey]) ? post[postKey] : [];
     const expectedIds = [...new Set(expected.map(Number))].sort((a, b) => a - b);
     const actualIds = [...new Set(actual.map(Number))].sort((a, b) => a - b);
     if (expectedIds.length !== actualIds.length || expectedIds.some((id, index) => id !== actualIds[index])) {
-      throw new Error(`wordpress_${field}_verification_failed`);
+      throw new Error(`wordpress_${postKey}_verification_failed`);
     }
   }
 }
@@ -373,7 +377,7 @@ export async function distributeToSite(
       AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
     ) as AurumVideoMeta;
     const verified = await client.verifyVideoMeta(createdPost.id, expectedMeta);
-    verifyTaxonomyAssignment(verified, payload);
+    verifyTaxonomyAssignment(verified, payload, client);
     if (protectedBefore !== null && protectedSnapshot(verified) !== protectedBefore) {
       throw new Error("wordpress_protected_fields_changed");
     }

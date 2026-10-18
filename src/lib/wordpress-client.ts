@@ -82,6 +82,7 @@ export interface WpScannedPost {
 }
 
 interface WpRawPostListItem {
+  [key: string]: unknown;
   id: number;
   link: string;
   slug: string;
@@ -367,7 +368,10 @@ export class WordPressClient {
 
   /** Reads a post back with authenticated edit context, including raw REST meta. */
   async getPost(postId: number): Promise<WpEditablePost> {
-    const fields = encodeURIComponent("id,link,status,slug,title,content,excerpt,categories,tags,featured_media,meta");
+    const fields = encodeURIComponent([
+      "id", "link", "status", "slug", "title", "content", "excerpt",
+      this.categoryRestBase, this.tagRestBase, "featured_media", "meta",
+    ].join(","));
     const raw = await this.json<WpRawPostListItem>(
       `${this.api}/${this.postType}/${postId}?context=edit&_fields=${fields}`,
     );
@@ -379,8 +383,8 @@ export class WordPressClient {
       title: typeof raw.title === "string" ? raw.title : raw.title?.raw ?? raw.title?.rendered ?? "",
       content: typeof raw.content === "string" ? raw.content : raw.content?.raw ?? raw.content?.rendered ?? "",
       excerpt: typeof raw.excerpt === "string" ? raw.excerpt : raw.excerpt?.raw ?? raw.excerpt?.rendered ?? "",
-      categories: raw.categories ?? [],
-      tags: raw.tags ?? [],
+      categories: Array.isArray(raw[this.categoryRestBase]) ? raw[this.categoryRestBase] as number[] : [],
+      tags: Array.isArray(raw[this.tagRestBase]) ? raw[this.tagRestBase] as number[] : [],
       featuredMedia: raw.featured_media ?? 0,
       meta: raw.meta ?? {},
     };

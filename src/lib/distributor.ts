@@ -205,13 +205,7 @@ async function buildPayload(client: WordPressClient, movie: MovieWithTags, site:
   };
   if (merged.slug) payload.slug = merged.slug;
 
-  const mainCategory = movie.mainCategory ?? "";
-  if (mainCategory || merged.categories.length) {
-    payload.categories = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
-  }
-  if (merged.tags.length) {
-    payload.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
-  }
+  Object.assign(payload, await buildTaxonomyPayload(client, movie, site));
   if (movie.actors?.length) {
     const actorTermIds = await syncMovieActors(client, movie.actors, site.id);
     if (actorTermIds.length) payload.aurum_video_actor = actorTermIds;
@@ -227,8 +221,24 @@ async function buildPayload(client: WordPressClient, movie: MovieWithTags, site:
   return { payload, warnings };
 }
 
-function videoOnlyPayload(movie: MovieWithTags, iframeUrl?: string): Record<string, unknown> {
-  return { meta: buildVideoMeta(movie, iframeUrl) };
+async function buildTaxonomyPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite): Promise<Record<string, number[]>> {
+  const merged = mergeContent(movie);
+  const taxonomy: Record<string, number[]> = {};
+  const mainCategory = movie.mainCategory ?? "";
+  if (mainCategory || merged.categories.length) {
+    taxonomy.categories = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
+  }
+  if (merged.tags.length) {
+    taxonomy.tags = await client.resolveTerms(site.tagRestBase, merged.tags);
+  }
+  return taxonomy;
+}
+
+async function videoOnlyPayload(client: WordPressClient, movie: MovieWithTags, site: TargetSite, iframeUrl?: string): Promise<Record<string, unknown>> {
+  return {
+    meta: buildVideoMeta(movie, iframeUrl),
+    ...await buildTaxonomyPayload(client, movie, site),
+  };
 }
 
 function protectedSnapshot(post: WpEditablePost): string {
@@ -237,9 +247,21 @@ function protectedSnapshot(post: WpEditablePost): string {
   );
   return JSON.stringify({
     title: post.title, slug: post.slug, content: post.content, excerpt: post.excerpt,
-    status: post.status, categories: post.categories, tags: post.tags,
-    featuredMedia: post.featuredMedia, meta: protectedMeta,
+    status: post.status, featuredMedia: post.featuredMedia, meta: protectedMeta,
   });
+}
+
+function verifyTaxonomyAssignment(post: WpEditablePost, payload: Record<string, unknown>) {
+  for (const field of ["categories", "tags"] as const) {
+    const expected = payload[field];
+    if (!Array.isArray(expected)) continue;
+    const actual = Array.isArray(post[field]) ? post[field] : [];
+    const expectedIds = [...new Set(expected.map(Number))].sort((a, b) => a - b);
+    const actualIds = [...new Set(actual.map(Number))].sort((a, b) => a - b);
+    if (expectedIds.length !== actualIds.length || expectedIds.some((id, index) => id !== actualIds[index])) {
+      throw new Error(`wordpress_${field}_verification_failed`);
+    }
+  }
 }
 
 /**
@@ -288,6 +310,11 @@ export async function distributeToSite(
       credential,
       ...remoteProfile,
     });
+    const taxonomySite = {
+      ...site,
+      categoryRestBase: remoteProfile.categoryRestBase,
+      tagRestBase: remoteProfile.tagRestBase,
+    };
 
     // The dashboard's saved health flag can be months old. Verify the same
     // credential immediately before distribution so an expired/revoked
@@ -330,13 +357,13 @@ export async function distributeToSite(
           throw new Error("wordpress_seo_retry_requires_editorial_mode");
         }
         protectedBefore = protectedSnapshot(remote);
-        payload = videoOnlyPayload(movie, await resolveIframeUrl(movie));
+        payload = await videoOnlyPayload(client, movie, taxonomySite, await resolveIframeUrl(movie));
       } else {
-        ({ payload, warnings } = await buildPayload(client, movie, site, editorial));
+        ({ payload, warnings } = await buildPayload(client, movie, taxonomySite, editorial));
       }
       createdPost = await client.updatePost(existingPostId, payload);
     } else {
-      const built = await buildPayload(client, movie, site, editorial);
+      const built = await buildPayload(client, movie, taxonomySite, editorial);
       payload = built.payload;
       warnings.push(...built.warnings);
       createdPost = await client.createPost(payload);
@@ -346,6 +373,7 @@ export async function distributeToSite(
       AURUM_VIDEO_META_KEYS.map((key) => [key, String(sentMeta[key] ?? "")]),
     ) as AurumVideoMeta;
     const verified = await client.verifyVideoMeta(createdPost.id, expectedMeta);
+    verifyTaxonomyAssignment(verified, payload);
     if (protectedBefore !== null && protectedSnapshot(verified) !== protectedBefore) {
       throw new Error("wordpress_protected_fields_changed");
     }

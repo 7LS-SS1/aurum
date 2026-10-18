@@ -77,7 +77,7 @@ export function DistributionRepairManager() {
     {error && <p role="alert" className="sync-job-error">{error}</p>}
     <div className="panel">
       <p>เลือกเว็บที่ต้องการซ่อม ระบบตรวจโพสต์เดิมก่อนส่งซ้ำ รายการที่สำเร็จแล้วจะถูกข้าม ร่างและวิดีโอที่ตีกลับจะไม่ถูกเผยแพร่จากหน้านี้</p>
-      <p>เมื่อสร้างโพสต์ใหม่ ระบบใช้ชื่อและเนื้อหาหลักจาก AURUM งานที่ยังผิดพลาดจะเก็บเหตุผลไว้ให้ตรวจต่อ</p>
+      <p>ระบบซิงก์ข้อมูลวิดีโอ หมวดหมู่ และแท็กจาก AURUM ทุกครั้ง โดยรักษาชื่อ เนื้อหา slug รูปปก และ SEO ของโพสต์เดิม เว้นแต่เลือกเขียนทับด้านล่าง</p>
       <label style={{ display: "block", margin: "16px 0" }}><input type="checkbox" checked={overwrite} onChange={event => setOverwrite(event.target.checked)} disabled={busy} /> ส่งชื่อและเนื้อหาจาก AURUM ทับโพสต์เดิมด้วย</label>
       {overwrite && <p className="sync-job-error">ใช้เมื่อข้อมูลเผยแพร่ครั้งก่อนเสียหาย การแก้ชื่อและเนื้อหาบน WordPress จะถูกแทนที่ด้วยข้อมูลของ AURUM</p>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "16px 0" }}>

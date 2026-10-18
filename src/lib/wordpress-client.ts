@@ -445,11 +445,7 @@ export class WordPressClient {
     }
     for (const sub of subCategories) {
       if (!sub) continue;
-      try {
-        ids.push(await this.resolveTerm(restBase, sub, parentId));
-      } catch {
-        // Skip a term that fails to create rather than failing the whole post.
-      }
+      ids.push(await this.resolveTerm(restBase, sub, parentId));
     }
     return [...new Set(ids)];
   }
@@ -458,13 +454,9 @@ export class WordPressClient {
     const ids: number[] = [];
     for (const name of names) {
       if (!name) continue;
-      try {
-        ids.push(await this.resolveTerm(restBase, name));
-      } catch {
-        // Skip — a bad tag shouldn't block the whole post.
-      }
+      ids.push(await this.resolveTerm(restBase, name));
     }
-    return ids;
+    return [...new Set(ids)];
   }
 
   /** Uploads a remote image (e.g. from R2/Bunny) into this site's Media Library. */

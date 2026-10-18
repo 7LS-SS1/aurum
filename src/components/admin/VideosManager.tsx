@@ -241,9 +241,9 @@ export function VideosManager({
     if (!siteIds.length) return notify("ยังไม่มีเว็บปลายทางที่เปิดใช้งาน — เพิ่มเว็บที่หน้า \"เว็บปลายทาง\" ก่อน");
     const warning = mode === "overwrite_editorial"
       ? `เขียนทับ Title, slug, content, excerpt, หมวดหมู่ และแท็กของ "${m.title}" บน WordPress (${siteIds.length} เว็บ) — การแก้ไขของผู้ดูแลปลายทางจะถูกแทนที่ ยืนยัน?`
-      : `อัปเดตเฉพาะข้อมูลวิดีโอของ "${m.title}" (${siteIds.length} เว็บ) โดยรักษาเนื้อหาและ SEO ใน WordPress — ยืนยัน?`;
+      : `อัปเดตข้อมูลวิดีโอ หมวดหมู่ และแท็กของ "${m.title}" (${siteIds.length} เว็บ) โดยรักษาชื่อ เนื้อหา slug รูปปก และ SEO ใน WordPress — ยืนยัน?`;
     if (!window.confirm(warning)) return;
-    const successMessage = mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตข้อมูลวิดีโอแล้ว";
+    const successMessage = mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตวิดีโอ หมวดหมู่ และแท็กแล้ว";
     run(m.id, (message: string) => message, async () => {
       const result = await apiFetch<DistributionOutcomeSummary>(`/api/movies/${m.id}/distribute`, {
         method: "POST",
@@ -309,7 +309,7 @@ export function VideosManager({
         )}
         {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (
           <button disabled={busy} onClick={() => publishNow(m, "video_only")}>
-            อัปเดตเฉพาะวิดีโอ
+            อัปเดตวิดีโอ + หมวดหมู่/แท็ก
           </button>
         )}
         {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (

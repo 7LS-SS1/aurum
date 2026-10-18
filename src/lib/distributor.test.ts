@@ -264,6 +264,48 @@ describe("distributeToSite", () => {
     expect(payload).not.toHaveProperty("excerpt");
   });
 
+  it("refreshes categories and tags in video_only mode without overwriting editorial fields", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
+    resolveCategoryTreeMock.mockResolvedValue([21, 22]);
+    resolveTermsMock.mockResolvedValue([31, 32]);
+    const remote = {
+      id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "editor-slug",
+      title: "Editor title", content: "<p>Editor content</p>", excerpt: "Editor excerpt",
+      categories: [7], tags: [8], featuredMedia: 9, meta: { aurum_movie_id: "m1" },
+    };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue({
+      ...remote, categories: [21, 22], tags: [31, 32],
+      meta: { ...remote.meta, aurum_video_url: "https://cdn.example.com/v.mp4" },
+    });
+
+    const result = await distributeToSite(fakeMovie({
+      mainCategory: "Main", categories: ["Sub"], tags: [{ name: "Tag A" }, { name: "Tag B" }],
+    }) as never, fakeSite() as never, "video_only");
+
+    expect(result.status).toBe("success");
+    expect(updatePostMock).toHaveBeenCalledWith(48, expect.objectContaining({ categories: [21, 22], tags: [31, 32] }));
+    const payload = updatePostMock.mock.calls[0]?.[1];
+    expect(payload).not.toHaveProperty("title");
+    expect(payload).not.toHaveProperty("slug");
+    expect(payload).not.toHaveProperty("content");
+    expect(payload).not.toHaveProperty("excerpt");
+  });
+
+  it("fails closed when WordPress drops a requested taxonomy assignment", async () => {
+    distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
+    resolveTermsMock.mockResolvedValue([31]);
+    const remote = { id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "s", title: "T", content: "C", excerpt: "E", categories: [], tags: [], featuredMedia: 0, meta: { aurum_movie_id: "m1" } };
+    getPostMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
+    verifyVideoMetaMock.mockResolvedValue(remote);
+
+    const result = await distributeToSite(fakeMovie({ tags: [{ name: "Tag A" }] }) as never, fakeSite() as never, "video_only");
+
+    expect(result).toMatchObject({ status: "failed", error: "wordpress_tags_verification_failed" });
+  });
+
   it("fails closed when remotePostId belongs to another AURUM movie", async () => {
     distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
     getPostMock.mockResolvedValue({ id: 48, meta: { aurum_movie_id: "another-movie" } });
@@ -340,6 +382,7 @@ describe("distributeToSite", () => {
   it("keeps video identity authoritative and leaves Yoast private meta to Yoast public hooks", async () => {
     createPostMock.mockResolvedValue({ id: 1, link: "https://x/1" });
     resolveCategoryTreeMock.mockResolvedValue([44, 45]);
+    verifyVideoMetaMock.mockResolvedValue({ title: "SEO Title", categories: [44, 45], tags: [], meta: {} });
 
     await distributeToSite(
       fakeMovie({

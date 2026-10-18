@@ -139,14 +139,20 @@ describe("resolveCategoryTree", () => {
     expect(ids).toEqual([1, 2]);
   });
 
-  it("skips a sub-category that fails to resolve instead of throwing", async () => {
+  it("fails visibly when a selected sub-category cannot be resolved", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse([{ id: 1, name: "Main" }]))
       .mockRejectedValueOnce(new Error("network down"));
     vi.stubGlobal("fetch", fetchMock);
-    const ids = await client().resolveCategoryTree("categories", "Main", ["Broken"]);
-    expect(ids).toEqual([1]);
+    await expect(client().resolveCategoryTree("categories", "Main", ["Broken"])).rejects.toThrow("network down");
+  });
+});
+
+describe("resolveTerms", () => {
+  it("fails visibly instead of silently dropping a selected tag", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("tag endpoint unavailable")));
+    await expect(client().resolveTerms("tags", ["Broken"])).rejects.toThrow("tag endpoint unavailable");
   });
 });
 

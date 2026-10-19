@@ -266,9 +266,9 @@ describe("distributeToSite", () => {
     expect(payload).not.toHaveProperty("excerpt");
   });
 
-  it("refreshes categories and tags in video_only mode without overwriting editorial fields", async () => {
+  it("publishes only the controlled main category and keeps detailed categories out of WordPress", async () => {
     distributionUpsert.mockResolvedValue({ id: "dist1", remotePostId: "48" });
-    resolveCategoryTreeMock.mockResolvedValue([21, 22]);
+    resolveCategoryTreeMock.mockResolvedValue([21]);
     resolveTermsMock.mockResolvedValue([31, 32]);
     const remote = {
       id: 48, link: "https://wp.example.com/?p=48", status: "publish", slug: "editor-slug",
@@ -278,7 +278,7 @@ describe("distributeToSite", () => {
     getPostMock.mockResolvedValue(remote);
     updatePostMock.mockResolvedValue({ id: 48, link: remote.link, status: "publish" });
     verifyVideoMetaMock.mockResolvedValue({
-      ...remote, categories: [21, 22], tags: [31, 32],
+      ...remote, categories: [21], tags: [31, 32],
       meta: { ...remote.meta, aurum_video_url: "https://cdn.example.com/v.mp4" },
     });
 
@@ -287,7 +287,8 @@ describe("distributeToSite", () => {
     }) as never, fakeSite() as never, "video_only");
 
     expect(result.status).toBe("success");
-    expect(updatePostMock).toHaveBeenCalledWith(48, expect.objectContaining({ categories: [21, 22], tags: [31, 32] }));
+    expect(resolveCategoryTreeMock).toHaveBeenCalledWith("categories", "Main");
+    expect(updatePostMock).toHaveBeenCalledWith(48, expect.objectContaining({ categories: [21], tags: [31, 32] }));
     const payload = updatePostMock.mock.calls[0]?.[1];
     expect(payload).not.toHaveProperty("title");
     expect(payload).not.toHaveProperty("slug");

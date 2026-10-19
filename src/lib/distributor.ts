@@ -225,8 +225,12 @@ async function buildTaxonomyPayload(client: WordPressClient, movie: MovieWithTag
   const merged = mergeContent(movie);
   const taxonomy: Record<string, number[]> = {};
   const mainCategory = movie.mainCategory ?? "";
-  if (mainCategory || merged.categories.length) {
-    taxonomy[site.categoryRestBase] = await client.resolveCategoryTree(site.categoryRestBase, mainCategory, merged.categories);
+  // WordPress receives only the controlled main category. The more granular
+  // AURUM category list is editorial metadata, not a remote taxonomy source;
+  // creating those values as child terms caused every publish/sync to grow a
+  // new and frequently duplicated WordPress category tree.
+  if (mainCategory) {
+    taxonomy[site.categoryRestBase] = await client.resolveCategoryTree(site.categoryRestBase, mainCategory);
   }
   if (merged.tags.length) {
     taxonomy[site.tagRestBase] = await client.resolveTerms(site.tagRestBase, merged.tags);

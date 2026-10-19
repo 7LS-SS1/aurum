@@ -22,6 +22,7 @@
     "admin:create": "tsx scripts/create-admin.ts",
     "categories:seed": "tsx scripts/seed-categories.ts",
     "wordpress:repair-video-meta": "tsx scripts/repair-wordpress-video-meta.ts",
+    "wordpress:repair-video-categories": "tsx scripts/repair-wordpress-video-categories.ts",
     "wordpress:build-plugin": "node scripts/build-wordpress-plugin.mjs",
     "wordpress:test-plugin": "php wordpress-plugin/aurum-video-core/tests/smoke.php",
     "admin:check-login": "tsx scripts/check-admin-login.ts",

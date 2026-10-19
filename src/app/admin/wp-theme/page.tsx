@@ -1,30 +1,40 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { WordpressThemesManager } from "@/components/admin/WordpressThemesManager";
+import { WordpressAssetsManager } from "@/components/admin/WordpressAssetsManager";
 import type { Role } from "@/lib/permissions";
 
 export default async function WpThemePage() {
   const session = await auth();
   const role = (session?.user?.role ?? "STAFF") as Role;
 
-  const themes = (
-    await prisma.wordpressTheme.findMany({
+  const [themeRows, pluginRows] = await Promise.all([
+    prisma.wordpressTheme.findMany({
       orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
       include: { createdBy: { select: { id: true, name: true, email: true } } },
-    })
-  ).map((theme) => ({
+    }),
+    prisma.wordpressPlugin.findMany({
+      orderBy: [{ isActive: "desc" }, { updatedAt: "desc" }],
+      include: { createdBy: { select: { id: true, name: true, email: true } } },
+    }),
+  ]);
+  const themes = themeRows.map((theme) => ({
     ...theme,
     createdAt: theme.createdAt.toISOString(),
     updatedAt: theme.updatedAt.toISOString(),
+  }));
+  const plugins = pluginRows.map((plugin) => ({
+    ...plugin,
+    createdAt: plugin.createdAt.toISOString(),
+    updatedAt: plugin.updatedAt.toISOString(),
   }));
 
   return (
     <section>
       <div className="page-head">
         <h1>
-          <span className="g">WordPress Themes</span>
+          <span className="g">WordPress Assets</span>
         </h1>
-        <p>จัดการแพ็กเกจธีม WordPress, รูปตัวอย่าง, เวอร์ชัน และ update manifest สำหรับเว็บปลายทาง</p>
+        <p>ดาวน์โหลดและจัดการ Plugin กับ Theme ที่ผ่านการตรวจสอบสำหรับเว็บไซต์ปลายทาง</p>
       </div>
 
       {/* <div className="panel">
@@ -70,7 +80,7 @@ export default async function WpThemePage() {
         </div>
       </div> */}
 
-      <WordpressThemesManager initialThemes={themes} role={role} />
+      <WordpressAssetsManager initialThemes={themes} initialPlugins={plugins} role={role} />
     </section>
   );
 }

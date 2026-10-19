@@ -140,6 +140,7 @@ model User {
   reviewedMovies                  Movie[]                 @relation("MovieReviewer")
   auditLogs                       AuditLog[]
   wordpressThemes                 WordpressTheme[]        @relation("WordpressThemeCreatedBy")
+  wordpressPlugins                WordpressPlugin[]       @relation("WordpressPluginCreatedBy")
   siteSyncJobs                    SiteSyncJob[]           @relation("SiteSyncJobRequestedBy")
   createdComics                   Comic[]                 @relation("ComicCreatedBy")
   contentGenerationJobs           ContentGenerationJob[]  @relation("ContentGenerationJobRequestedBy")
@@ -601,6 +602,32 @@ model WordpressTheme {
   @@index([slug, isActive])
   @@index([createdAt])
   @@map("wordpress_themes")
+}
+
+model WordpressPlugin {
+  id                 String   @id @default(cuid())
+  name               String
+  slug               String
+  version            String
+  description        String?
+  packageUrl         String   @map("package_url")
+  packageSize        Int?     @map("package_size")
+  checksumSha256     String   @map("checksum_sha256")
+  requiresWordpress  String?  @map("requires_wordpress")
+  testedWordpress    String?  @map("tested_wordpress")
+  requiresPhp        String?  @map("requires_php")
+  changelog          String?
+  isActive           Boolean  @default(true) @map("is_active")
+  createdById        String?  @map("created_by_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  createdBy User? @relation("WordpressPluginCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([slug, version])
+  @@index([slug, isActive])
+  @@index([createdAt])
+  @@map("wordpress_plugins")
 }
 
 /// Public viewer account — a separate identity system from staff `User`.

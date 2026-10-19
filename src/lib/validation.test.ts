@@ -5,6 +5,7 @@ import {
   viewerRegisterSchema,
   assertUploadAllowed,
   assertThemeUploadAllowed,
+  assertPluginUploadAllowed,
   assertUploadAllowedAuto,
   ValidationError,
   syncJobsBatchSchema,
@@ -138,6 +139,13 @@ describe("assertThemeUploadAllowed", () => {
   it("delegates to the image checks for a screenshot", () => {
     expect(() => assertThemeUploadAllowed("screenshot", "shot.png", "image/png")).not.toThrow();
     expect(() => assertThemeUploadAllowed("screenshot", "shot.gif", "image/gif")).toThrow(ValidationError);
+  });
+});
+
+describe("assertPluginUploadAllowed", () => {
+  it("accepts ZIP packages and rejects non-ZIP uploads", () => {
+    expect(() => assertPluginUploadAllowed("aurum-video-core.zip", "application/zip", 1024)).not.toThrow();
+    expect(() => assertPluginUploadAllowed("aurum-video-core.php", "application/zip", 1024)).toThrow(ValidationError);
   });
 });
 

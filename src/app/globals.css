@@ -3625,6 +3625,111 @@ body.mside-open .scrim {
   gap: 18px;
 }
 
+.wp-assets-manager {
+  display: grid;
+  gap: 18px;
+}
+
+.wp-assets-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wp-assets-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted-2);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wp-assets-tabs button.active {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
+
+.wp-assets-tabs b {
+  min-width: 24px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 11px;
+}
+
+.plugin-shot {
+  position: relative;
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 35% 25%, rgba(212, 175, 55, 0.22), transparent 45%), linear-gradient(135deg, #171717, #24201a);
+  color: var(--gold-bright);
+}
+
+.plugin-shot > span {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.24);
+  font-family: var(--font-playfair), serif;
+  font-size: 27px;
+  font-weight: 900;
+}
+
+.plugin-shot b {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #161100;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.plugin-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.plugin-facts span {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted-2);
+  font-size: 11px;
+}
+
+.plugin-facts b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.plugin-upload-box {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.plugin-requirements {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
 .theme-toolbar {
   display: flex;
   align-items: center;

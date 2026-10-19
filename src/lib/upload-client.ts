@@ -104,3 +104,20 @@ export async function presignAndUploadWordpressThemeAsset(
 
   return presign.publicUrl as string;
 }
+
+export async function presignAndUploadWordpressPlugin(file: File, onProgress: (pct: number) => void): Promise<string> {
+  const presign = await apiFetch<Record<string, unknown>>("/api/wp-plugins/presign", {
+    method: "POST",
+    body: JSON.stringify({ filename: file.name, contentType: file.type || "application/zip", size: file.size }),
+  });
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(presign.method as string, presign.uploadUrl as string);
+    Object.entries((presign.headers as Record<string, string>) ?? {}).forEach(([key, value]) => xhr.setRequestHeader(key, value));
+    xhr.upload.onprogress = (event) => event.lengthComputable && onProgress((event.loaded / event.total) * 100);
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`HTTP ${xhr.status}`)));
+    xhr.onerror = () => reject(new Error("network error"));
+    xhr.send(file);
+  });
+  return presign.publicUrl as string;
+}

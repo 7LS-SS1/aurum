@@ -203,6 +203,24 @@ export type CreateWordpressThemeInput = z.infer<typeof createWordpressThemeSchem
 export const updateWordpressThemeSchema = createWordpressThemeSchema.partial();
 export type UpdateWordpressThemeInput = z.infer<typeof updateWordpressThemeSchema>;
 
+const wordpressVersion = z.string().trim().min(1).max(30).regex(/^[0-9A-Za-z.+_-]+$/);
+export const createWordpressPluginSchema = z.object({
+  name: shortText,
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric with hyphens"),
+  version: wordpressVersion,
+  description: longText,
+  packageUrl: urlField,
+  packageSize: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
+  checksumSha256: z.string().trim().toLowerCase().regex(/^[a-f0-9]{64}$/, "invalid SHA-256 checksum"),
+  requiresWordpress: wordpressVersion.optional(),
+  testedWordpress: wordpressVersion.optional(),
+  requiresPhp: wordpressVersion.optional(),
+  changelog: longText,
+  isActive: z.boolean().default(true),
+});
+export type CreateWordpressPluginInput = z.infer<typeof createWordpressPluginSchema>;
+export const updateWordpressPluginSchema = createWordpressPluginSchema.partial();
+
 const manageableRoleSchema = z.enum(["STAFF", "SENIOR", "MANAGER"]);
 
 export const createCategorySchema = z.object({
@@ -249,6 +267,8 @@ export const wordpressThemePresignSchema = z.object({
   size: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
 });
 export type WordpressThemePresignInput = z.infer<typeof wordpressThemePresignSchema>;
+
+export const wordpressPluginPresignSchema = wordpressThemePresignSchema.pick({ filename: true, contentType: true, size: true });
 
 export const jwPlayerIngestSchema = z.object({
   sourceUrl: urlField,
@@ -421,6 +441,15 @@ export function assertThemeUploadAllowed(kind: "package" | "screenshot", filenam
   }
   if (size !== undefined && size > MAX_THEME_PACKAGE_BYTES) {
     throw new ValidationError(`theme package exceeds maximum allowed size of ${MAX_THEME_PACKAGE_BYTES} bytes`);
+  }
+}
+
+export function assertPluginUploadAllowed(filename: string, contentType: string, size?: number) {
+  if (!filename.toLowerCase().endsWith(".zip") || !THEME_PACKAGE_TYPES.has(contentType)) {
+    throw new ValidationError(`Unsupported plugin package: ${contentType}`);
+  }
+  if (size !== undefined && size > MAX_THEME_PACKAGE_BYTES) {
+    throw new ValidationError(`plugin package exceeds maximum allowed size of ${MAX_THEME_PACKAGE_BYTES} bytes`);
   }
 }
 

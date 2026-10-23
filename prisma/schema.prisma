@@ -613,6 +613,8 @@ model WordpressPlugin {
   packageUrl         String   @map("package_url")
   packageSize        Int?     @map("package_size")
   checksumSha256     String   @map("checksum_sha256")
+  screenshotUrl      String?  @map("screenshot_url")
+  iconUrl            String?  @map("icon_url")
   requiresWordpress  String?  @map("requires_wordpress")
   testedWordpress    String?  @map("tested_wordpress")
   requiresPhp        String?  @map("requires_php")

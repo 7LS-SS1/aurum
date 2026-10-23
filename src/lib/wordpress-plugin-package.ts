@@ -9,7 +9,7 @@ export async function verifyWordpressPluginPackage(input: {
   packageUrl: string;
   slug: string;
   version: string;
-  checksumSha256: string;
+  checksumSha256?: string;
 }): Promise<{ size: number; checksumSha256: string }> {
   if (!getR2ObjectKeyFromPublicUrl(input.packageUrl)) throw new ApiError("plugin_package_must_use_configured_storage", 422);
 
@@ -21,7 +21,7 @@ export async function verifyWordpressPluginPackage(input: {
   if (bytes.length === 0 || bytes.length > MAX_PLUGIN_BYTES) throw new ApiError("plugin_package_invalid_size", 422);
 
   const checksumSha256 = createHash("sha256").update(bytes).digest("hex");
-  if (checksumSha256 !== input.checksumSha256.toLowerCase()) throw new ApiError("plugin_checksum_mismatch", 422);
+  if (input.checksumSha256 && checksumSha256 !== input.checksumSha256.toLowerCase()) throw new ApiError("plugin_checksum_mismatch", 422);
 
   let zip: JSZip;
   try {

@@ -144,8 +144,9 @@ describe("assertThemeUploadAllowed", () => {
 
 describe("assertPluginUploadAllowed", () => {
   it("accepts ZIP packages and rejects non-ZIP uploads", () => {
-    expect(() => assertPluginUploadAllowed("aurum-video-core.zip", "application/zip", 1024)).not.toThrow();
-    expect(() => assertPluginUploadAllowed("aurum-video-core.php", "application/zip", 1024)).toThrow(ValidationError);
+    expect(() => assertPluginUploadAllowed("package", "aurum-video-core.zip", "application/zip", 1024)).not.toThrow();
+    expect(() => assertPluginUploadAllowed("package", "aurum-video-core.php", "application/zip", 1024)).toThrow(ValidationError);
+    expect(() => assertPluginUploadAllowed("screenshot", "plugin.webp", "image/webp", 1024)).not.toThrow();
   });
 });
 

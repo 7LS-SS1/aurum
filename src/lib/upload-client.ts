@@ -105,10 +105,10 @@ export async function presignAndUploadWordpressThemeAsset(
   return presign.publicUrl as string;
 }
 
-export async function presignAndUploadWordpressPlugin(file: File, onProgress: (pct: number) => void): Promise<string> {
+export async function presignAndUploadWordpressPluginAsset(file: File, kind: "package" | "screenshot", onProgress: (pct: number) => void): Promise<string> {
   const presign = await apiFetch<Record<string, unknown>>("/api/wp-plugins/presign", {
     method: "POST",
-    body: JSON.stringify({ filename: file.name, contentType: file.type || "application/zip", size: file.size }),
+    body: JSON.stringify({ kind, filename: file.name, contentType: file.type || (kind === "package" ? "application/zip" : "application/octet-stream"), size: file.size }),
   });
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();

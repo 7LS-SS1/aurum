@@ -195,6 +195,7 @@ export const createWordpressThemeSchema = z.object({
   packageUrl: urlField,
   packageSize: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
   screenshotUrl: urlField.optional(),
+  iconUrl: urlField.optional(),
   changelog: longText,
   isActive: z.boolean().default(true),
 });
@@ -211,7 +212,8 @@ export const createWordpressPluginSchema = z.object({
   description: longText,
   packageUrl: urlField,
   packageSize: z.number().int().positive().max(MAX_THEME_PACKAGE_BYTES).optional(),
-  checksumSha256: z.string().trim().toLowerCase().regex(/^[a-f0-9]{64}$/, "invalid SHA-256 checksum"),
+  checksumSha256: z.string().trim().toLowerCase().regex(/^[a-f0-9]{64}$/, "invalid SHA-256 checksum").optional(),
+  screenshotUrl: urlField.optional(),
   requiresWordpress: wordpressVersion.optional(),
   testedWordpress: wordpressVersion.optional(),
   requiresPhp: wordpressVersion.optional(),
@@ -268,7 +270,7 @@ export const wordpressThemePresignSchema = z.object({
 });
 export type WordpressThemePresignInput = z.infer<typeof wordpressThemePresignSchema>;
 
-export const wordpressPluginPresignSchema = wordpressThemePresignSchema.pick({ filename: true, contentType: true, size: true });
+export const wordpressPluginPresignSchema = wordpressThemePresignSchema;
 
 export const jwPlayerIngestSchema = z.object({
   sourceUrl: urlField,
@@ -444,7 +446,11 @@ export function assertThemeUploadAllowed(kind: "package" | "screenshot", filenam
   }
 }
 
-export function assertPluginUploadAllowed(filename: string, contentType: string, size?: number) {
+export function assertPluginUploadAllowed(kind: "package" | "screenshot", filename: string, contentType: string, size?: number) {
+  if (kind === "screenshot") {
+    assertUploadAllowed("image", contentType, size);
+    return;
+  }
   if (!filename.toLowerCase().endsWith(".zip") || !THEME_PACKAGE_TYPES.has(contentType)) {
     throw new ValidationError(`Unsupported plugin package: ${contentType}`);
   }

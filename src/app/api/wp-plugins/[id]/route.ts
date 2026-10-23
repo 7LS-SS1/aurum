@@ -22,13 +22,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (duplicate && duplicate.id !== id) throw new ApiError("plugin_version_already_exists", 409);
     }
     let packageSize = next.packageSize;
+    let checksumSha256 = next.checksumSha256;
     if (input.packageUrl || input.checksumSha256 || input.slug || input.version) {
-      const verified = await verifyWordpressPluginPackage(next);
+      const verified = await verifyWordpressPluginPackage({
+        ...next,
+        checksumSha256: input.checksumSha256 ?? (input.packageUrl ? undefined : existing.checksumSha256),
+      });
       packageSize = verified.size;
+      checksumSha256 = verified.checksumSha256;
     }
     const plugin = await prisma.$transaction(async (tx) => {
       if (input.isActive === true) await tx.wordpressPlugin.updateMany({ where: { slug: next.slug, isActive: true, id: { not: id } }, data: { isActive: false } });
-      return tx.wordpressPlugin.update({ where: { id }, data: { ...input, packageSize }, include: includeCreator });
+      return tx.wordpressPlugin.update({ where: { id }, data: { ...input, packageSize, checksumSha256 }, include: includeCreator });
     });
     await logAudit({ actor, action: "update_wordpress_plugin", resourceType: "wordpress_plugin", resourceId: id, metadata: { slug: plugin.slug, version: plugin.version, isActive: plugin.isActive } });
     return jsonOk(plugin);
@@ -43,10 +48,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params;
     const existing = await prisma.wordpressPlugin.findUnique({ where: { id } });
     if (!existing) throw new ApiError("plugin_not_found", 404);
-    const key = getR2ObjectKeyFromPublicUrl(existing.packageUrl);
-    if (key) await deleteR2Object(key);
+    const keys = [existing.packageUrl, existing.screenshotUrl, existing.iconUrl]
+      .map((url) => (url ? getR2ObjectKeyFromPublicUrl(url) : null))
+      .filter((key): key is string => Boolean(key));
+    await Promise.all(keys.map(deleteR2Object));
     await prisma.wordpressPlugin.delete({ where: { id } });
-    await logAudit({ actor, action: "delete_wordpress_plugin", resourceType: "wordpress_plugin", resourceId: id, metadata: { slug: existing.slug, version: existing.version, deletedKey: key } });
+    await logAudit({ actor, action: "delete_wordpress_plugin", resourceType: "wordpress_plugin", resourceId: id, metadata: { slug: existing.slug, version: existing.version, deletedKeys: keys } });
     return jsonOk({ deleted: true, id });
   } catch (err) {
     return apiError(err);

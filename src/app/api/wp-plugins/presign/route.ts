@@ -8,8 +8,8 @@ export async function POST(req: NextRequest) {
   try {
     await requireMinRole("HEAD");
     const input = wordpressPluginPresignSchema.parse(await req.json());
-    assertPluginUploadAllowed(input.filename, input.contentType, input.size);
-    return jsonOk(await presignR2Upload({ filename: input.filename, contentType: input.contentType, folder: "plugins" }));
+    assertPluginUploadAllowed(input.kind, input.filename, input.contentType, input.size);
+    return jsonOk(await presignR2Upload({ filename: input.filename, contentType: input.contentType, folder: input.kind === "package" ? "plugins" : "images" }));
   } catch (err) {
     return apiError(err);
   }

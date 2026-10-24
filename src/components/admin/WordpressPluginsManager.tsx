@@ -81,9 +81,12 @@ export function WordpressPluginsManager({ initialPlugins, role }: { initialPlugi
     try {
       setProgress(1);
       const packageUrl = await presignAndUploadWordpressPluginAsset(file, "package", setProgress);
-      const match = file.name.match(/^(.*?)-([0-9][0-9A-Za-z.+_-]*)\.zip$/i);
-      setDraft((current) => ({ ...current, packageUrl, packageSize: file.size, checksumSha256: "", ...(match ? { slug: slugify(match[1]!), version: match[2]! } : {}) }));
-      notify("อัปโหลด ZIP แล้ว ระบบจะตรวจและคำนวณ SHA-256 ตอนบันทึก");
+      const metadata = await apiFetch<{ name: string; slug: string; version: string; checksumSha256: string; size: number; requiresWordpress?: string; requiresPhp?: string }>("/api/wp-plugins/inspect", {
+        method: "POST",
+        body: JSON.stringify({ packageUrl }),
+      });
+      setDraft((current) => ({ ...current, packageUrl, packageSize: metadata.size, checksumSha256: metadata.checksumSha256, name: metadata.name, slug: metadata.slug, version: metadata.version, requiresWordpress: metadata.requiresWordpress ?? current.requiresWordpress, requiresPhp: metadata.requiresPhp ?? current.requiresPhp }));
+      notify("อ่านข้อมูล Plugin จาก ZIP แล้ว");
     } catch (error) {
       notify(error instanceof Error ? error.message : "อัปโหลดปลั๊กอินไม่สำเร็จ");
     } finally {

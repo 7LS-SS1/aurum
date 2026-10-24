@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/storage/r2", () => ({ getR2ObjectKeyFromPublicUrl: vi.fn(() => "plugins/plugin.zip") }));
-import { verifyWordpressPluginPackage } from "@/lib/wordpress-plugin-package";
+import { inspectWordpressPluginPackage, verifyWordpressPluginPackage } from "@/lib/wordpress-plugin-package";
 
 async function packageBytes(root = "aurum-video-core", version = "1.3.7") {
   const zip = new JSZip();
@@ -15,6 +15,15 @@ async function packageBytes(root = "aurum-video-core", version = "1.3.7") {
 beforeEach(() => vi.restoreAllMocks());
 
 describe("verifyWordpressPluginPackage", () => {
+  it("inspects the canonical slug, name, and version from the ZIP instead of its filename", async () => {
+    const bytes = await packageBytes("retrotube-banner-add-on", "2.2.4");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(bytes, { status: 200 })));
+    await expect(inspectWordpressPluginPackage("https://cdn.example.com/plugins/ads-banner-add-on-2.2.4.zip")).resolves.toMatchObject({
+      slug: "retrotube-banner-add-on",
+      name: "AURUM Video Core",
+      version: "2.2.4",
+    });
+  });
   it("accepts a safe single-root plugin whose header and checksum match", async () => {
     const bytes = await packageBytes();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(bytes, { status: 200, headers: { "content-length": String(bytes.length) } })));

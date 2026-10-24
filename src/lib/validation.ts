@@ -271,6 +271,7 @@ export const wordpressThemePresignSchema = z.object({
 export type WordpressThemePresignInput = z.infer<typeof wordpressThemePresignSchema>;
 
 export const wordpressPluginPresignSchema = wordpressThemePresignSchema;
+export const wordpressPluginInspectSchema = z.object({ packageUrl: urlField });
 
 export const jwPlayerIngestSchema = z.object({
   sourceUrl: urlField,

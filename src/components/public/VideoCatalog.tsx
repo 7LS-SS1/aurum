@@ -71,11 +71,11 @@ export function VideoCatalog({
           </div>
         )}
         <div className="side-sec">
-          <Link className="side-link premium-link" href="/">
+          <Link className="side-link premium-link" href="/services">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2l2.4 7.4H22l-6 4.4 2.3 7.2L12 16.6 5.7 21l2.3-7.2-6-4.4h7.6z" />
             </svg>
-            AURUM Premium
+            การเข้าถึงบริการ
           </Link>
         </div>
       </aside>

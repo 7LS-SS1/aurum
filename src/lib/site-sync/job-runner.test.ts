@@ -27,10 +27,10 @@ vi.mock("@/lib/crypto", () => ({ decrypt: decryptMock }));
 
 class FakeWordPressScanError extends Error {}
 vi.mock("@/lib/wordpress-client", () => ({
-  WordPressClient: vi.fn().mockImplementation(() => ({
+  WordPressClient: vi.fn().mockImplementation(function () { return {
     listAllPosts: listAllPostsMock,
     updatePostMeta: updatePostMetaMock,
-  })),
+  }; }),
   WordPressScanError: FakeWordPressScanError,
 }));
 

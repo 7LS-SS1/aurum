@@ -4,7 +4,7 @@
   "private": true,
   "description": "AURUM — multi-site content distribution platform (Next.js / Prisma / NeonDB / Cloudflare R2)",
   "engines": {
-    "node": ">=20.9"
+    "node": ">=20.19"
   },
   "scripts": {
     "dev": "next dev --turbopack",
@@ -40,14 +40,14 @@
     "bittorrent-tracker": "^11.2.3",
     "hls.js": "^1.5.17",
     "jszip": "^3.10.2",
-    "next": "^15.1.0",
-    "next-auth": "5.0.0-beta.31",
+    "next": "^15.5.29",
+    "next-auth": "^5.0.0-beta.32",
     "p2p-media-loader-hlsjs": "^3.0.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "redis": "^6.2.0",
     "tus-js-client": "^4.3.1",
-    "zod": "^3.24.1"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
     "@upstash/ratelimit": "^2.0.5",
@@ -62,10 +62,20 @@
     "@types/react-dom": "^19.0.2",
     "cross-env": "^10.1.0",
     "eslint": "^9.16.0",
-    "eslint-config-next": "^15.1.0",
+    "eslint-config-next": "^15.5.29",
     "prisma": "^6.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "sharp": "^0.35.5",
+    "deepmerge-ts": "^8.0.0",
+    "postcss": "^8.5.23",
+    "nanoid@^3.0.0": "^3.3.18",
+    "source-map-js": "^1.2.2",
+    "brace-expansion@^1.0.0": "^1.1.21",
+    "brace-expansion@>=4": "^5.0.12",
+    "minimatch@>=9": "^11.0.4"
   }
 }

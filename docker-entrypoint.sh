@@ -1,9 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "Running prisma generate..."
-node_modules/.bin/prisma generate
-echo "Running prisma migrate deploy..."
-node_modules/.bin/prisma migrate deploy
+# Prisma Client is generated at build time. Schema changes run as an explicit
+# release job after backup/restore verification, not on web or worker restarts.
+if [ "${1:-}" = "migrate" ]; then
+  exec node node_modules/prisma/build/index.js migrate deploy
+fi
 
 exec "$@"

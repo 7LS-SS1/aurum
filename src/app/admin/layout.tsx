@@ -48,6 +48,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
         <AdminVideoMenu canCreate={Boolean(role && can(role, "movie:create"))} />
         <AdminComicMenu />
+        {role && can(role, "service:manage") && (
+          <div className="side-sec"><div className="side-cat">เว็บไซต์</div><Link className="side-link" href="/admin/services">จัดการหน้าบริการ</Link></div>
+        )}
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>
           <Link className="side-link" href="/admin/sites">

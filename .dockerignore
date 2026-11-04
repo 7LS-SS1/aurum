@@ -11,3 +11,10 @@ legacy
 .vscode
 .claude
 prisma/dev.db
+backups
+dist
+Claude outputs
+.next-*
+_repro*
+_shot*
+*.tsbuildinfo

@@ -49,7 +49,7 @@ vi.mock("@/lib/wordpress-client", () => ({
     "preview_url",
     "jwplayer_media_id",
   ],
-  WordPressClient: vi.fn().mockImplementation((options: { categoryRestBase?: string; tagRestBase?: string }) => ({
+  WordPressClient: vi.fn().mockImplementation(function (options: { categoryRestBase?: string; tagRestBase?: string }) { return {
     categoryRestBase: options.categoryRestBase ?? "categories",
     tagRestBase: options.tagRestBase ?? "tags",
     createPost: createPostMock,
@@ -62,7 +62,7 @@ vi.mock("@/lib/wordpress-client", () => ({
     resolveTerms: resolveTermsMock,
     uploadMediaFromUrl: uploadMediaFromUrlMock,
     syncActor: syncActorMock,
-  })),
+  }; }),
 }));
 
 const { WordPressClient } = await import("./wordpress-client");

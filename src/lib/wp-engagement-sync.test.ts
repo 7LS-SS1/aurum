@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/crypto", () => ({ decrypt: decryptMock }));
 
 vi.mock("@/lib/wordpress-client", () => ({
-  WordPressClient: vi.fn().mockImplementation(() => ({ getAurumEngagement: getAurumEngagementMock })),
+  WordPressClient: vi.fn().mockImplementation(function () { return { getAurumEngagement: getAurumEngagementMock }; }),
 }));
 
 const { WordPressClient } = await import("@/lib/wordpress-client");

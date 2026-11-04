@@ -133,9 +133,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"       #
 
 ## Deploying to Coolify (or any Docker host)
 
-The repo ships a multi-stage `Dockerfile` (Next.js `output: "standalone"` + the Prisma CLI needed to
-run migrations on boot) and a `docker-entrypoint.sh` that runs `prisma migrate deploy` before starting
-the server — so schema changes ship automatically on every deploy, no manual migration step needed.
+The repo ships a multi-stage `Dockerfile` (Next.js `output: "standalone"` plus Prisma CLI).
+The default `web` target runs the website; `p2p-tracker` must be selected explicitly.
+Web startup is read-only with respect to schema. After reviewing pending migrations and
+verifying backup/restore, run a one-off release job with the **new image**, the deployment
+environment and command `migrate` (equivalent to `docker run --rm --env-file <protected-env-file>
+<new-image> migrate`). Start the new web containers only after that job succeeds.
+Never use `prisma migrate dev` or `db push` against production. See
+`docs/SERVICE-PAGE-ADMIN.md` for service-page rollout and rollback gates.
 
 1. In Coolify, create a new **Dockerfile**-based application pointing at this repo.
 2. Set the port to `3000` and point the healthcheck at `GET /api/health` (already implemented,

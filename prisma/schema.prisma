@@ -2,6 +2,16 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Public service-page copy and pricing, independent of subscription entitlements.
+model ServicePageConfig {
+  id        String   @id @default("default")
+  config    Json
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt
+
+  @@map("service_page_config")
+}
+
 /// Active AI provider configuration. The API key is encrypted using the existing envelope.
 model ContentAiConfig {
   id        String   @id @default("default")

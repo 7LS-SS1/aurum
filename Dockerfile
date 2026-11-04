@@ -3,7 +3,7 @@
 # Multi-stage build for Coolify (or any Docker-based host). Produces a lean
 # runtime image using Next.js's "standalone" output (next.config.ts sets
 # output: "standalone") plus just enough of the Prisma CLI to run
-# `prisma migrate deploy` on container boot — the standalone trace alone only
+# `prisma migrate deploy` as an explicit release job — the standalone trace alone only
 # bundles what `node server.js` itself imports, not arbitrary npm scripts.
 #
 # Debian-slim (not alpine) — Prisma's query engine binaries need glibc/OpenSSL
@@ -29,7 +29,7 @@ COPY . .
 # schema file, it never needs a live database connection.
 ENV NODE_ENV=production
 RUN npx prisma generate
-RUN npm run build
+RUN npm test && node scripts/test-release-dependencies.mjs && npm run build
 
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -52,8 +52,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # present on disk at runtime.
 COPY --from=builder /app/wordpress-theme ./wordpress-theme
 
-# Prisma CLI + schema/migrations for `prisma migrate deploy` on boot
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Prisma CLI + schema/migrations for the explicit `migrate` release command
+RUN mkdir -p node_modules/.bin && ln -sf ../prisma/build/index.js node_modules/.bin/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
@@ -79,3 +79,7 @@ COPY scripts/p2p-tracker.mjs ./scripts/p2p-tracker.mjs
 USER tracker
 EXPOSE 8000
 CMD ["node", "scripts/p2p-tracker.mjs"]
+
+# Default Docker/Coolify builds must start the website, not the tracker.
+# The tracker remains available explicitly through --target p2p-tracker.
+FROM runner AS web

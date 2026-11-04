@@ -24,3 +24,4 @@ await mkdir(path.join(standalone, ".next"), { recursive: true });
 await cp(staticDir, path.join(standalone, ".next", "static"), { recursive: true, force: true });
 
 console.log("Prepared Next.js standalone runtime assets.");
+await import("./prepare-prisma-runtime.mjs");

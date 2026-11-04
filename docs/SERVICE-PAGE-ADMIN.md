@@ -60,7 +60,9 @@ the editor must not be used to imply retroactive changes to existing contracts.
 
 - Next.js 15.5.29, Auth.js beta.32, Zod 4.6.7 and Vitest 4.1.12; patched image,
   PostCSS, source-map, Nanoid, brace-expansion and Prisma configuration dependencies.
-  Compatible minimatch 11 override covers archive generation. Node minimum 20.19.
+  Compatible minimatch 11 override covers archive generation. Release containers use
+  Node 24 LTS; package engines require Node 24. Node 20 is EOL per
+  https://nodejs.org/en/about/previous-releases.
 - Full workspace suite: 376 tests / 41 files passed; TypeScript passed. Vitest
   constructor mocks and JSX transform were adapted without changing assertions.
 - Dependency runtime smoke passed: PNG input resized to JPEG/WebP/AVIF; archive
@@ -93,3 +95,37 @@ the editor must not be used to imply retroactive changes to existing contracts.
 - Do not distribute Windows .next/standalone: it can contain local .env files.
   Use the Docker image from a clean release commit; secrets are injected at runtime.
   Docker now runs unit and dependency smoke tests before building the app.
+
+## Operator handoff
+
+The application is not deployed by this task. Deploy the pushed main revision with
+the Docker web target and the existing runtime secrets. The configured workspace
+database already has the service migration; another database target still needs
+its own verified backup and explicit migration. Keep AUTH_URL equal to the public
+HTTPS origin. Preserve active jobs through the bounded drain described above.
+
+After deployment, run `node scripts/check-service-release.mjs https://YOUR-HOST`
+for public rendering and unauthenticated access checks. Then use a MANAGER/HEAD
+session to open `/admin/services`, save unchanged values and reload. Observe errors
+for 10 minutes and verify existing playback and WordPress integration. Do not
+restore the old database merely to roll back app code; retain the new table/data.
+
+## Final immutable container verification
+
+- Source commit: fca5fc5891f78e9786d726f141f1907ace7114f3, exported from Git
+  without unrelated uncommitted WordPress work. Subsequent documentation-only
+  handoff commits do not alter this tested application source.
+- Image aurum-services-release:verified: sha256:db5bc8ee953a9c75ee54b3484afe6a9148a7ae6d14ea9f63afec357c82db7123.
+- Actual Linux runtime Node 24.22.2; all 385 tests in 41 files passed, followed by
+  image/ZIP/tracker smoke, production compilation, lint and TypeScript checks.
+- The exact image applied all migrations to a fresh isolated PostgreSQL 17 database
+  using its normal migrate command. Production HTTP checks passed credentials login,
+  role/origin rejection, validation, revision conflicts, persisted settings, public
+  and admin rendering, audit creation, and restoration of fixture defaults.
+- The read-only post-deploy check also passed against this container.
+- Image inspection: no /app/.env* files; ip, bittorrent-tracker and Vitest absent;
+  sharp 0.35.5, Prisma 6.19.3 and a working relative Prisma executable symlink.
+- Build retains a jose Edge compression warning; actual credentials/JWT paths passed.
+  Optional compression paths were not exercised. Missing DATABASE_URL diagnostics
+  during dynamic-page build probes are expected because build receives no secrets;
+  runtime database access was verified separately above.

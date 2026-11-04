@@ -29,7 +29,7 @@ COPY . .
 # schema file, it never needs a live database connection.
 ENV NODE_ENV=production
 RUN npx prisma generate
-RUN npm test && node scripts/test-release-dependencies.mjs && npm run build
+RUN NODE_ENV=test npm test && node scripts/test-release-dependencies.mjs && npm run build
 
 FROM node:20-slim AS runner
 WORKDIR /app

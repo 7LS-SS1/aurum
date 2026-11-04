@@ -9,14 +9,14 @@
 # Debian-slim (not alpine) — Prisma's query engine binaries need glibc/OpenSSL
 # and are notoriously flaky on musl/alpine without extra binaryTargets config.
 
-FROM node:20-slim AS deps
+FROM node:24-slim AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
-FROM node:20-slim AS builder
+FROM node:24-slim AS builder
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
@@ -31,7 +31,7 @@ ENV NODE_ENV=production
 RUN npx prisma generate
 RUN NODE_ENV=test npm test && node scripts/test-release-dependencies.mjs && npm run build
 
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 ARG GIT_COMMIT_SHA=unknown
@@ -69,7 +69,7 @@ EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
 
-FROM node:20-slim AS p2p-tracker
+FROM node:24-slim AS p2p-tracker
 WORKDIR /app
 ENV NODE_ENV=production
 ENV TRACKER_PORT=8000

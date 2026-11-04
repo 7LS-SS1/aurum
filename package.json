@@ -4,7 +4,7 @@
   "private": true,
   "description": "AURUM — multi-site content distribution platform (Next.js / Prisma / NeonDB / Cloudflare R2)",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=24.0.0 <25"
   },
   "scripts": {
     "dev": "next dev --turbopack",

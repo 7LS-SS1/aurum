@@ -8,6 +8,17 @@ const longText = z.string().trim().max(20_000).optional();
 const urlField = z.string().trim().url().max(2048);
 const taxonomyList = z.array(z.string().trim().min(1).max(120)).max(50);
 
+// Zod 4 evaluates defaults inside optional fields. PATCH requests must leave
+// omitted fields untouched instead of resetting stored arrays, flags or options.
+function patchSchema<T extends z.ZodRawShape>(schema: z.ZodObject<T>) {
+  const shape = { ...schema.shape };
+  for (const key of Object.keys(shape) as Array<keyof T>) {
+    const field = shape[key];
+    if (field instanceof z.ZodDefault) shape[key] = field.removeDefault() as T[typeof key];
+  }
+  return z.object(shape).partial();
+}
+
 /**
  * Admins commonly paste a filename or title into the optional URL field. It
  * can contain spaces, dots, underscores, emoji, or Thai text; normalize it
@@ -45,7 +56,7 @@ export const createMovieSchema = z.object({
 });
 export type CreateMovieInput = z.infer<typeof createMovieSchema>;
 
-export const updateMovieSchema = createMovieSchema.partial();
+export const updateMovieSchema = patchSchema(createMovieSchema);
 
 export const createSiteSchema = z.object({
   name: shortText,
@@ -61,7 +72,7 @@ export const createSiteSchema = z.object({
 });
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 
-export const updateSiteSchema = createSiteSchema.partial().extend({
+export const updateSiteSchema = patchSchema(createSiteSchema).extend({
   isActive: z.boolean().optional(),
 });
 
@@ -80,7 +91,7 @@ export const createComicSiteSchema = z.object({
 });
 export type CreateComicSiteInput = z.infer<typeof createComicSiteSchema>;
 
-export const updateComicSiteSchema = createComicSiteSchema.partial().extend({
+export const updateComicSiteSchema = patchSchema(createComicSiteSchema).extend({
   isActive: z.boolean().optional(),
 });
 
@@ -174,7 +185,7 @@ export const createPlayerConfigSchema = z.object({
 });
 export type CreatePlayerConfigInput = z.infer<typeof createPlayerConfigSchema>;
 
-export const updatePlayerConfigSchema = createPlayerConfigSchema.partial();
+export const updatePlayerConfigSchema = patchSchema(createPlayerConfigSchema);
 export type UpdatePlayerConfigInput = z.infer<typeof updatePlayerConfigSchema>;
 
 export const createWordpressThemeSchema = z.object({
@@ -201,7 +212,7 @@ export const createWordpressThemeSchema = z.object({
 });
 export type CreateWordpressThemeInput = z.infer<typeof createWordpressThemeSchema>;
 
-export const updateWordpressThemeSchema = createWordpressThemeSchema.partial();
+export const updateWordpressThemeSchema = patchSchema(createWordpressThemeSchema);
 export type UpdateWordpressThemeInput = z.infer<typeof updateWordpressThemeSchema>;
 
 const wordpressVersion = z.string().trim().min(1).max(30).regex(/^[0-9A-Za-z.+_-]+$/);
@@ -221,7 +232,7 @@ export const createWordpressPluginSchema = z.object({
   isActive: z.boolean().default(true),
 });
 export type CreateWordpressPluginInput = z.infer<typeof createWordpressPluginSchema>;
-export const updateWordpressPluginSchema = createWordpressPluginSchema.partial();
+export const updateWordpressPluginSchema = patchSchema(createWordpressPluginSchema);
 
 const manageableRoleSchema = z.enum(["STAFF", "SENIOR", "MANAGER"]);
 
@@ -312,7 +323,7 @@ export const createActorSchema = z.object({
 });
 export type CreateActorInput = z.infer<typeof createActorSchema>;
 
-export const updateActorSchema = createActorSchema.partial();
+export const updateActorSchema = patchSchema(createActorSchema);
 export type UpdateActorInput = z.infer<typeof updateActorSchema>;
 
 /** `name` accepts one tag or several comma-separated names in a single request (the "เพิ่มแท็กใหม่ ... ใช้ ," bulk-add requirement). */
@@ -340,7 +351,7 @@ export const createComicSeriesSchema = z.object({
 });
 export type CreateComicSeriesInput = z.infer<typeof createComicSeriesSchema>;
 
-export const updateComicSeriesSchema = createComicSeriesSchema.partial();
+export const updateComicSeriesSchema = patchSchema(createComicSeriesSchema);
 export type UpdateComicSeriesInput = z.infer<typeof updateComicSeriesSchema>;
 
 export const createComicCategorySchema = z.object({
@@ -379,7 +390,7 @@ export const createComicSchema = z.object({
 });
 export type CreateComicInput = z.infer<typeof createComicSchema>;
 
-export const updateComicSchema = createComicSchema.partial();
+export const updateComicSchema = patchSchema(createComicSchema);
 
 export const createComicChapterSchema = z.object({
   comicId: z.string().trim().min(1),
@@ -389,7 +400,7 @@ export const createComicChapterSchema = z.object({
 });
 export type CreateComicChapterInput = z.infer<typeof createComicChapterSchema>;
 
-export const updateComicChapterSchema = createComicChapterSchema.omit({ comicId: true }).partial();
+export const updateComicChapterSchema = patchSchema(createComicChapterSchema.omit({ comicId: true }));
 export type UpdateComicChapterInput = z.infer<typeof updateComicChapterSchema>;
 
 export const createComicImagesSchema = z.object({

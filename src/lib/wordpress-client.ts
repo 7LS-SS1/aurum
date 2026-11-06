@@ -179,7 +179,12 @@ export class WordPressClient {
         typeof data === "object" && data && "message" in data
           ? String((data as { message: unknown }).message)
           : `HTTP ${res.status} ${res.statusText}`;
-      throw new WordPressHttpError(res.status, `[${this.baseUrl}] ${message}`);
+      const diagnostic = /Error establishing a database connection/i.test(text)
+        ? "wordpress_database_connection_failed: ฐานข้อมูลของเว็บ WordPress ปลายทางเชื่อมต่อไม่ได้"
+        : message;
+      // Include only the route, never signed query strings or response HTML.
+      const route = new URL(url).pathname;
+      throw new WordPressHttpError(res.status, `[${this.baseUrl}] ${init.method ?? "GET"} ${route}: HTTP ${res.status} ${diagnostic}`);
     }
     return { data: data as T, status: res.status, headers: res.headers };
   }

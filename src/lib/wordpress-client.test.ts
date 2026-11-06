@@ -36,6 +36,17 @@ function client(overrides: Partial<ConstructorParameters<typeof WordPressClient>
 }
 
 describe("WordPressClient construction", () => {
+  it("identifies destination database outages without exposing response HTML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 500, statusText: "Internal Server Error", headers: new Headers(),
+      text: async () => "<h1>Error establishing a database connection</h1><p>private diagnostic</p>",
+    }));
+    const error = await client().ping().catch(value => value);
+    expect(error.status).toBe(500);
+    expect(error.message).toContain("wordpress_database_connection_failed");
+    expect(error.message).toContain("GET /wp-json/wp/v2/users/me");
+    expect(error.message).not.toContain("private diagnostic");
+  });
   it("uses raw editorial titles for read-back instead of HTML-encoded rendered titles", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ id: 1, title: { raw: 'Toys & "new"', rendered: 'Toys &amp; &#8220;new&#8221;' }, meta: {} })));
     expect((await client().getPost(1)).title).toBe('Toys & "new"');

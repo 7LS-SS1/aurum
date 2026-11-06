@@ -462,8 +462,8 @@ export async function distributeMovie(movieId: string, siteIds: string[], mode: 
     await new Promise(resolve => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
     const retried = await mapWithConcurrency(
       retryIndexes,
-      SITE_DISTRIBUTION_CONCURRENCY,
-      index => distributeToSite(movie, sites[index]!, "overwrite_editorial"),
+      1, // Failed hosts may share an overloaded database; do not repeat the burst.
+      index => distributeToSite(movie, sites[index]!, mode),
     );
     retried.forEach((retry, retryIndex) => {
       const resultIndex = retryIndexes[retryIndex]!;

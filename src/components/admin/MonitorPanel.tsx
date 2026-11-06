@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { apiFetch } from "@/lib/api-client";
 import {
   values,
@@ -122,7 +122,7 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
     continuing = true;
   }
   return (
-    <div className={styles.chart}>
+    <div className={styles.percentChart}>
       <svg
         viewBox="0 0 600 110"
         preserveAspectRatio="none"
@@ -158,120 +158,375 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
     </div>
   );
 }
-function Resource({ row }: { row: MonitorRow }) {
-  const [metric, setMetric] = useState<Metric>("cpu"),
-    last = row.history.at(-1),
-    v = last ? values(last, row.source.capacityMbps) : null;
-  const details: Record<Metric, string> = {
-    cpu: "การใช้งาน CPU",
+
+function Gauges({ row }: { row?: MonitorRow }) {
+  const last = row?.history.at(-1),
+    v = last ? values(last, row?.source.capacityMbps) : null;
+  const detail: Record<Metric, string> = {
+    cpu: "การใช้งานหน่วยประมวลผล",
     memory: last
       ? `${bytes(last.memoryUsed)} / ${bytes(last.memoryTotal)}`
-      : "—",
-    disk: last ? `${bytes(last.diskUsed)} / ${bytes(last.diskTotal)}` : "—",
-    bandwidth: row.source.capacityMbps
-      ? `ความจุ ${row.source.capacityMbps} Mbps / ทิศทาง`
+      : "รอข้อมูลหน่วยความจำ",
+    disk: last
+      ? `${bytes(last.diskUsed)} / ${bytes(last.diskTotal)}`
+      : "รอข้อมูลพื้นที่จัดเก็บ",
+    bandwidth: row?.source.capacityMbps
+      ? `ความจุ ${row.source.capacityMbps} Mbps`
       : "ยังไม่ระบุความจุลิงก์",
   };
   return (
-    <article className={styles.resource}>
+    <div className={styles.gauges}>
+      {(["cpu", "memory", "disk", "bandwidth"] as Metric[]).map((metric) => {
+        const value = v?.[metric] ?? null;
+        return (
+          <article className={styles.gaugeCard} key={metric}>
+            <div
+              className={styles.ring}
+              data-warning={
+                value !== null &&
+                !!row &&
+                value >= row.source.thresholds[metric]
+              }
+            >
+              <svg viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="50" r="42" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  pathLength="100"
+                  strokeDasharray={`${value === null ? 0 : Math.min(100, value)} 100`}
+                  transform="rotate(-90 50 50)"
+                />
+              </svg>
+              <strong>{value === null ? "—" : `${value.toFixed(0)}%`}</strong>
+            </div>
+            <div>
+              <h2>{names[metric]}</h2>
+              <p>{detail[metric]}</p>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+function Traffic({ row }: { row?: MonitorRow }) {
+  const [metric, setMetric] = useState<Metric | "traffic">("traffic");
+  const gradient = useId().replace(/:/g, ""),
+    history = row?.history ?? [],
+    last = history.at(-1),
+    start = history[0] ? Date.parse(history[0].timestamp) : 0,
+    end = last ? Date.parse(last.timestamp) : 0;
+  const max =
+    Math.max(
+      1,
+      ...history
+        .flatMap((s) => [s.rxBytesPerSecond ?? 0, s.txBytesPerSecond ?? 0])
+        .map((n) => (n * 8) / 1e6),
+    ) * 1.1;
+  function paths(field: "rxBytesPerSecond" | "txBytesPerSecond") {
+    const segments: { x: number; y: number }[][] = [];
+    let segment: { x: number; y: number }[] = [],
+      previous = 0;
+    for (const sample of history) {
+      const timestamp = Date.parse(sample.timestamp),
+        value = sample[field];
+      if (
+        value === null ||
+        timestamp - previous > (row?.source.intervalSeconds ?? 15) * 3000
+      ) {
+        if (segment.length) segments.push(segment);
+        segment = [];
+      }
+      previous = timestamp;
+      if (value !== null)
+        segment.push({
+          x:
+            45 +
+            (end > start ? ((timestamp - start) / (end - start)) * 540 : 0),
+          y: 200 - ((value * 8) / 1e6 / max) * 180,
+        });
+    }
+    if (segment.length) segments.push(segment);
+    return segments.map((points) => ({
+      line: points.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" "),
+      area:
+        `M${points[0]!.x},200 ` +
+        points.map((p) => `L${p.x},${p.y}`).join(" ") +
+        ` L${points.at(-1)!.x},200 Z`,
+      points,
+    }));
+  }
+  return (
+    <section className={styles.trafficPanel}>
       <header>
-        <div>
-          <h3>{row.source.label}</h3>
-          <p>
-            {scopes[row.source.scope]} · เก็บทุก {row.source.intervalSeconds}{" "}
-            วินาที
-          </p>
-        </div>
-        <span className={styles.badge} data-state={row.state}>
-          {row.state === "live"
-            ? "● รับข้อมูลล่าสุด"
-            : row.state === "stale"
-              ? "ข้อมูลล้าสมัย"
-              : "ยังไม่ได้เชื่อมต่อ"}
-        </span>
+        <h2>{metric === "traffic" ? "Traffic" : names[metric]}</h2>
+        <select
+          aria-label="เลือกกราฟ"
+          value={metric}
+          onChange={(e) => setMetric(e.target.value as Metric | "traffic")}
+        >
+          <option value="traffic">Traffic · Mbps</option>
+          {(["cpu", "memory", "disk", "bandwidth"] as Metric[]).map((key) => (
+            <option key={key} value={key}>
+              {names[key]} · %
+            </option>
+          ))}
+        </select>
       </header>
-      <div className={styles.metrics}>
-        {(["cpu", "memory", "disk", "bandwidth"] as Metric[]).map((key) => (
-          <button
-            key={key}
-            aria-pressed={metric === key}
-            onClick={() => setMetric(key)}
-          >
-            <span>{names[key]}</span>
-            <strong>{v?.[key] != null ? `${v[key]!.toFixed(1)}%` : "—"}</strong>
-            <small>{details[key]}</small>
-          </button>
-        ))}
+      <div className={styles.networkStats}>
+        <div>
+          <span>↓ รับเข้า</span>
+          <strong>{mbps(last?.rxBytesPerSecond)}</strong>
+        </div>
+        <div>
+          <span>↑ ส่งออก</span>
+          <strong>{mbps(last?.txBytesPerSecond)}</strong>
+        </div>
+        <div>
+          <span>รับเข้าสะสม</span>
+          <strong>{bytes(last?.rxBytes)}</strong>
+        </div>
+        <div>
+          <span>ส่งออกสะสม</span>
+          <strong>{bytes(last?.txBytes)}</strong>
+        </div>
       </div>
-      <Chart row={row} metric={metric} />
-      <div className={styles.traffic}>
-        <span>
-          ↓ รับเข้า <b>{mbps(last?.rxBytesPerSecond)}</b>
-        </span>
-        <span>
-          ↑ ส่งออก <b>{mbps(last?.txBytesPerSecond)}</b>
-        </span>
-        <span>
-          Traffic สะสมของ counter{" "}
-          <b>
-            ↓ {bytes(last?.rxBytes)} · ↑ {bytes(last?.txBytes)}
-          </b>
-        </span>
+      <div className={styles.networkChart}>
+        {metric !== "traffic" && row ? (
+          <Chart row={row} metric={metric} />
+        ) : !history.length ? (
+          <div className={styles.chartEmpty}>
+            <span>⌁</span>
+            <strong>รอข้อมูล Traffic</strong>
+            <p>กราฟจะแสดงเมื่อเชื่อมต่อแหล่งข้อมูลแล้ว</p>
+          </div>
+        ) : (
+          <>
+            <svg
+              viewBox="0 0 600 230"
+              role="img"
+              aria-label="กราฟ Traffic รับเข้าสีทอง ส่งออกสีขาว หน่วย Mbps"
+            >
+              <defs>
+                {["rx", "tx"].map((key, i) => (
+                  <linearGradient
+                    key={key}
+                    id={gradient + key}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={i ? "#d5d2c8" : "#d4af37"}
+                      stopOpacity=".28"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={i ? "#d5d2c8" : "#d4af37"}
+                      stopOpacity="0"
+                    />
+                  </linearGradient>
+                ))}
+              </defs>
+              {[0, 1, 2, 3, 4].map((i) => (
+                <g key={i}>
+                  <path
+                    d={`M45 ${20 + i * 45}H585`}
+                    stroke="#ffffff12"
+                    strokeDasharray="3 3"
+                  />
+                  <text
+                    x="36"
+                    y={24 + i * 45}
+                    textAnchor="end"
+                    fill="#929292"
+                    fontSize="10"
+                  >
+                    {(max * (1 - i / 4)).toFixed(1)}
+                  </text>
+                </g>
+              ))}
+              {(["rxBytesPerSecond", "txBytesPerSecond"] as const).map(
+                (field, i) =>
+                  paths(field).map((p, j) => (
+                    <g key={field + j}>
+                      <path
+                        d={p.area}
+                        fill={`url(#${gradient + (i ? "tx" : "rx")})`}
+                      />
+                      <path
+                        d={p.line}
+                        fill="none"
+                        stroke={i ? "#d5d2c8" : "#e8c65e"}
+                        strokeWidth="2"
+                      />
+                      {p.points.length === 1 && (
+                        <circle
+                          cx={p.points[0]!.x}
+                          cy={p.points[0]!.y}
+                          r="3"
+                          fill={i ? "#d5d2c8" : "#e8c65e"}
+                        />
+                      )}
+                    </g>
+                  )),
+              )}
+              <text x="45" y="224" fill="#929292" fontSize="10">
+                {time(history[0]!.timestamp)}
+              </text>
+              <text
+                x="585"
+                y="224"
+                textAnchor="end"
+                fill="#929292"
+                fontSize="10"
+              >
+                {time(last!.timestamp)}
+              </text>
+            </svg>
+            <div className={styles.legend}>
+              <span>● รับเข้า</span>
+              <span>● ส่งออก</span>
+            </div>
+          </>
+        )}
       </div>
       <p className={styles.hint}>
-        {last ? `วัดล่าสุด ${time(last.timestamp)}` : "รอ collector ส่งข้อมูล"}{" "}
-        · Traffic อาจเริ่มนับใหม่เมื่อเครื่องหรือ interface เริ่มใหม่
-        และไม่ใช่ยอด CDN/Bunny หรือโควตารายเดือน
+        ยอดสะสมอาจเริ่มใหม่เมื่อ interface เริ่มใหม่ · ไม่รวมยอดที่ CDN/Bunny
+        ให้บริการโดยตรง
       </p>
-    </article>
+    </section>
   );
 }
 export function MonitorPanel() {
   const { data, error } = useMonitor(),
-    [tab, setTab] = useState<"hosts" | "sites">("hosts"),
-    [search, setSearch] = useState("");
+    [sourceId, setSourceId] = useState(""),
+    [tab, setTab] = useState<"hosts" | "sites">("sites"),
+    [search, setSearch] = useState(""),
+    [siteId, setSiteId] = useState<string | null>(null);
   const all =
       data?.rows.flatMap((row) => row.alerts.map((a) => ({ ...a, row }))) ?? [],
     active = all.filter((a) => a.status === "active");
+  const selectedSite = data?.sites.find((s) => s.id === siteId);
+  const row = siteId
+    ? (data?.rows.find(
+        (r) => r.source.id === sourceId && r.source.siteIds.includes(siteId),
+      ) ?? data?.rows.find((r) => r.source.siteIds.includes(siteId)))
+    : (data?.rows.find((r) => r.source.id === sourceId) ?? data?.rows[0]);
   return (
     <section className={styles.page}>
       <header className={styles.heading}>
         <div>
-          <span className={styles.kicker}>AURUM / OPERATIONS</span>
+          <span className={styles.kicker}>AURUM / SERVER OVERVIEW</span>
           <h1>Monitor Panel</h1>
-          <p>สถานะโฮสต์และเว็บไซต์ พร้อมแจ้งเตือนเมื่อการใช้งานเกินเกณฑ์</p>
         </div>
-        <span className={styles.live}>
-          {error
-            ? "การเชื่อมต่อมีปัญหา"
-            : data
-              ? `อัปเดต ${time(data.generatedAt)}`
-              : "กำลังเชื่อมต่อ…"}
-        </span>
+        <div className={styles.controls}>
+          <select
+            aria-label="เลือกแหล่งข้อมูล"
+            value={row?.source.id ?? ""}
+            onChange={(e) => {
+              setSourceId(e.target.value);
+              setSiteId(null);
+            }}
+          >
+            <option value="" disabled>
+              เลือกแหล่งข้อมูล
+            </option>
+            {data?.rows.map((r) => (
+              <option key={r.source.id} value={r.source.id}>
+                {r.source.label}
+              </option>
+            ))}
+          </select>
+          <span className={styles.live}>
+            {error
+              ? "การเชื่อมต่อมีปัญหา"
+              : data
+                ? `อัปเดต ${time(data.generatedAt)}`
+                : "กำลังเชื่อมต่อ…"}
+          </span>
+        </div>
       </header>
-      <div className={styles.summary}>
-        <div>
-          <span>แหล่งข้อมูลที่เชื่อมต่อ</span>
-          <strong>
-            {data?.rows.filter((r) => r.state === "live").length ?? "—"}
-            <small> / {data?.rows.length ?? 0}</small>
-          </strong>
-        </div>
-        <div>
-          <span>เว็บไซต์ทั้งหมด</span>
-          <strong>{data?.sites.length ?? "—"}</strong>
-        </div>
-        <div data-alert={active.length > 0}>
-          <span>Alert ที่ยังไม่คลี่คลาย</span>
-          <strong>{active.length}</strong>
-        </div>
-        <div>
-          <span>การอัปเดตหน้าจอ</span>
-          <strong>
-            10 <small>วินาที</small>
-          </strong>
-        </div>
+      <div className={styles.sourceLine}>
+        <strong>
+          {selectedSite?.name ?? row?.source.label ?? "ยังไม่เชื่อมแหล่งข้อมูล"}
+        </strong>
+        <span>
+          {row
+            ? `${scopes[row.source.scope]} · เก็บทุก ${row.source.intervalSeconds} วินาที`
+            : "CPU / Memory / Storage / Network"}
+        </span>
+        <span
+          className={styles.badge}
+          data-state={error ? "stale" : row?.state}
+        >
+          {error
+            ? "ข้อมูลอาจล้าสมัย"
+            : row?.state === "live"
+              ? "● รับข้อมูลล่าสุด"
+              : row?.state === "stale"
+                ? "ข้อมูลล้าสมัย"
+                : "รอการเชื่อมต่อ"}
+        </span>
       </div>
+      {selectedSite &&
+        row &&
+        ["host", "hosting-account"].includes(row.source.scope) && (
+          <p className={styles.warning}>
+            ข้อมูลนี้ใช้ร่วมกันทั้งโฮสต์ ไม่ใช่ CPU/RAM ที่เว็บไซต์นี้ใช้แยกตัว
+          </p>
+        )}
+      <Gauges row={row} />
+      <section className={styles.overview}>
+        <h2>
+          Overview <span>ภาพรวมระบบ</span>
+        </h2>
+        <div className={styles.summary}>
+          <div>
+            <span>เว็บไซต์</span>
+            <strong>{data?.sites.length ?? "—"}</strong>
+            <small>
+              เปิดใช้งานใน AURUM{" "}
+              {data?.sites.filter((s) => s.isActive).length ?? "—"}
+            </small>
+          </div>
+          <div>
+            <span>แหล่งข้อมูล</span>
+            <strong>{data?.rows.length ?? "—"}</strong>
+            <small>
+              รับข้อมูลล่าสุด{" "}
+              {data?.rows.filter((r) => r.state === "live").length ?? "—"}
+            </small>
+          </div>
+          <div data-alert={active.length > 0}>
+            <span>Alert</span>
+            <strong>{active.length}</strong>
+            <small>รายการที่ยังไม่คลี่คลาย</small>
+          </div>
+          <div>
+            <span>อัปเดตหน้าจอ</span>
+            <strong>
+              10 <em>วินาที</em>
+            </strong>
+            <small>ติดตามเมื่อเปิดหน้านี้</small>
+          </div>
+          <div>
+            <span>แหล่งข้อมูลที่เลือก</span>
+            <strong className={styles.sourceName}>
+              {row?.source.label ?? "—"}
+            </strong>
+            <small>
+              {row?.history.at(-1)
+                ? `วัดล่าสุด ${time(row.history.at(-1)!.timestamp)}`
+                : "ยังไม่มีตัวอย่าง"}
+            </small>
+          </div>
+        </div>
+      </section>
       {error && (
         <p className={styles.warning} role="alert">
           {error}
@@ -279,11 +534,117 @@ export function MonitorPanel() {
       )}
       {data && !data.storageReady && (
         <p className={styles.warning}>
-          ยังไม่เชื่อม Redis สำหรับ Monitor · กำหนด MONITOR_REDIS_URL หรือ
-          REDIS_URL ก่อนรับข้อมูล
-          ระบบจะไม่เก็บตัวเลขชั่วคราวแล้วแสดงเสมือนข้อมูลจริง
+          ยังไม่เชื่อม Redis สำหรับ Monitor ·
+          ติดต่อผู้ดูแลเพื่อเชื่อมแหล่งข้อมูล
         </p>
       )}
+      <div className={styles.workgrid}>
+        <section className={styles.directory}>
+          <header>
+            <h2>เว็บไซต์และโฮสต์</h2>
+            <Link href="/admin/sites">จัดการเว็บไซต์ ↗</Link>
+          </header>
+          <div className={styles.toolbar}>
+            <div role="group" aria-label="มุมมอง Monitor">
+              <button
+                aria-pressed={tab === "sites"}
+                onClick={() => setTab("sites")}
+              >
+                เว็บไซต์
+              </button>
+              <button
+                aria-pressed={tab === "hosts"}
+                onClick={() => setTab("hosts")}
+              >
+                โฮสต์
+              </button>
+            </div>
+            <input
+              aria-label="ค้นหาโฮสต์หรือเว็บไซต์"
+              placeholder="ค้นหา…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className={styles.directoryList}>
+            {tab === "sites"
+              ? data?.sites
+                  .filter((s) =>
+                    s.name.toLowerCase().includes(search.toLowerCase()),
+                  )
+                  .map((site) => {
+                    const sources = data.rows.filter((r) =>
+                      r.source.siteIds.includes(site.id),
+                    );
+                    return (
+                      <button
+                        key={site.id}
+                        className={styles.directoryRow}
+                        aria-pressed={siteId === site.id}
+                        onClick={() => setSiteId(site.id)}
+                      >
+                        <span className={styles.siteIcon}>◎</span>
+                        <span>
+                          <strong>{site.name}</strong>
+                          <small>{site.baseUrl}</small>
+                        </span>
+                        <span className={styles.badge}>
+                          {sources.length
+                            ? `${sources.length} แหล่งข้อมูล`
+                            : "ยังไม่เชื่อมต่อ"}
+                        </span>
+                      </button>
+                    );
+                  })
+              : data?.rows
+                  .filter((r) =>
+                    r.source.label.toLowerCase().includes(search.toLowerCase()),
+                  )
+                  .map((r) => (
+                    <button
+                      key={r.source.id}
+                      className={styles.directoryRow}
+                      aria-pressed={!siteId && row?.source.id === r.source.id}
+                      onClick={() => {
+                        setSourceId(r.source.id);
+                        setSiteId(null);
+                      }}
+                    >
+                      <span className={styles.siteIcon}>▤</span>
+                      <span>
+                        <strong>{r.source.label}</strong>
+                        <small>{scopes[r.source.scope]}</small>
+                      </span>
+                      <span className={styles.badge} data-state={r.state}>
+                        {r.state === "live"
+                          ? "รับข้อมูลล่าสุด"
+                          : r.state === "stale"
+                            ? "ล้าสมัย"
+                            : "ยังไม่เชื่อมต่อ"}
+                      </span>
+                    </button>
+                  ))}
+            {data &&
+              !(tab === "sites"
+                ? data.sites.some((s) =>
+                    s.name.toLowerCase().includes(search.toLowerCase()),
+                  )
+                : data.rows.some((r) =>
+                    r.source.label.toLowerCase().includes(search.toLowerCase()),
+                  )) && (
+                <p className={styles.empty}>
+                  ไม่พบรายการ{search ? "ที่ตรงกับคำค้น" : "ในขณะนี้"}
+                </p>
+              )}
+          </div>
+          <footer>
+            {selectedSite && !row
+              ? `ยังไม่ผูกแหล่งข้อมูล · Site ID: ${selectedSite.id}`
+              : "เลือกเว็บไซต์หรือโฮสต์เพื่อดูสถานะและกราฟด้านขวา"}
+          </footer>
+        </section>
+        <Traffic row={row} />
+      </div>
       <section className={styles.alertPanel}>
         <header>
           <h2>แจ้งเตือนระบบ</h2>
@@ -341,84 +702,6 @@ export function MonitorPanel() {
           </details>
         )}
       </section>
-      <div className={styles.toolbar}>
-        <div role="group" aria-label="มุมมอง Monitor">
-          <button
-            aria-pressed={tab === "hosts"}
-            onClick={() => setTab("hosts")}
-          >
-            Host Panel
-          </button>
-          <button
-            aria-pressed={tab === "sites"}
-            onClick={() => setTab("sites")}
-          >
-            แยกรายเว็บไซต์
-          </button>
-        </div>
-        <input
-          aria-label="ค้นหาโฮสต์หรือเว็บไซต์"
-          placeholder="ค้นหาโฮสต์ / เว็บไซต์…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-      {tab === "hosts"
-        ? data?.rows
-            .filter((r) =>
-              r.source.label.toLowerCase().includes(search.toLowerCase()),
-            )
-            .map((row) => <Resource key={row.source.id} row={row} />)
-        : data?.sites
-            .filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
-            .map((site) => {
-              const rows = data.rows.filter((r) =>
-                r.source.siteIds.includes(site.id),
-              );
-              return (
-                <section className={styles.site} key={site.id}>
-                  <header>
-                    <h2>{site.name}</h2>
-                    <span>
-                      {site.baseUrl} {!site.isActive && "· ปิดใช้งานใน AURUM"}
-                    </span>
-                  </header>
-                  {rows.length ? (
-                    rows.map((row) => (
-                      <div key={row.source.id}>
-                        {["host", "hosting-account"].includes(
-                          row.source.scope,
-                        ) && (
-                          <p className={styles.warning}>
-                            ค่านี้ใช้ร่วมกับเว็บไซต์อื่นบนโฮสต์ ไม่ใช่ CPU/RAM
-                            ที่เว็บไซต์นี้ใช้แยกตัว
-                          </p>
-                        )}
-                        <Resource row={row} />
-                      </div>
-                    ))
-                  ) : (
-                    <p className={styles.hint}>
-                      ยังไม่ผูกแหล่งข้อมูลกับเว็บไซต์นี้ · Site ID:{" "}
-                      <code>{site.id}</code>
-                    </p>
-                  )}
-                </section>
-              );
-            })}
-      {data && !data.rows.length && (
-        <div className={styles.empty}>
-          <h2>เริ่มเชื่อมแหล่งข้อมูล</h2>
-          <p>
-            ติดตั้ง collector บน VPS ที่คุณดูแล แล้วกำหนด source และ Site ID
-            เพื่อเริ่มรับ CPU, Memory, Storage และ Network
-          </p>
-          <p>
-            Shared hosting ต้องใช้แหล่งข้อมูลที่ผู้ให้บริการอนุญาต
-            ค่าที่อ่านไม่ได้จะแสดง —
-          </p>
-        </div>
-      )}
       <details className={styles.help}>
         <summary>ความหมายของข้อมูลและเงื่อนไขแจ้งเตือน</summary>
         <p>

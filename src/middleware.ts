@@ -19,7 +19,8 @@ const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
+  // Exact endpoint authenticates a scoped monitor token in its Node handler.
+  const isPublicApi = pathname === "/api/monitor/ingest" || PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
   const isAdminArea = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isProtectedApi = pathname.startsWith("/api") && !isPublicApi;
 

@@ -1,3 +1,4 @@
+import { MonitorNav } from "@/components/admin/MonitorPanel";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { AdminComicMenu } from "@/components/admin/AdminComicMenu";
@@ -46,6 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Backend Dashboard
           </Link>
         </div>
+        {role && can(role, "site:manage") && <div className="side-sec"><MonitorNav /></div>}
         <AdminVideoMenu canCreate={Boolean(role && can(role, "movie:create"))} />
         <AdminComicMenu />
         {role && can(role, "service:manage") && (

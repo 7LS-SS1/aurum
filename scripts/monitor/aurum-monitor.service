@@ -1,0 +1,23 @@
+[Unit]
+Description=AURUM read-only host metrics collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+EnvironmentFile=/etc/aurum-monitor.env
+ExecStart=/usr/bin/python3 /opt/aurum-monitor/collector.py --scope host --interfaces eth0 --interval 15
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+CPUQuota=5%
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

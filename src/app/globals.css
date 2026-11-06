@@ -4433,3 +4433,69 @@ body.mside-open .scrim {
     width: auto;
   }
 }
+
+/* Project-wide scrollbars: public pages, admin navigation and nested panels. */
+html {
+  color-scheme: dark;
+}
+html,
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #887747 #191919;
+}
+@supports selector(::-webkit-scrollbar) {
+  html,
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  html::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  html::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-track {
+    background: #191919;
+    border-radius: 999px;
+  }
+  html::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    background: #887747;
+    border: 2px solid #191919;
+    border-radius: 999px;
+  }
+  html::-webkit-scrollbar-thumb:hover,
+  *::-webkit-scrollbar-thumb:hover {
+    background: #b89a4d;
+  }
+  html::-webkit-scrollbar-thumb:active,
+  *::-webkit-scrollbar-thumb:active {
+    background: var(--gold, #d4af37);
+  }
+  html::-webkit-scrollbar-corner,
+  *::-webkit-scrollbar-corner {
+    background: #191919;
+  }
+  html::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  html,
+  * {
+    scrollbar-color: auto;
+    scrollbar-width: auto;
+  }
+  html::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-thumb {
+    background: ButtonText;
+    border-color: Canvas;
+  }
+  html::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-track {
+    background: Canvas;
+  }
+}

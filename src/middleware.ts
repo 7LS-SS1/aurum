@@ -30,6 +30,7 @@ export default function middleware(originalRequest: NextRequest, event: NextFetc
         const canonical = new URL(origin);
         originalUrl.protocol = canonical.protocol;
         originalUrl.host = canonical.host;
+        originalUrl.port = canonical.port;
         break;
       }
     }

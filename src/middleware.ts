@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import authConfig from "@/auth.config";
-import { managementRoute } from "@/lib/management-host";
+import { managementOrigin, managementRoute } from "@/lib/management-host";
 
 /**
  * Route protection lives here (not per-handler `if (!session)` checks) so a
@@ -19,8 +19,23 @@ const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
 
 export default function middleware(originalRequest: NextRequest, event: NextFetchEvent) {
   // Auth.js rewrites req.nextUrl to AUTH_URL; preserve the actual ingress URL per request.
-  const originalUrl = originalRequest.nextUrl;
+  const originalUrl = originalRequest.nextUrl.clone();
+  // Standalone Next.js can use its internal bind address for nextUrl. Match
+  // Host only against configured origins; never build a destination from it.
+  const host = originalRequest.headers.get("host")?.toLowerCase();
+  if (process.env.MANAGEMENT_HOST_ENABLED === "true") {
+    for (const value of [process.env.MANAGEMENT_APP_ORIGIN, process.env.PUBLIC_APP_ORIGIN]) {
+      const origin = managementOrigin(value);
+      if (origin && host === new URL(origin).host) {
+        const canonical = new URL(origin);
+        originalUrl.protocol = canonical.protocol;
+        originalUrl.host = canonical.host;
+        break;
+      }
+    }
+  }
   return auth((req, _event: NextFetchEvent) => {
+  void _event; // Select the middleware overload rather than the route-handler overload.
   const routing = managementRoute(originalUrl, { enabled: process.env.MANAGEMENT_HOST_ENABLED === "true", origin: process.env.MANAGEMENT_APP_ORIGIN, publicOrigin: process.env.PUBLIC_APP_ORIGIN }, req.method);
   if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
   if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);

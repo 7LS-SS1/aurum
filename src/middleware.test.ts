@@ -12,6 +12,17 @@ const invoke = middleware as unknown as (request: NextRequest & { auth: unknown 
 function request(path: string, signedIn=false) { const req=new NextRequest(management+path) as NextRequest & {auth:unknown};req.auth=signedIn?{user:{role:"MANAGER"}}:null;return req; }
 afterEach(()=>vi.unstubAllEnvs());
 describe("management root authentication",()=>{
+ it("routes standalone internal URLs using only an allowlisted Host",()=>{
+   vi.stubEnv("MANAGEMENT_HOST_ENABLED","true");
+   vi.stubEnv("MANAGEMENT_APP_ORIGIN",management);
+   vi.stubEnv("PUBLIC_APP_ORIGIN","https://aurum123.com");
+   const req = new NextRequest("http://localhost:3000/", {headers:{host:"system-management.aurum123.com"}}) as NextRequest & {auth:unknown};
+   req.auth=null;
+   expect(invoke(req).headers.get("location")).toBe(management+"/admin/login?callbackUrl=%2Fadmin");
+   const spoof = new NextRequest("http://localhost:3000/", {headers:{host:"unknown.example","x-forwarded-host":"system-management.aurum123.com"}}) as NextRequest & {auth:unknown};
+   spoof.auth=null;
+   expect(invoke(spoof).headers.get("location")).toBeNull();
+ });
  it("preserves ingress host when Auth.js overrides the request origin",()=>{
    vi.stubEnv("AUTH_URL", management);
    vi.stubEnv("MANAGEMENT_HOST_ENABLED","true");

@@ -20,7 +20,7 @@ const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
 export default function middleware(originalRequest: NextRequest, event: NextFetchEvent) {
   // Auth.js rewrites req.nextUrl to AUTH_URL; preserve the actual ingress URL per request.
   const originalUrl = originalRequest.nextUrl;
-  return auth((req) => {
+  return auth((req, _event: NextFetchEvent) => {
   const routing = managementRoute(originalUrl, { enabled: process.env.MANAGEMENT_HOST_ENABLED === "true", origin: process.env.MANAGEMENT_APP_ORIGIN, publicOrigin: process.env.PUBLIC_APP_ORIGIN }, req.method);
   if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
   if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);

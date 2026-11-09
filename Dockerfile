@@ -41,7 +41,7 @@ ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
 RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nodejs nextjs
 
 # Next.js standalone server + static assets
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
@@ -49,18 +49,18 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # never picks it up automatically; the admin "WordPress Theme" page zips this
 # directory on demand (src/app/api/wp-theme/download/route.ts) and needs it
 # present on disk at runtime.
-COPY --from=builder /app/wordpress-theme ./wordpress-theme
+COPY --from=builder --chown=nextjs:nodejs /app/wordpress-theme ./wordpress-theme
 
 # Prisma CLI + schema/migrations for the explicit `migrate` release command
 RUN mkdir -p node_modules/.bin && ln -sf ../prisma/build/index.js node_modules/.bin/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/scripts/service-worker.mjs ./scripts/service-worker.mjs
-COPY --from=builder /app/scripts/site-analytics-worker.mjs ./scripts/site-analytics-worker.mjs
-COPY --from=builder /app/scripts/release-preflight.mjs ./scripts/release-preflight.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/service-worker.mjs ./scripts/service-worker.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/site-analytics-worker.mjs ./scripts/site-analytics-worker.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/release-preflight.mjs ./scripts/release-preflight.mjs
 
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh && chown nextjs:nodejs docker-entrypoint.sh

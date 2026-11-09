@@ -6,7 +6,11 @@ require '/var/www/html/wp-includes/plugin.php';
 add_filter( 'pre_option_active_plugins', function () { return array( 'aurum-video-core/aurum-video-core.php' ); } );
 add_filter( 'pre_option_template', function () { return '__aurum_test_no_theme__'; } );
 add_filter( 'pre_option_stylesheet', function () { return '__aurum_test_no_theme__'; } );
-add_filter( 'pre_option_aurum_video_core_settings', function () use ( $mode ) { return array( 'profile' => 'auto' === $mode ? 'auto' : 'video' ); } );
+add_filter( 'pre_option_aurum_video_core_settings', function () use ( $mode ) {
+	return 'stale' === $mode
+		? array( 'profile' => 'video', 'category_taxonomy' => 'category', 'tag_taxonomy' => 'post_tag' )
+		: array( 'profile' => 'auto' === $mode ? 'auto' : 'video' );
+} );
 if ( 'owned' === $mode ) {
 	add_action( 'init', function () {
 		register_post_type( 'video', array( 'public' => true, 'show_in_rest' => true, 'rest_base' => 'legacy_video', 'rewrite' => array( 'slug' => 'legacy-watch' ) ) );
@@ -27,6 +31,10 @@ if ( 'auto' === $mode ) {
 	profile_check( isset( get_registered_meta_keys( 'post', 'video' )['aurum_movie_id'] ), 'canonical metadata attaches to fallback' );
 	profile_check( 'owned' === $mode ? 'legacy_video' === $profile['restBase'] : 'video' === $profile['restBase'], 'REST base preserves ownership' );
 	profile_check( 'owned' === $mode ? 'legacy-watch' === get_post_type_object( 'video' )->rewrite['slug'] : 'videos' === get_post_type_object( 'video' )->rewrite['slug'], 'permalink ownership' );
+	if ( 'stale' === $mode ) {
+		profile_check( 'video_category' === $profile['taxonomies']['category']['restBase'], 'ignores category from another post type' );
+		profile_check( 'video_tag' === $profile['taxonomies']['tag']['restBase'], 'ignores tag from another post type' );
+	}
 	if ( 'owned' === $mode ) {
 		profile_check( 'legacy_categories' === $profile['taxonomies']['category']['restBase'], 'category REST base preserved' );
 		profile_check( 'legacy-categories' === get_taxonomy( 'video_category' )->rewrite['slug'], 'category permalink preserved' );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AURUM Video Core
  * Description: AURUM video management, site profiles, safe CSV editing, metadata, playback, diagnostics, and video SEO.
- * Version: 1.3.0
+ * Version: 1.3.7
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: 7LS
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AURUM_VIDEO_CORE_VERSION', '1.3.0' );
+define( 'AURUM_VIDEO_CORE_VERSION', '1.3.7' );
 define( 'AURUM_VIDEO_CORE_FILE', __FILE__ );
 define( 'AURUM_VIDEO_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AURUM_VIDEO_CORE_URL', plugin_dir_url( __FILE__ ) );
@@ -21,10 +21,12 @@ define( 'AURUM_VIDEO_CORE_URL', plugin_dir_url( __FILE__ ) );
 require_once AURUM_VIDEO_CORE_DIR . 'includes/meta.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/site-profile.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/actor-sync.php';
+require_once AURUM_VIDEO_CORE_DIR . 'includes/actor-pages.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/player.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/editor-persistence.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/seo.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/audit.php';
+require_once AURUM_VIDEO_CORE_DIR . 'includes/analytics.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/csv.php';
 require_once AURUM_VIDEO_CORE_DIR . 'includes/admin.php';
 

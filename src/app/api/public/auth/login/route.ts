@@ -1,3 +1,4 @@
+import { readServicePageBody, servicePageOriginAllowed } from "@/lib/service-page-request";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { viewerLoginSchema } from "@/lib/validation";
@@ -7,7 +8,8 @@ import { verifyPassword, createViewerSession, setViewerSessionCookie } from "@/l
 
 export async function POST(req: NextRequest) {
   try {
-    const input = viewerLoginSchema.parse(await req.json());
+    if (!servicePageOriginAllowed(req.headers.get("origin"), req.url)) throw new ApiError("invalid_origin", 403);
+    const input = viewerLoginSchema.parse(await readServicePageBody(req));
 
     const [byIp, byEmail] = await Promise.all([
       rateLimit(`viewer:login:${clientIp(req)}`, { limit: 10, windowMs: 10 * 60 * 1000 }),
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     const viewer = await prisma.viewer.findUnique({ where: { email: input.email } });
     // Generic error for both "no such email" and "wrong password" — avoid user enumeration.
-    if (!viewer || !(await verifyPassword(input.password, viewer.passwordHash))) {
+    if (!viewer?.passwordHash || !(await verifyPassword(input.password, viewer.passwordHash))) {
       throw new ApiError("invalid_credentials", 401);
     }
 

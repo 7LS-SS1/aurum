@@ -1,11 +1,11 @@
 "use client";
 
+import { safeMemberReturn } from "@/lib/member-validation";
+import { Alert, Button, Stack, TextField } from "@mui/material";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 
 export function ViewerRegisterForm({ callbackUrl = "/" }: { callbackUrl?: string }) {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,8 +18,7 @@ export function ViewerRegisterForm({ callbackUrl = "/" }: { callbackUrl?: string
     setPending(true);
     try {
       await apiFetch("/api/public/auth/register", { method: "POST", body: JSON.stringify({ displayName, email, password }) });
-      router.push(callbackUrl);
-      router.refresh();
+      window.location.assign(safeMemberReturn(callbackUrl));
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 409) {
         setError("อีเมลนี้ถูกใช้ไปแล้ว");
@@ -33,25 +32,5 @@ export function ViewerRegisterForm({ callbackUrl = "/" }: { callbackUrl?: string
     }
   }
 
-  return (
-    <form onSubmit={onSubmit}>
-      <div className="field">
-        <label>ชื่อที่แสดง</label>
-        <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required minLength={2} maxLength={60} autoComplete="nickname" />
-      </div>
-      <div className="field">
-        <label>อีเมล</label>
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-      </div>
-      <div className="field">
-        <label>รหัสผ่าน</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-        <div className="hint">อย่างน้อย 8 ตัวอักษร</div>
-      </div>
-      {error && <p className="error-text">{error}</p>}
-      <button className="btn btn-gold btn-block" type="submit" disabled={pending} style={{ marginTop: 8 }}>
-        {pending ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
-      </button>
-    </form>
-  );
+  return <Stack component="form" onSubmit={onSubmit} spacing={3}><TextField label="ชื่อที่แสดง" value={displayName} onChange={e=>setDisplayName(e.target.value)} required autoComplete="nickname" slotProps={{htmlInput:{minLength:2,maxLength:60}}}/><TextField label="อีเมล" type="email" value={email} onChange={e=>setEmail(e.target.value)} required autoComplete="username"/><TextField label="รหัสผ่าน" type="password" value={password} onChange={e=>setPassword(e.target.value)} required autoComplete="new-password" helperText="อย่างน้อย 8 ตัวอักษร" slotProps={{htmlInput:{minLength:8}}}/>{error && <Alert severity="error">{error}</Alert>}<Button variant="contained" type="submit" disabled={pending}>{pending ? "กำลังดำเนินการ…" : "สมัครสมาชิก"}</Button></Stack>;
 }

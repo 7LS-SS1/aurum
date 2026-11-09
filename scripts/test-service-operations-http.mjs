@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const target = new URL(process.env.DATABASE_URL || 'http://invalid');
+if (target.hostname !== '127.0.0.1' || target.port !== '55439' || target.pathname !== '/aurum_ads_test') throw Error('Isolated local database only');
+const db = new PrismaClient(), base = 'http://localhost:3007';
+const viewerId = randomUUID(), orderId = randomUUID(), noticeId = randomUUID();
+const email = `ops-http-${viewerId}@example.test`, password = 'Local-http-test-only-2026';
+const request = (path, options = {}) => fetch(base + path, { ...options, redirect: 'manual', signal: AbortSignal.timeout(90000) });
+try {
+  await db.viewer.create({ data: { id: viewerId, email, displayName: 'HTTP operations test', passwordHash: await bcrypt.hash(password, 12) } });
+  await db.adsOrder.create({ data: { id: orderId, viewerId, requestId: randomUUID(), requestHash: randomUUID(), tokenHash: randomUUID(), customer: { name: 'HTTP test', email }, quote: { items: ['Local fixture'], lines: [{ label: 'Local fixture', quantity: 1, unitPrice: 1500, amount: 1500 }] }, slots: [], days: 30, amount: 1500, status: 'PAID', artworkUrl: '', targetUrl: '', assignedName: 'HTTP operator', fulfillmentStage: 'installing', dueAt: new Date(Date.now() + 86400000) } });
+  await db.customerNotice.create({ data: { id: noticeId, viewerId, dedupeKey: noticeId, title: 'HTTP fixture', message: 'Test inbox ownership', href: '/account' } });
+  assert.equal((await request('/api/public/account/notices')).status, 401);
+  const login = await request('/api/public/auth/login', { method: 'POST', headers: { origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  assert.equal(login.status, 200);
+  const cookie = login.headers.getSetCookie().map(c => c.split(';')[0]).join('; ');
+  const headers = { cookie, origin: base, 'Content-Type': 'application/json' };
+  const inbox = await request('/api/public/account/notices', { headers });
+  assert.equal(inbox.status, 200); assert.equal(inbox.headers.get('cache-control'), 'private, no-store');
+  assert.equal((await inbox.json()).items[0].id, noticeId);
+  assert.equal((await request('/api/public/account/notices', { method: 'PATCH', headers: { ...headers, origin: 'https://evil.test' }, body: '{}' })).status, 403);
+  assert.equal((await request('/api/public/account/notices', { method: 'PATCH', headers, body: JSON.stringify({ id: noticeId }) })).status, 200);
+  const progress = await request(`/api/public/account/progress?id=${orderId}`, { headers });
+  assert.equal(progress.status, 200); assert.equal((await progress.json()).assignedName, 'HTTP operator');
+  assert.equal((await request(`/api/public/account/progress?id=${randomUUID()}`, { headers })).status, 404);
+  assert.equal((await request(`/account/orders/${orderId}/summary`, { headers })).status, 200);
+  const sessions = await (await request('/api/public/account/sessions', { headers })).json();
+  assert.ok(sessions.items.some(s => s.current)); assert.ok(sessions.items.every(s => !('tokenHash' in s)));
+  assert.equal((await request('/api/public/account/website-services', { headers })).status, 200);
+  assert.equal((await request('/api/public/auth/recovery', { headers })).status, 200);
+  assert.equal((await request('/api/internal/service-worker', { method: 'POST' })).status, 401);
+  assert.ok([401, 403, 307].includes((await request('/api/service-operations', { headers })).status));
+  const jar = new Map();
+  const collect = r => r.headers.getSetCookie().forEach(c => { const [k, ...v] = c.split(';')[0].split('='); jar.set(k, v.join('=')); });
+  const staffCookie = () => [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+  const csrf = await request('/api/auth/csrf'); collect(csrf);
+  const { csrfToken } = await csrf.json();
+  const staffLogin = await request('/api/auth/callback/credentials', { method: 'POST', headers: { cookie: staffCookie(), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: 'ads-manager@example.test', password: 'Local-services-test-only-2026', csrfToken, callbackUrl: base + '/admin' }) }); collect(staffLogin);
+  const staffHeaders = { cookie: staffCookie() };
+  assert.equal((await request('/api/service-operations', { headers: staffHeaders })).status, 200);
+  const csv = await request('/api/service-operations?format=csv', { headers: staffHeaders });
+  assert.equal(csv.status, 200); assert.match(csv.headers.get('content-type'), /text\/csv/);
+  assert.equal((await request('/api/public/account/website-services?admin=1', { headers: staffHeaders })).status, 200);
+  console.log('SERVICE_OPERATIONS_HTTP_OK: login, private inbox, CSRF, ownership, progress, printable summary, session projection, Website API requests, manager report/CSV, worker authorization; local fixtures only');
+} finally {
+  await db.adsOrder.deleteMany({ where: { id: orderId, viewerId } });
+  await db.viewerSession.deleteMany({ where: { viewerId } });
+  await db.viewer.deleteMany({ where: { id: viewerId } });
+  await db.$disconnect();
+}

@@ -1,0 +1,9 @@
+.panel { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.panel h2, .panel h3, .panel p { margin: 0; }
+.panel p, .panel small { color: var(--text-muted, #aaa); line-height: 1.75; }
+.actions, .heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.actions { justify-content: flex-start; }
+.note { padding: 14px; border-radius: 10px; background: var(--bg, #111); border: 1px solid var(--border, #333); }
+.device { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 18px 0; border-top: 1px solid var(--border, #333); }
+.device .heading { width: 100%; }
+.device span { font-size: 12px; color: var(--text-muted, #aaa); border: 1px solid var(--border, #333); border-radius: 999px; padding: 4px 10px; }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppBar, Toolbar } from "@mui/material";
 import { auth } from "@/auth";
 import { SidebarToggleButton, SidebarScrim } from "@/components/public/SidebarChrome";
 import { BottomNav } from "@/components/public/BottomNav";
@@ -12,7 +13,7 @@ export async function PublicHeader({ q = "", searchAction = "/" }: { q?: string;
 
   return (
     <>
-      <header className="topbar">
+      <AppBar position="sticky" elevation={0} sx={{bgcolor:"#101114",borderBottom:"1px solid rgba(230,226,211,.12)"}}><Toolbar className="topbar public-topbar" sx={{width:"100%",position:"relative"}}>
       <div className="tb-left">
         <SidebarToggleButton />
         <Link className="logo" href="/">
@@ -34,6 +35,7 @@ export async function PublicHeader({ q = "", searchAction = "/" }: { q?: string;
         </form>
       </div>
       <div className="tb-spacer" />
+      <Link href="/services/select" className="public-service-link">บริการของเรา</Link>
       <Link className="icon-btn search-icon-mobile" href="/" aria-label="ค้นหา">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="7" />
@@ -50,7 +52,7 @@ export async function PublicHeader({ q = "", searchAction = "/" }: { q?: string;
         </Link>
       )}
       <ViewerMenu viewer={viewer} />
-      </header>
+      </Toolbar></AppBar>
       <SidebarScrim />
       <BottomNav />
     </>

@@ -2,6 +2,167 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Advertising orders are independent of media and Website API subscriptions.
+model AdsOrder {
+  id               String   @id
+  viewerId         String?
+  viewer           Viewer?  @relation(fields: [viewerId], references: [id], onDelete: Restrict)
+  tokenHash        String   @unique
+  requestId        String   @unique
+  requestHash      String
+  status           String   @default("REVIEW")
+  customer         Json
+  quote            Json
+  slots            String[]
+  days             Int
+  amount           Int
+  artworkUrl       String
+  targetUrl        String
+  note             String   @default("")
+  staffNote        String   @default("")
+  paymentUrl       String?
+  paymentReference String?  @unique
+  holdUntil        DateTime?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  revision         Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  notifications    AdsNotification[]
+  renewalOfId      String?
+  renewalOf        AdsOrder? @relation("OrderRenewals", fields: [renewalOfId], references: [id], onDelete: Restrict)
+  renewals         AdsOrder[] @relation("OrderRenewals")
+  fulfillmentStage String @default("queued")
+  assignedTo       String?
+  assignedName     String?
+  dueAt            DateTime?
+  installationProof Json?
+  currentArtwork   Json?
+  refundAmount     Int?
+  refundReference  String? @unique
+  refundedAt       DateTime?
+  artworkRequests  AdsArtworkRequest[]
+  stripeOrder      StripeOrder?
+
+  @@index([renewalOfId])
+
+  @@index([status])
+  @@index([viewerId, createdAt])
+  @@index([createdAt])
+  @@index([fulfillmentStage, dueAt])
+  @@map("ads_orders")
+}
+
+/// Shared staff inbox; customer requests never change payment/contract state.
+model AdsNotification {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       AdsOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  dedupeKey   String   @unique
+  kind        String
+  source      String   @default("SYSTEM")
+  title       String
+  message     String
+  status      String   @default("OPEN")
+  response    String   @default("")
+  readAt      DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  messages    AdsTicketMessage[]
+
+  @@index([status, readAt, createdAt])
+  @@index([orderId, createdAt])
+  @@map("ads_notifications")
+}
+
+model AdsTicketMessage {
+  id String @id @default(uuid())
+  ticketId String
+  ticket AdsNotification @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  requestId String @unique
+  role String
+  authorId String
+  message String
+  files Json
+  createdAt DateTime @default(now())
+  @@index([ticketId, createdAt])
+  @@map("ads_ticket_messages")
+}
+
+model AdsArtworkRequest {
+  id String @id @default(uuid())
+  orderId String
+  order AdsOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  requestId String @unique
+  slot String
+  fileId String
+  fileName String
+  targetUrl String
+  note String
+  status String @default("OPEN")
+  response String @default("")
+  proofUrl String?
+  revision Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([orderId, status])
+  @@map("ads_artwork_requests")
+}
+
+model CustomerNotice {
+  id String @id @default(uuid())
+  viewerId String
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  dedupeKey String @unique
+  title String
+  message String
+  href String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([viewerId, createdAt])
+  @@map("customer_notices")
+}
+
+model AccountAction {
+  id String @id @default(uuid())
+  viewerId String
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  purpose String
+  email String
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([viewerId, purpose, expiresAt])
+  @@map("account_actions")
+}
+
+model ServiceMail {
+  id String @id @default(uuid())
+  dedupeKey String @unique
+  payload Json
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leasedAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  sentAt DateTime?
+  @@index([status, availableAt])
+  @@map("service_mail")
+}
+
+model ServiceWorkerRun {
+  id String @id @default(uuid())
+  status String
+  details Json
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+  @@index([startedAt])
+  @@map("service_worker_runs")
+}
+
 /// Public service-page copy and pricing, independent of subscription entitlements.
 model ServicePageConfig {
   id        String   @id @default("default")
@@ -302,6 +463,7 @@ model TargetSite {
   lastCheckedAt    DateTime?    @map("last_checked_at")
   createdAt        DateTime     @default(now()) @map("created_at")
 
+  analytics              SiteAnalytics?
   distributions          Distribution[]
   actorSyncs             ActorSync[]
   syncJobs               SiteSyncJob[]
@@ -646,9 +808,19 @@ model WordpressPlugin {
 /// Never touches NextAuth/Role; sessions are opaque hashed-token cookies
 /// (see src/lib/viewer-auth.ts), not JWTs.
 model Viewer {
+  stripeOrders StripeOrder[]
+  websiteRequests WebsiteServiceRequest[]
+  emailVerifiedAt DateTime?
+  notices CustomerNotice[]
+  accountActions AccountAction[]
+  suspended    Boolean  @default(false)
+  staffNote    String   @default("")
+  adminRevision Int     @default(1)
   id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
+  email        String?  @unique
+  phone        String?  @unique
+  phoneVerifiedAt DateTime?
+  passwordHash String?  @map("password_hash")
   displayName  String   @map("display_name")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -656,8 +828,65 @@ model Viewer {
   sessions    ViewerSession[]
   reactions   MovieReaction[]
   watchLaters WatchLater[]
+  orders      AdsOrder[]
 
   @@map("viewers")
+}
+
+/// Sandbox payment ledger; never used to grant media access automatically.
+model StripeOrder {
+  id String @id @default(uuid())
+  requestId String @unique
+  requestHash String
+  viewerId String
+  viewer Viewer @relation(fields: [viewerId], references: [id], onDelete: Restrict)
+  kind String
+  sourceKey String @unique
+  bannerOrderId String? @unique
+  bannerOrder AdsOrder? @relation(fields: [bannerOrderId], references: [id], onDelete: Restrict)
+  title String
+  amountSatang Int
+  mode String
+  status String @default("DRAFT")
+  accountId String
+  customerId String?
+  remoteId String? @unique
+  paymentIntentId String?
+  url String?
+  invoicePdf String?
+  expiresAt DateTime?
+  startedAt DateTime?
+  paidAt DateTime?
+  lastCheckedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([viewerId, createdAt])
+  @@index([status, updatedAt])
+  @@map("stripe_orders")
+}
+
+model StripeEvent {
+  id String @id
+  type String
+  processedAt DateTime @default(now())
+  @@map("stripe_events")
+}
+
+model WebsiteServiceRequest {
+  id String @id @default(uuid())
+  requestId String @unique
+  requestHash String
+  viewerId String
+  viewer Viewer @relation(fields:[viewerId],references:[id],onDelete:Restrict)
+  details Json
+  quote Json
+  status String @default("REQUESTED")
+  staffNote String @default("")
+  revision Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([viewerId,createdAt])
+  @@index([status,createdAt])
 }
 
 /// One row per active login. The raw token is never stored — only its
@@ -879,4 +1108,18 @@ model ActorSync {
   @@id([actorId, siteId])
   @@unique([siteId, remoteId])
   @@map("actor_syncs")
+}
+
+/// Latest verified remote snapshots; failed fetches never replace successful data with zero.
+model SiteAnalytics {
+  siteId String @id @map("site_id")
+  snapshot Json?
+  search Json?
+  attemptedAt DateTime? @map("attempted_at")
+  syncedAt DateTime? @map("synced_at")
+  searchSyncedAt DateTime? @map("search_synced_at")
+  error String?
+  searchError String? @map("search_error")
+  site TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@map("site_analytics")
 }

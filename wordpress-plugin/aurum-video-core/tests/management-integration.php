@@ -31,7 +31,11 @@ try {
 	$profile = aurum_video_core_profile();
 	mgmt_check( 'video' === $test_profile ? 'video' === $profile['postType'] : 'post' === $profile['postType'], 'profile uses selected type' );
 	mgmt_check( 'posts' === aurum_video_core_profile( 'post' )['restBase'], 'built-in post REST base' );
-	if ( 'video' === $test_profile ) { mgmt_check( post_type_exists( 'video' ), 'video profile owns fallback CPT' ); }
+	mgmt_check( 'aurum-video-core' === get_post_type_object( 'aurum_actor' )->show_in_menu, 'actor management is grouped under AURUM' );
+	if ( 'video' === $test_profile ) {
+		mgmt_check( post_type_exists( 'video' ), 'video profile owns fallback CPT' );
+		mgmt_check( 'aurum-video-core' === get_post_type_object( 'video' )->show_in_menu, 'fallback video management is grouped under AURUM' );
+	}
 	$types = array( 'post' ); if ( post_type_exists( 'video' ) ) { $types[] = 'video'; }
 	foreach ( $types as $type ) {
 		$map = aurum_video_core_csv_taxonomies( $type );
@@ -106,12 +110,65 @@ try {
 		mgmt_check( false === strpos( wp_json_encode( $row ), 'do-not-log' ) && 'เนื้อหา' === $row['meta_description'], 'legacy playback block never leaks into CSV snapshot or description' );
 		mgmt_check( ! is_wp_error( aurum_video_core_csv_prepare( $row ) ), 'hashed body snapshot validates unchanged rich content' );
 	}
+	$export_taxonomy = aurum_video_core_csv_taxonomies( 'post' )['categories'];
+	$export_term     = wp_insert_term( 'AURUM export ' . wp_generate_uuid4(), $export_taxonomy );
+	mgmt_check( ! is_wp_error( $export_term ), 'export category fixture' );
+	$terms[] = array( $export_term['term_id'], $export_taxonomy );
+	$rich_id = wp_insert_post( array(
+		'post_type'    => 'post',
+		'post_status'  => 'publish',
+		'post_title'   => 'วิดีโอรายละเอียดครบถ้วน',
+		'post_content' => str_repeat( 'รายละเอียดที่มีประโยชน์และไม่ซ้ำกับชื่อเรื่อง ', 8 ),
+		'post_date'    => '2025-01-01 00:00:00',
+		'meta_input'   => array(
+			'aurum_movie_id'      => 'export-rich-' . wp_generate_uuid4(),
+			'aurum_video_url'     => 'https://example.com/rich.mp4',
+			'aurum_thumbnail_url' => 'https://example.com/rich.jpg',
+		),
+	), true );
+	$thin_id = wp_insert_post( array(
+		'post_type'    => 'post',
+		'post_status'  => 'pending',
+		'post_title'   => 'คลิปใหม่เนื้อหาบาง',
+		'post_content' => 'คำอธิบายสั้น',
+		'post_date'    => '2099-01-01 00:00:00',
+		'meta_input'   => array(
+			'aurum_movie_id'      => 'export-thin-' . wp_generate_uuid4(),
+			'aurum_video_url'     => 'https://example.com/thin.mp4',
+			'aurum_thumbnail_url' => 'https://example.com/thin.jpg',
+		),
+	), true );
+	mgmt_check( ! is_wp_error( $rich_id ) && ! is_wp_error( $thin_id ), 'export fixtures created' );
+	$ids[] = $rich_id; $ids[] = $thin_id;
+	wp_set_object_terms( $rich_id, array( (int) $export_term['term_id'] ), $export_taxonomy, false );
+	wp_set_object_terms( $thin_id, array( (int) $export_term['term_id'] ), $export_taxonomy, false );
+
+	$filters = aurum_video_core_csv_export_filters( array(
+		'export_type' => 'category', 'export_category' => $export_taxonomy . ':' . $export_term['term_id'],
+		'export_status' => array( 'publish' ), 'export_count' => 10, 'export_page' => 1,
+	) );
+	mgmt_check( ! is_wp_error( $filters ) && array( (int) $rich_id ) === aurum_video_core_csv_export_ids( $filters ), 'category and publish filters compose' );
+	$filters = aurum_video_core_csv_export_filters( array( 'export_type' => 'thin', 'export_status' => array( 'pending' ), 'export_count' => 500 ) );
+	$thin_results = aurum_video_core_csv_export_ids( $filters );
+	mgmt_check( in_array( (int) $thin_id, $thin_results, true ) && ! aurum_video_core_csv_is_thin_content( $rich_id ), 'thin filter includes short description and excludes complete fixture' );
+	mgmt_check( in_array( 'short_description', aurum_video_core_csv_quality_issues( $thin_id ), true ), 'thin filter exposes minimum-content reason' );
+	mgmt_check( aurum_video_core_csv_description_matches_title( 'ชื่อวิดีโอฉบับทดสอบเพิ่มเติม', 'ชื่อวิดีโอฉบับทดสอบเพิ่มเติม HD' ), 'near-title descriptions detected' );
+	$filters = aurum_video_core_csv_export_filters( array( 'export_type' => 'new', 'export_status' => array( 'pending' ), 'export_count' => 1 ) );
+	mgmt_check( ! is_wp_error( $filters ) && (int) $thin_id === aurum_video_core_csv_export_ids( $filters )[0], 'new-video filter returns latest selected status' );
+	mgmt_check( is_wp_error( aurum_video_core_csv_export_filters( array( 'export_type' => 'category', 'export_status' => array( 'publish' ), 'export_count' => 10 ) ) ), 'category filter requires category' );
+	mgmt_check( is_wp_error( aurum_video_core_csv_export_filters( array( 'export_type' => 'all', 'export_status' => array( 'private' ), 'export_count' => 10 ) ) ), 'unsupported status rejected' );
+	mgmt_check( is_wp_error( aurum_video_core_csv_export_filters( array( 'export_type' => 'all', 'export_status_present' => 1, 'export_count' => 10 ) ) ), 'empty status selection rejected' );
+	mgmt_check( is_wp_error( aurum_video_core_csv_export_filters( array( 'export_type' => 'all', 'export_status' => array( 'publish' ), 'export_count' => 501 ) ) ), 'export count remains bounded' );
 	$diagnostics = aurum_video_core_diagnostics()->get_data();
 	mgmt_check( true === $diagnostics['ready'] && 1 === $diagnostics['capabilities']['csvSchema'], 'diagnostics exposes management capability' );
 	mgmt_check( isset( $diagnostics['profiles']['post'] ), 'diagnostics exposes per-type profiles' );
 	foreach ( array( 'aurum_video_core_admin_overview', 'aurum_video_core_admin_videos', 'aurum_video_core_admin_profile', 'aurum_video_core_admin_history', 'aurum_video_core_admin_csv' ) as $callback ) {
 		ob_start(); $callback(); $html = ob_get_clean(); mgmt_check( false !== strpos( $html, 'aurum-core' ) && false === strpos( $html, 'do-not-log' ), 'admin page renders without credentials' );
 	}
+	ob_start(); aurum_video_core_admin_csv(); $csv_html = ob_get_clean();
+	mgmt_check( false !== strpos( $csv_html, 'name="export_type"' ) && false !== strpos( $csv_html, 'name="export_count"' ), 'CSV screen renders type and count controls' );
+	mgmt_check( false !== strpos( $csv_html, 'name="export_status[]"' ) && false !== strpos( $csv_html, 'วิดีโอที่เนื้อหาต่ำกว่าเกณฑ์' ), 'CSV screen renders status and thin-content controls' );
+	mgmt_check( false !== strpos( $csv_html, 'aurum-csv-steps' ) && false !== strpos( $csv_html, 'aurum-csv-drop' ), 'CSV screen renders minimal workflow and upload area' );
 	$token = wp_generate_password( 32, false, false ); $key = aurum_video_core_csv_stage_key( $token ); $keys[] = $key;
 	$row = aurum_video_core_csv_export_row( $ids[0] ); $row['title'] = 'บันทึกผ่านชุดงาน';
 	set_transient( $key, array( 'rows' => array( array( 'row' => $row, 'changes' => array( 'title' => $row['title'] ), 'status' => 'ready', 'message' => '' ) ),

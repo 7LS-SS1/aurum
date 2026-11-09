@@ -1,3 +1,5 @@
+import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
+import { AdminWorkspace } from "@/components/admin/AdminWorkspace";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { AdminComicMenu } from "@/components/admin/AdminComicMenu";
@@ -6,53 +8,55 @@ import { can } from "@/lib/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
-  const initial = session?.user?.name?.charAt(0) || session?.user?.email?.charAt(0) || "A";
+
   const role = session?.user?.role;
 
-  return (
-    <>
-      <header className="topbar">
-        <div className="tb-left">
-          <div className="logo">
-            <span className="mark">
-              <span>A</span>
-            </span>
-            <span className="word">AURUM</span>
-            <span className="admin-tag">ADMIN</span>
-          </div>
-        </div>
-        <div className="tb-spacer" />
-        <div className="env-pill">
-          <span className="dot" />
-          <span>{session?.user?.role ?? ""}</span>
-        </div>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/admin/login" });
-          }}
-        >
-          <button className="btn-ghost" style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13 }}>
-            ออกจากระบบ
-          </button>
-        </form>
-        <div className="avatar">{initial.toUpperCase()}</div>
-      </header>
+  if (!session?.user) return <main>{children}</main>;
 
-      <aside className="sidebar">
-        <div className="side-sec">
+  return (
+    <AdminWorkspace publicOrigin={process.env.PUBLIC_APP_ORIGIN} notifications={role && can(role, "service:manage") ? <AdminNotificationBell /> : null} name={session?.user?.name || "ทีมงาน"} role={role || "GUEST"} account={<form action={async()=>{"use server";await signOut({redirectTo:"/admin/login"});}}><button className="ui-button ui-button--quiet">ออกจากระบบ</button></form>} navigation={<>        <div className="side-sec">
           <div className="side-cat">Dashboard</div>
           <Link className="side-link" href="/admin">
-            Backend Dashboard
+            ภาพรวมระบบ
           </Link>
         </div>
         <AdminVideoMenu canCreate={Boolean(role && can(role, "movie:create"))} />
         <AdminComicMenu />
         {role && can(role, "service:manage") && (
-          <div className="side-sec"><div className="side-cat">เว็บไซต์</div><Link className="side-link" href="/admin/services">จัดการหน้าบริการ</Link></div>
+          <div className="side-sec"><div className="side-cat">ลูกค้า</div><Link className="side-link" href="/admin/members">สมาชิกและลูกค้า</Link></div>
+        )}
+        {role && can(role, "service:manage") && (
+          <>
+            <div className="side-sec">
+              <div className="side-cat">จัดการบริการ</div>
+              <Link className="side-link" href="/admin/services">จัดการหน้าบริการ</Link>
+              <Link className="side-link" href="/admin/ads-banner">Ads Banner และโปรโมชั่น</Link>
+            </div>
+            <div className="side-sec">
+              <div className="side-cat">คำขอและคำสั่งซื้อ</div>
+              <Link className="side-link" href="/admin/website-services">คำขอ Website API</Link>
+              <Link className="side-link" href="/admin/ads-orders">คำสั่งซื้อโฆษณา</Link>
+              <nav aria-label="สถานะคำสั่งซื้อโฆษณา" className="orders-subnav">
+                <Link href="/admin/ads-orders?group=pending">รอดำเนินการ</Link>
+                <Link href="/admin/ads-orders?group=approved">บริการที่อนุมัติแล้ว</Link>
+                <Link href="/admin/ads-orders?group=cancelled">ยกเลิก / ไม่อนุมัติ</Link>
+              </nav>
+            </div>
+            <div className="side-sec">
+              <div className="side-cat">การชำระเงิน</div>
+              <Link className="side-link" href="/admin/payments">การชำระเงิน Stripe</Link>
+            </div>
+            <div className="side-sec">
+              <div className="side-cat">ติดตามงานและแจ้งเตือน</div>
+              <Link className="side-link" href="/admin/upcoming">เครื่องมือธุรกิจ · เร็ว ๆ นี้</Link>
+              <Link className="side-link" href="/admin/service-operations">ศูนย์ปฏิบัติการบริการ</Link>
+              <Link className="side-link" href="/admin/notifications">ศูนย์แจ้งเตือน</Link>
+            </div>
+          </>
         )}
         <div className="side-sec">
           <div className="side-cat">ระบบกระจายเนื้อหา</div>
+          {role && can(role, "service:manage") && <Link className="side-link" href="/admin/analytics">สถิติเครือข่ายเว็บไซต์</Link>}
           <Link className="side-link" href="/admin/sites">
             เว็บปลายทาง
           </Link>
@@ -82,9 +86,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
           </div>
         )}
-      </aside>
 
-      <main className="main">{children}</main>
-    </>
+    </>}>{children}</AdminWorkspace>
   );
 }

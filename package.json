@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:payments:demo": "node scripts/dev-payment-simulation.mjs",
     "build": "cross-env NODE_ENV=production next build && node scripts/prepare-standalone.mjs",
     "start": "node scripts/start-standalone.mjs",
     "lint": "eslint .",
@@ -29,11 +30,19 @@
     "admin:check-http-login": "tsx scripts/check-admin-http-login.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "services:worker": "node scripts/service-worker.mjs",
+    "release:preflight": "node scripts/release-preflight.mjs",
+    "services:storage-audit": "tsx scripts/audit-ads-storage.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.687.0",
     "@aws-sdk/s3-request-presigner": "^3.687.0",
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.5.0",
+    "@mui/material-nextjs": "^9.5.0",
     "@prisma/client": "^6.1.0",
     "archiver": "^8.0.0",
     "bcryptjs": "^2.4.3",
@@ -46,6 +55,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "redis": "^6.2.0",
+    "sharp": "^0.35.5",
+    "stripe": "23.1.0",
     "tus-js-client": "^4.3.1",
     "zod": "^4.6.7"
   },
@@ -69,6 +80,7 @@
     "vitest": "^4.1.12"
   },
   "overrides": {
+    "ip": "npm:@webpod/ip@0.6.1",
     "sharp": "^0.35.5",
     "deepmerge-ts": "^8.0.0",
     "postcss": "^8.5.23",

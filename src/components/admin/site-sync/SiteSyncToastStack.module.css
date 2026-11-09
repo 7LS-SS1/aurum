@@ -1,0 +1,44 @@
+.stack {
+  display: grid;
+  gap: 0;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  isolation: isolate;
+}
+.card {
+  grid-area: 1 / 1;
+  position: relative;
+  min-width: 0;
+  align-self: end;
+  padding-bottom: 18px;
+  overflow: hidden;
+  max-height: min(60dvh, 420px);
+  overflow-y: auto;
+  animation: none;
+  transform-origin: bottom center;
+  transition: transform .2s ease, opacity .2s ease;
+  z-index: 3;
+}
+.card[data-depth="1"] {
+  transform: translateY(-12px) scale(.96);
+  z-index: 2;
+  pointer-events: none;
+}
+.card[data-depth="2"] {
+  transform: translateY(-24px) scale(.92);
+  z-index: 1;
+  pointer-events: none;
+}
+.card[data-depth="1"] > *, .card[data-depth="2"] > * { visibility: hidden; }
+.count {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 32px);
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--bg-2);
+  color: var(--muted);
+  font-size: 12px;
+}
+.timeout { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #ffffff12; }
+.timeout > div { height: 100%; background: var(--gold-bright, #e5c14b); transform-origin: left; }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }

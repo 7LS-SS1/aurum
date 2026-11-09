@@ -94,6 +94,7 @@ export function VideoCatalog({
           </div>
         </div>
 
+        <section className="catalog-intro"><div><p>AURUM COLLECTION</p><h1>{query ? "ผลการค้นหา" : category || (basePath === "/videos" ? "วิดีโอทั้งหมด" : "ค้นพบคอนเทนต์ที่คุณสนใจ")}</h1><span>สำรวจรายการ บันทึกไว้ดูภายหลัง และจัดการบริการผ่านบัญชีสมาชิก</span></div><Link href="/account" className="catalog-account-link">บัญชีของฉัน ↗</Link></section>
         {(category || query) && (
           <div className="public-results-head">
             <div>

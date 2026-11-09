@@ -6,8 +6,22 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 function aurum_actor_sync_register() {
 	register_post_type( 'aurum_actor', array(
-		'labels' => array( 'name' => 'AURUM Actors', 'singular_name' => 'AURUM Actor' ),
+		'labels' => array(
+			'name'               => 'นักแสดง AURUM',
+			'singular_name'      => 'นักแสดง AURUM',
+			'menu_name'          => 'นักแสดง',
+			'all_items'          => 'นักแสดงทั้งหมด',
+			'add_new'            => 'เพิ่มนักแสดง',
+			'add_new_item'       => 'เพิ่มนักแสดง AURUM',
+			'edit_item'          => 'แก้ไขข้อมูลนักแสดง',
+			'new_item'           => 'นักแสดงใหม่',
+			'view_item'          => 'ดูข้อมูลนักแสดง',
+			'search_items'       => 'ค้นหานักแสดง',
+			'not_found'          => 'ไม่พบนักแสดง',
+			'not_found_in_trash' => 'ไม่พบนักแสดงในถังขยะ',
+		),
 		'public' => true, 'show_in_rest' => false, 'rewrite' => false,
+		'show_in_menu' => 'aurum-video-core',
 		'supports' => array( 'title', 'editor' ), 'capability_type' => 'post',
 		'map_meta_cap' => true,
 	) );

@@ -16,10 +16,9 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
-FROM node:24-slim AS builder
+FROM deps AS builder
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
-COPY --from=deps /app/node_modules ./node_modules
+# Reuse the installed dependency layer directly instead of copying its full tree.
 COPY . .
 # Forced regardless of any ambient NODE_ENV build arg/env a host might inject
 # (e.g. a platform defaulting build-time vars to "development") — `next build`
@@ -59,6 +58,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/scripts/service-worker.mjs ./scripts/service-worker.mjs
+COPY --from=builder /app/scripts/site-analytics-worker.mjs ./scripts/site-analytics-worker.mjs
+COPY --from=builder /app/scripts/release-preflight.mjs ./scripts/release-preflight.mjs
 
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh && chown nextjs:nodejs docker-entrypoint.sh

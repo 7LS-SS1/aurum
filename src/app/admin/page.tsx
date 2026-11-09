@@ -1,4 +1,6 @@
+import { SiteAnalyticsPanel } from "@/components/admin/SiteAnalyticsPanel";
 import Link from "next/link";
+import { AdminTools } from "@/components/admin/AdminTools";
 import { auth } from "@/auth";
 import { can } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -100,11 +102,10 @@ export default async function AdminDashboardPage() {
 
   return (
     <section>
+      {session?.user && <AdminTools role={session.user.role} name={session.user.name || "ทีมงาน"} />}
       <div className="page-head">
-        <h1>
-          <span className="g">Backend Dashboard</span>
-        </h1>
-        <p>ภาพรวมระบบหลังบ้าน วิดีโอ การเผยแพร่ WordPress และ media player</p>
+        <h2>สถานะการทำงานของระบบ</h2>
+        <p>ติดตามเนื้อหา คิวตรวจสอบ และการเผยแพร่ไปยังเว็บไซต์</p>
       </div>
 
       <div className="dash-grid">
@@ -189,6 +190,7 @@ export default async function AdminDashboardPage() {
           </tbody>
         </table>
       </div>
+      {session?.user && can(session.user.role, "service:manage") && <SiteAnalyticsPanel compact/>}
     </section>
   );
 }

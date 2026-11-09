@@ -1,4 +1,4 @@
-/** Validate destination capabilities without rewriting saved site settings. */
+/** Validate destination capabilities and expose the profile selected in WordPress. */
 export interface WordPressIntegrationHealth {
   ready: boolean;
   version: string;
@@ -17,28 +17,39 @@ export function assessWordPressIntegration(
   const issues: string[] = [];
   if (!data.ready) issues.push("ปลั๊กอินยังลงทะเบียนข้อมูลวิดีโอไม่ครบ");
   let profile: WordPressIntegrationHealth["profile"] = null;
+
+  const readProfile = (value: unknown, internalType?: string) => {
+    if (!value || typeof value !== "object") throw new Error("wordpress_diagnostics_invalid");
+    const item = value as Record<string, unknown>;
+    if (typeof item.restBase !== "string" || typeof item.ready !== "boolean" || !item.taxonomies ||
+        typeof item.taxonomies !== "object") throw new Error("wordpress_diagnostics_invalid");
+    const taxonomies = item.taxonomies as Record<string, unknown>;
+    const category = taxonomies.category as Record<string, unknown> | undefined;
+    const tag = taxonomies.tag as Record<string, unknown> | undefined;
+    if (!category || !tag || typeof category.restBase !== "string" || typeof tag.restBase !== "string") {
+      throw new Error("wordpress_diagnostics_invalid");
+    }
+    return {
+      internalType: typeof item.postType === "string" ? item.postType : internalType,
+      ready: item.ready,
+      postType: item.restBase,
+      categoryRestBase: category.restBase,
+      tagRestBase: tag.restBase,
+    };
+  };
+
   if (data.profiles !== undefined) {
     if (!data.profiles || typeof data.profiles !== "object") throw new Error("wordpress_diagnostics_invalid");
-    const profiles = Object.entries(data.profiles as Record<string, unknown>).map(([type, value]) => {
-      if (!value || typeof value !== "object") throw new Error("wordpress_diagnostics_invalid");
-      const item = value as Record<string, unknown>;
-      if (typeof item.restBase !== "string" || typeof item.ready !== "boolean" || !item.taxonomies ||
-          typeof item.taxonomies !== "object") throw new Error("wordpress_diagnostics_invalid");
-      const taxonomies = item.taxonomies as Record<string, unknown>;
-      const category = taxonomies.category as Record<string, unknown> | undefined;
-      const tag = taxonomies.tag as Record<string, unknown> | undefined;
-      if (!category || !tag || typeof category.restBase !== "string" || typeof tag.restBase !== "string") {
-        throw new Error("wordpress_diagnostics_invalid");
-      }
-      return { type, ready: item.ready, restBase: item.restBase, category: category.restBase, tag: tag.restBase };
-    });
-    const selected = profiles.find((item) => item.restBase === configured.postType);
-    if (!selected) issues.push("ชนิดโพสต์ที่ตั้งใน Project ไม่ตรงกับเว็บไซต์ปลายทาง");
+    const profiles = Object.entries(data.profiles as Record<string, unknown>).map(([type, value]) => readProfile(value, type));
+    const active = data.profile !== undefined
+      ? readProfile(data.profile)
+      : profiles.find((item) => item.postType === configured.postType);
+    if (!active) issues.push("เว็บไซต์ยังไม่ได้เลือกรูปแบบวิดีโอ");
     else {
-      profile = { postType: selected.restBase, categoryRestBase: selected.category, tagRestBase: selected.tag };
-      if (!selected.ready || !data.postTypes.includes(selected.type)) issues.push("โปรไฟล์เว็บไซต์ยังไม่พร้อมรับข้อมูล");
-      if (selected.category !== configured.categoryRestBase) issues.push("หมวดหมู่ที่ตั้งใน Project ไม่ตรงกับเว็บไซต์ปลายทาง");
-      if (selected.tag !== configured.tagRestBase) issues.push("แท็กที่ตั้งใน Project ไม่ตรงกับเว็บไซต์ปลายทาง");
+      profile = { postType: active.postType, categoryRestBase: active.categoryRestBase, tagRestBase: active.tagRestBase };
+      if (!active.ready || !active.internalType || !data.postTypes.includes(active.internalType)) {
+        issues.push("รูปแบบวิดีโอใน AURUM Core ยังไม่พร้อมใช้งาน");
+      }
     }
   } else {
     // Pre-1.3 plugins expose internal post types without REST bases.

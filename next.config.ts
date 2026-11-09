@@ -15,6 +15,9 @@ const bunnyHost = hostnameOf(process.env.BUNNY_CDN_HOST);
 const remoteHosts = [r2Host, bunnyHost].filter((h): h is string => Boolean(h));
 
 const nextConfig: NextConfig = {
+  // Separate local UI previews from an already running standalone build.
+  ...(process.env.AURUM_RELEASE_REVIEW === "true" ? { distDir: ".next-release-review" } :
+    process.env.AURUM_PREVIEW_BUILD === "true" ? { distDir: ".next-ui-preview" } : {}),
   reactStrictMode: true,
   poweredByHeader: false,
   // Self-contained runtime bundle (.next/standalone) — keeps the Docker image

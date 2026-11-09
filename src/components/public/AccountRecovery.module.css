@@ -1,0 +1,7 @@
+.root { max-width: 540px; margin: 48px auto; padding: 32px; }
+.root h1 { margin: 0 0 20px; font-size: clamp(24px, 4vw, 32px); }
+.root p { line-height: 1.8; color: var(--muted, #aaa); }
+.root form { display: grid; gap: 20px; margin: 24px 0; }
+.root label { display: grid; gap: 10px; }
+.root input { width: 100%; min-width: 0; }
+@media(max-width:600px) { .root { margin: 24px 16px; padding: 24px; } }

@@ -12,6 +12,8 @@ legacy
 .claude
 prisma/dev.db
 backups
+artifacts
+.local-ads-uploads
 dist
 Claude outputs
 .next-*

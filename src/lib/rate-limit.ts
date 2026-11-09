@@ -19,7 +19,9 @@ function inMemoryLimit(key: string, limit: number, windowMs: number): RateLimitR
   const now = Date.now();
   const windowStart = now - windowMs;
   const hits = (buckets.get(key) ?? []).filter((t) => t > windowStart);
-  hits.push(now);
+  // Rejected requests must not allocate another timestamp or extend the lockout.
+  const success = hits.length < limit;
+  if (success) hits.push(now);
   buckets.set(key, hits);
 
   // Bound memory: drop the oldest bucket occasionally instead of growing forever.
@@ -29,10 +31,10 @@ function inMemoryLimit(key: string, limit: number, windowMs: number): RateLimitR
   }
 
   return {
-    success: hits.length <= limit,
+    success,
     limit,
     remaining: Math.max(0, limit - hits.length),
-    resetMs: windowStart + windowMs,
+    resetMs: (hits[0] ?? now) + windowMs,
   };
 }
 
@@ -89,7 +91,7 @@ export async function rateLimit(
   if (client) {
     try {
       return await client.limit(identifier, { limit, windowMs });
-    } catch (err) {
+    } catch {
       // Configured but unreachable/unauthorized (bad token, network outage,
       // etc.) — a broken Redis credential must never take down every
       // rate-limited route (including login) for the whole app. Log once,
@@ -97,7 +99,7 @@ export async function rateLimit(
       // keep round-tripping to a Redis that's already known to be failing; a
       // redeploy with a fixed token clears this via a fresh process.
       if (upstash !== null) {
-        console.error("[rate-limit] Upstash request failed — falling back to in-memory limiter for this process:", err);
+        console.error("[rate-limit] Upstash request failed — falling back to in-memory limiter for this process");
         upstash = null;
       }
       return inMemoryLimit(identifier, limit, windowMs);

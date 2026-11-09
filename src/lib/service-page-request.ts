@@ -5,7 +5,19 @@ export function servicePageOriginAllowed(origin: string | null, requestUrl: stri
   try {
     // Trust operator configuration, never client-controlled forwarded headers.
     const expected = new URL(configuredUrl || requestUrl);
-    return ["http:", "https:"].includes(expected.protocol) && origin === expected.origin;
+    if (!["http:", "https:"].includes(expected.protocol) || expected.username || expected.password) return false;
+    if (origin === expected.origin) return true;
+    // The public app and management host share the same API deployment. Only
+    // explicitly configured HTTPS origins qualify during the host cutover.
+    if (process.env.MANAGEMENT_HOST_ENABLED !== "true") return false;
+    return [process.env.MANAGEMENT_APP_ORIGIN, process.env.PUBLIC_APP_ORIGIN].some(value => {
+      if (!value) return false;
+      try {
+        const allowed = new URL(value);
+        return allowed.protocol === "https:" && !allowed.username && !allowed.password &&
+          allowed.pathname === "/" && !allowed.search && !allowed.hash && origin === allowed.origin;
+      } catch { return false; }
+    });
   } catch { return false; }
 }
 

@@ -516,6 +516,24 @@ describe("distributeToSite", () => {
 });
 
 describe("distributeMovie", () => {
+  it("does not escalate a video-only retry into overwriting remote editorial content", async () => {
+    movieFindUnique.mockResolvedValue(fakeMovie());
+    targetSiteFindMany.mockResolvedValue([fakeSite()]);
+    distributionUpsert.mockResolvedValue({ remotePostId: "48" });
+    pingMock.mockRejectedValueOnce(Object.assign(new Error("temporary database outage"), { status: 500 }));
+    const remote = { id: 48, link: "https://wp.example.com/48", status: "publish", slug: "edited",
+      title: "Remote editorial", content: "Keep this content", excerpt: "Keep excerpt", categories: [], tags: [], featuredMedia: 0,
+      meta: { aurum_movie_id: "m1" } };
+    getPostMock.mockResolvedValue(remote);
+    verifyVideoMetaMock.mockResolvedValue(remote);
+    updatePostMock.mockResolvedValue(remote);
+    const result = await distributeMovie("m1", ["s1"], "video_only");
+    expect(result.status).toBe("done");
+    expect(updatePostMock).toHaveBeenCalledTimes(1);
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("title");
+    expect(updatePostMock.mock.calls[0]?.[1]).not.toHaveProperty("content");
+    expect(createPostMock).not.toHaveBeenCalled();
+  });
   it("throws when the movie doesn't exist", async () => {
     movieFindUnique.mockResolvedValue(null);
     await expect(distributeMovie("missing", ["s1"])).rejects.toThrow("Movie not found");

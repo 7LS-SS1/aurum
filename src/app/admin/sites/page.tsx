@@ -42,7 +42,7 @@ export default async function SitesPage() {
         <h1>
           <span className="g">เว็บปลายทาง</span>
         </h1>
-        <p>จัดการเว็บ WordPress ปลายทางสำหรับทั้งวิดีโอและ Doujin/Comic ในที่เดียว — เลือกประเภทเนื้อหาตอนเพิ่มเว็บใหม่ กุญแจ (Application Password / JWT) ถูกเข้ารหัส AES-256-GCM ก่อนบันทึก</p>
+        <p>ดูสถานะการเชื่อมต่อ เลือกประเภทเนื้อหา และจัดการการเผยแพร่ไปยังเว็บไซต์ WordPress ของคุณ</p>
       </div>
       <TargetSitesManager
         initialVideoSites={JSON.parse(JSON.stringify(videoSites))}

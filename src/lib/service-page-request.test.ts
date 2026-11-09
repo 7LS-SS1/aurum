@@ -1,7 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readServicePageBody, servicePageOriginAllowed } from "./service-page-request";
 
 describe("service page request boundary", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("allows only configured management/public origins when host cutover is enabled", () => {
+    vi.stubEnv("MANAGEMENT_APP_ORIGIN", "https://system-management.aurum.example");
+    vi.stubEnv("PUBLIC_APP_ORIGIN", "https://aurum.example");
+    const check = (origin: string) => servicePageOriginAllowed(origin, "http://localhost:3000/api/members", "https://aurum.example");
+    vi.stubEnv("MANAGEMENT_HOST_ENABLED", "false");
+    expect(check("https://system-management.aurum.example")).toBe(false);
+    vi.stubEnv("MANAGEMENT_HOST_ENABLED", "true");
+    expect(check("https://system-management.aurum.example")).toBe(true);
+    expect(check("https://aurum.example")).toBe(true);
+    expect(check("https://evil.example")).toBe(false);
+    expect(check("https://system-management.aurum.example.evil.test")).toBe(false);
+    vi.stubEnv("MANAGEMENT_APP_ORIGIN", "https://system-management.aurum.example/unexpected");
+    expect(check("https://system-management.aurum.example")).toBe(false);
+  });
   it("accepts configured HTTPS origin behind an internal HTTP proxy", () => {
     expect(servicePageOriginAllowed("https://aurum.example", "http://localhost:3000/api/services", "https://aurum.example")).toBe(true);
     expect(servicePageOriginAllowed("https://evil.example", "http://localhost:3000/api/services", "https://aurum.example")).toBe(false);

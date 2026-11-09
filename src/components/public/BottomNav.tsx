@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
+  { href: "/account", label: "บัญชี", icon: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></> },
   {
     href: "/",
     label: "หน้าแรก",
@@ -35,9 +36,9 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" aria-label="เมนูมือถือ">
       {ITEMS.map((item) => (
-        <Link key={item.href} className={`bn-item ${pathname === item.href ? "active" : ""}`} href={item.href}>
+        <Link key={item.href} aria-current={pathname === item.href ? "page" : undefined} className={`bn-item ${pathname === item.href ? "active" : ""}`} href={item.href}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             {item.icon}
           </svg>

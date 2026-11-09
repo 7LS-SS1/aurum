@@ -3,6 +3,8 @@ node_modules/
 
 # next.js
 .next/
+.next-ui-preview/
+.next-release-review/
 out/
 build/
 
@@ -21,6 +23,7 @@ backups/
 next-env.d.ts
 
 # prisma
+.local-ads-uploads/
 prisma/dev.db
 
 # IDE

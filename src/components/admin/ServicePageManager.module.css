@@ -11,7 +11,16 @@
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px; margin-top: 20px; }
 .card { padding: 18px; background: var(--bg-2); border-radius: 10px; }
 .field { display: grid; gap: 8px; margin: 18px 0; font-size: 13px; line-height: 1.7; }
-.field input, .field textarea { width: 100%; min-width: 0; border: 1px solid var(--field-line); border-radius: 6px; background: var(--field); color: var(--text); padding: 12px; font: inherit; }
+.field input, .field textarea, .field select { width: 100%; min-width: 0; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background-color: var(--ui-field); color: var(--ui-text); padding: 12px 14px; font: inherit; min-height: var(--ui-control-height); }
+.field select { padding-right:40px; }
+.section { background:linear-gradient(135deg,#191d18,#131612); }
+.section form { margin-top:24px; }
+.section form fieldset { padding:24px; background:#10150f; border-color:#3d4635; }
+.section ul { padding-left:20px; line-height:1.9; margin:16px 0; }
+.section h4 { font-size:14px; color:var(--ui-accent); margin:20px 0 10px; }
+.section a { color:var(--ui-accent); text-underline-offset:4px; }
+.section a:hover { text-decoration:underline; }
+.section p { overflow-wrap:anywhere; }
 .field textarea { resize: vertical; }
 .notice { padding: 18px; border: 1px solid var(--gold); margin-bottom: 20px; border-radius: 8px; line-height: 1.8; }
 .copyGroup { border-top: 1px solid var(--line); padding: 20px 0; }

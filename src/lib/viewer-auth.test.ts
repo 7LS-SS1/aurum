@@ -6,9 +6,11 @@ const viewerSessionFindUnique = vi.fn();
 const viewerSessionUpdate = vi.fn();
 const viewerSessionDeleteMany = vi.fn();
 const cookiesMock = vi.fn();
+const viewerFindUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    viewer: { findUnique: viewerFindUnique },
     viewerSession: {
       create: viewerSessionCreate,
       findUnique: viewerSessionFindUnique,
@@ -36,6 +38,13 @@ const {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  viewerFindUnique.mockResolvedValue({ suspended: false });
+});
+
+it("refuses to create sessions for suspended members", async () => {
+  viewerFindUnique.mockResolvedValue({ suspended: true });
+  await expect(createViewerSession("blocked", new Request("http://localhost"))).rejects.toThrow("account_unavailable");
+  expect(viewerSessionCreate).not.toHaveBeenCalled();
 });
 
 describe("hashToken", () => {
@@ -123,7 +132,7 @@ describe("getViewerFromRequest", () => {
     expect(await getViewerFromRequest(req)).toEqual({ id: "v1", email: "a@b.com", displayName: "A" });
   });
 
-  it("refreshes the expiry (sliding session) when under the 15-day threshold", async () => {
+  it("does not extend the database expiry beyond the issued browser cookie", async () => {
     viewerSessionUpdate.mockResolvedValue({});
     viewerSessionFindUnique.mockResolvedValue({
       expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days left, under 15-day threshold
@@ -131,7 +140,7 @@ describe("getViewerFromRequest", () => {
     });
     const req = new NextRequest("http://x", { headers: { cookie: `${VIEWER_COOKIE_NAME}=goodtoken` } });
     await getViewerFromRequest(req);
-    expect(viewerSessionUpdate).toHaveBeenCalled();
+    expect(viewerSessionUpdate).not.toHaveBeenCalled();
   });
 });
 

@@ -1,3 +1,5 @@
+import { Card, Button } from "@mui/material";
+import { RegisteredSiteShowcase } from "@/components/services/RegisteredSiteShowcase";
 import type { Metadata } from "next";
 import Link from "next/link";
 import styles from "./services.module.css";
@@ -19,7 +21,7 @@ function Contact({ children, telegram }: { children: React.ReactNode; telegram: 
 
 export default async function ServicesPage() {
   const { config } = await getServicePage();
-  return <ServicesContent config={config} />;
+  return <><ServicesContent config={config} /><RegisteredSiteShowcase /></>;
 }
 
 function ServicesContent({ config }: { config: ServicePageConfig }) {
@@ -27,11 +29,6 @@ function ServicesContent({ config }: { config: ServicePageConfig }) {
   const text = (key: keyof ServicePageConfig["copy"]) => renderServiceText(config.copy[key], contractMonths);
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <Link href="/" className={styles.logo} aria-label="AURUM หน้าแรก">AURUM<span>WEBSITE SERVICES</span></Link>
-        <nav aria-label="เมนูบริการ"><a href="#packages">แพ็กเกจ</a><a href="#ads">ระบบโฆษณา</a><a href="#terms">เงื่อนไข</a></nav>
-        <a className={styles.contactLink} href={telegram} target="_blank" rel="noopener noreferrer">ติดต่อเจ้าหน้าที่ ↗</a>
-      </header>
       <main>
         <section className={styles.hero}>
           <p className={styles.eyebrow}>{text("text1")}</p>
@@ -46,15 +43,15 @@ function ServicesContent({ config }: { config: ServicePageConfig }) {
           <h2>{text("text6")}</h2>
           <p className={styles.muted}>{text("text7")}</p>
           <div className={styles.grid}>
-            {plans.map((plan, index) => plan.enabled && <article key={index} className={`${styles.card} ${index === 2 ? styles.featured : ""}`}>
+            {plans.map((plan, index) => plan.enabled && <Card component="article" key={index} className={`${styles.card} ${index === 2 ? styles.featured : ""}`}>
               <p className={styles.tag}>{index === 2 ? "ครบทั้งสองบริการ" : "เลือกหนึ่งประเภทคอนเทนต์"}</p>
               <h3>{plan.name}</h3><p className={styles.muted}>{plan.intro}</p>
               <p className={styles.price}>{money(plan.first)}<span>บาท / เดือนแรก</span></p>
               <div className={styles.renewal}><strong>เดือนถัดไป {money(plan.monthly + hosting)} บาท/เดือน</strong><p>ค่าบริการ {money(plan.monthly)} + โฮสติ้ง {money(hosting)} บาท</p><p>ใช้โฮสติ้งของคุณเอง: {money(plan.monthly)} บาท/เดือน</p></div>
               <ul><li>{text("text8")}</li><li>รับชมคอนเทนต์ {plan.name} ระหว่างที่มีสิทธิ์ตามสัญญา</li><li>{text("text9")}</li><li>{text("text10")}</li></ul>
-              <Contact telegram={telegram}>สอบถามแพ็กเกจ {plan.name}</Contact>
+              <Button component={Link} variant="contained" href="/account/website-services">ส่งคำขอผ่านบัญชีสมาชิก →</Button><Contact telegram={telegram}>สอบถามแพ็กเกจ {plan.name}</Contact>
               <p className={styles.small}>{text("text11")}</p>
-            </article>)}
+            </Card>)}
           </div>
           <div className={styles.promo}><div><p className={styles.eyebrow}>WELCOME OFFER</p><h3>{text("text12")}</h3></div><ul><li>{text("text13")}</li><li>{text("text14")}</li><li>{text("text15")}</li></ul><p className={styles.small}>{text("text16")}</p></div>
         </section>
@@ -62,7 +59,7 @@ function ServicesContent({ config }: { config: ServicePageConfig }) {
         <section id="ads" className={styles.section}>
           <p className={styles.eyebrow}>02 / OPTIONAL ADS SYSTEM</p><h2>{text("text17")}</h2>
           <p className={styles.muted}>{text("text18")}</p>
-          <div className={styles.twoColumns}>{config.ads.map((ad, index) => ad.enabled && <article className={styles.card} key={index}><h3>{ad.name}</h3><p className={styles.muted}>{ad.text}</p><p className={styles.price}>{money(ad.first)}<span>บาท / เดือนแรก</span></p><p>เดือนถัดไป <strong>{money(ad.monthly)} บาท/เดือน</strong></p><p className={styles.small}>{text("text19")}</p><Contact telegram={telegram}>สอบถามบริการโฆษณา</Contact></article>)}</div>
+          <div className={styles.twoColumns}>{config.ads.map((ad, index) => ad.enabled && <Card component="article" className={styles.card} key={index}><h3>{ad.name}</h3><p className={styles.muted}>{ad.text}</p><p className={styles.price}>{money(ad.first)}<span>บาท / เดือนแรก</span></p><p>เดือนถัดไป <strong>{money(ad.monthly)} บาท/เดือน</strong></p><p className={styles.small}>{text("text19")}</p><Contact telegram={telegram}>สอบถามบริการโฆษณา</Contact></Card>)}</div>
           <p className={styles.notice}>{text("text20")}</p>
         </section>
 
@@ -79,7 +76,7 @@ function ServicesContent({ config }: { config: ServicePageConfig }) {
         </section>
         <section className={styles.closing}><p className={styles.eyebrow}>LET’S START YOUR WEBSITE</p><h2>{text("text32")}</h2><p>{text("text33")}</p><Contact telegram={telegram}>ติดต่อเจ้าหน้าที่ผ่าน Telegram</Contact></section>
       </main>
-      <footer className={styles.footer}><Link href="/">AURUM · กลับหน้าแรก</Link><span>{text("text34")}</span></footer>
+      <p className={styles.footer}>{text("text34")}</p>
     </div>
   );
 }

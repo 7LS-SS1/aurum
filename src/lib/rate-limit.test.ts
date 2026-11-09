@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 process.env.DATABASE_URL ??= "postgres://user:pass@localhost:5432/db";
 process.env.AUTH_SECRET ??= "a".repeat(32);
@@ -9,6 +9,23 @@ process.env.UPSTASH_REDIS_REST_TOKEN = "";
 const { rateLimit, clientIp } = await import("./rate-limit");
 
 describe("rateLimit (in-memory fallback, no Upstash configured)", () => {
+  it("reports a future reset and does not extend lockout on rejected traffic", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-11-09T00:00:00Z"));
+      const key = "test:reset:" + Math.random();
+      const first = await rateLimit(key, { limit: 1, windowMs: 1000 });
+      expect(first.resetMs).toBe(Date.now() + 1000);
+      vi.advanceTimersByTime(900);
+      for (let n = 0; n < 100; n++) {
+        const rejected = await rateLimit(key, { limit: 1, windowMs: 1000 });
+        expect(rejected.success).toBe(false);
+        expect(rejected.resetMs).toBe(first.resetMs);
+      }
+      vi.advanceTimersByTime(100);
+      expect((await rateLimit(key, { limit: 1, windowMs: 1000 })).success).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
   it("allows requests up to the limit", async () => {
     const key = "test:allow:" + Math.random();
     const r1 = await rateLimit(key, { limit: 2, windowMs: 60_000 });

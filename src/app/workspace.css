@@ -1,0 +1,14 @@
+:root{--bg:#101114;--bg-2:#191b20;--bg-3:#23262d;--gold:#e5c477;--gold-bright:#f3d697;--muted:#a8adb8;--field:#13151a;--line:rgba(230,226,211,.12)}
+.workspace-skip{position:fixed;left:16px;top:-100px;z-index:1600;background:#e5c477;color:#17140d;padding:12px;border-radius:8px}.workspace-skip:focus{top:12px}
+.aurum-workspace{--bg:#101114;--bg-2:#191b20;--bg-3:#23262d;--gold:#e5c477;--gold-bright:#f3d697;--muted:#a8adb8;--field-bg:#13151a;--line:rgba(230,226,211,.12)}
+.aurum-workspace h1{letter-spacing:-.035em}.aurum-workspace h2{letter-spacing:-.015em}
+.aurum-workspace main{min-width:0}.aurum-workspace img{max-width:100%}
+.aurum-workspace :is(input,select,textarea):not(.MuiInputBase-input){background:#13151a;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px;font:inherit;max-width:100%}
+.aurum-workspace :is(input,select,textarea):focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.aurum-workspace :is(button,a):focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.aurum-workspace .MuiInputBase-input{border:0;border-radius:0;box-shadow:none;min-height:0;background:transparent}
+@media(prefers-reduced-motion:reduce){.aurum-workspace *{scroll-behavior:auto!important;transition:none!important}}
+
+.member-menu-name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:600px){.member-menu-name{display:none}}
+
+.aurum-workspace *{scrollbar-width:thin;scrollbar-color:#7f7049 transparent}.aurum-workspace *::-webkit-scrollbar{width:7px;height:7px}.aurum-workspace *::-webkit-scrollbar-thumb{background:#7f7049;border-radius:12px}.aurum-workspace *::-webkit-scrollbar-track{background:transparent}

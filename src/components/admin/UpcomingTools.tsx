@@ -1,0 +1,10 @@
+"use client";
+import { useState } from "react";
+import { Alert, Box, Button, Card, CardContent, Chip, MenuItem, Stack, Tab, Tabs, TextField, Typography } from "@mui/material";
+const modules = [
+ {label:"ศูนย์ช่วยเหลือลูกค้า",description:"จัดลำดับคำขอและมอบหมายเจ้าหน้าที่ดูแลลูกค้า",fields:["หัวข้อคำขอ","อีเมลลูกค้า","รายละเอียดปัญหา"]},
+ {label:"ใบเสนอราคาและเอกสาร",description:"เตรียมข้อมูลเอกสารสำหรับบริการและติดตามการอนุมัติ",fields:["ชื่อเอกสาร","ชื่อลูกค้า / บริษัท","รายละเอียดบริการ"]},
+ {label:"โดเมนและโฮสติ้ง",description:"จัดการข้อมูลเจ้าของโดเมนและติดตามวันต่ออายุ",fields:["ชื่อโดเมน","ผู้ให้บริการโฮสติ้ง","หมายเหตุการต่ออายุ"]},
+ {label:"รายงานธุรกิจ",description:"เลือกช่วงเวลาและรูปแบบรายงานสำหรับทีมงาน",fields:["ชื่อรายงาน","ช่วงเวลาที่ต้องการ","ข้อมูลที่ต้องการสรุป"]},
+];
+export function UpcomingTools(){const[tab,setTab]=useState(0);return <Box sx={{maxWidth:1100}}><Chip label="เร็ว ๆ นี้" color="primary" variant="outlined"/><Typography variant="h1" sx={{my:2}}>เครื่องมือสำหรับทีมงาน</Typography><Alert severity="info" sx={{mb:3}}>หน้าตัวอย่างสำหรับวางแผนการใช้งานเท่านั้น ข้อมูลที่กรอกจะไม่ถูกบันทึก ไม่ส่งเอกสาร และไม่เปลี่ยนแปลงบริการจริง</Alert><Tabs value={tab} onChange={(_,v)=>setTab(v)} variant="scrollable" scrollButtons="auto" aria-label="เครื่องมือที่กำลังพัฒนา">{modules.map(m=><Tab key={m.label} label={m.label}/>)}</Tabs><Card sx={{mt:3}}><CardContent sx={{p:{xs:2,sm:4}}}><Typography variant="h2">{modules[tab]!.label}</Typography><Typography color="text.secondary" sx={{mt:1,mb:3}}>{modules[tab]!.description}</Typography><Stack key={tab} spacing={3} component="form" onSubmit={event=>event.preventDefault()}>{modules[tab]!.fields.map((label,i)=><TextField key={label} label={label} placeholder="ข้อมูลตัวอย่าง" multiline={i===2} minRows={i===2?3:undefined}/>)}<TextField select label="ระดับความสำคัญ (ตัวอย่าง)" defaultValue="normal"><MenuItem value="normal">ปกติ</MenuItem><MenuItem value="high">สูง</MenuItem></TextField><Box><Button disabled variant="contained">บันทึก — เร็ว ๆ นี้</Button></Box></Stack></CardContent></Card></Box>;}

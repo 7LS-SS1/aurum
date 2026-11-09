@@ -26,13 +26,34 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     let healthStatus: "OK" | "ERROR" = "OK";
     let integration: WordPressIntegrationHealth | null = null;
+    let siteProfile = { postType: site.postType, categoryRestBase: site.categoryRestBase, tagRestBase: site.tagRestBase };
+    let profileChanged = false;
     let message = "เชื่อมต่อและระบบวิดีโอพร้อมใช้งาน";
     try {
       await client.ping();
       integration = await client.integrationHealth();
       if (!integration.ready) {
         healthStatus = "ERROR";
-        message = "เชื่อมต่อได้ แต่ " + integration.issues.join(" · ");
+        message = "เชื่อมต่อได้ แต่รูปแบบวิดีโอใน AURUM Core ยังไม่พร้อม — เปิด WordPress > AURUM > รูปแบบวิดีโอ แล้วกดบันทึก";
+      } else if (integration.profile) {
+        siteProfile = integration.profile;
+        profileChanged = site.postType !== siteProfile.postType
+          || site.categoryRestBase !== siteProfile.categoryRestBase
+          || site.tagRestBase !== siteProfile.tagRestBase;
+        if (profileChanged) {
+          await prisma.$transaction(async (tx) => {
+            await tx.distribution.updateMany({
+              where: { siteId: id, remotePostId: { not: null }, remotePostType: null },
+              data: {
+                remotePostType: site.postType,
+                remoteCategoryRestBase: site.categoryRestBase,
+                remoteTagRestBase: site.tagRestBase,
+              },
+            });
+            await tx.targetSite.update({ where: { id }, data: siteProfile });
+          });
+          message = "เชื่อมต่อสำเร็จ และปรับรูปแบบใน Project ให้ตรงกับเว็บไซต์แล้ว";
+        }
       }
     } catch {
       healthStatus = "ERROR";
@@ -44,7 +65,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       data: { healthStatus, lastCheckedAt: new Date() },
     });
 
-    return jsonOk({ healthStatus, integration, message });
+    return jsonOk({ healthStatus, integration, message, siteProfile, profileChanged });
   } catch (err) {
     return apiError(err);
   }

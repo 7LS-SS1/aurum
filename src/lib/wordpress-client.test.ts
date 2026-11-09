@@ -36,6 +36,17 @@ function client(overrides: Partial<ConstructorParameters<typeof WordPressClient>
 }
 
 describe("WordPressClient construction", () => {
+  it("identifies destination database outages without exposing response HTML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false, status: 500, statusText: "Internal Server Error", headers: new Headers(),
+      text: async () => "<h1>Error establishing a database connection</h1><p>private diagnostic</p>",
+    }));
+    const error = await client().ping().catch(value => value);
+    expect(error.status).toBe(500);
+    expect(error.message).toContain("wordpress_database_connection_failed");
+    expect(error.message).toContain("GET /wp-json/wp/v2/users/me");
+    expect(error.message).not.toContain("private diagnostic");
+  });
   it("uses raw editorial titles for read-back instead of HTML-encoded rendered titles", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ id: 1, title: { raw: 'Toys & "new"', rendered: 'Toys &amp; &#8220;new&#8221;' }, meta: {} })));
     expect((await client().getPost(1)).title).toBe('Toys & "new"');
@@ -274,6 +285,23 @@ describe("updatePostMeta", () => {
 });
 
 describe("updatePost", () => {
+  it("identifies create and update requests without changing their payloads", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const wp = client();
+    const payload = { title: "Original" };
+    await wp.createPost(payload);
+    await wp.updatePost(5, payload);
+    const create = fetchMock.mock.calls[0]?.[1];
+    const update = fetchMock.mock.calls[1]?.[1];
+    expect(create.body).toBe(JSON.stringify(payload));
+    expect(update.body).toBe(JSON.stringify(payload));
+    expect(create.headers["X-Aurum-Source"]).toBe("aurum");
+    expect(create.headers["X-Aurum-Operation"]).toBe("create");
+    expect(update.headers["X-Aurum-Operation"]).toBe("update");
+    expect(create.headers["X-Aurum-Request-Id"]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(update.headers["X-Aurum-Request-Id"]).not.toBe(create.headers["X-Aurum-Request-Id"]);
+  });
   it("sends only the caller allow-listed partial payload", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5, link: "https://example.com/?p=5", status: "publish" }));
     vi.stubGlobal("fetch", fetchMock);

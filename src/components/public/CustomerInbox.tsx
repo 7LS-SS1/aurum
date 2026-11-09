@@ -1,0 +1,10 @@
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+type Notice = {id:string; title:string; message:string; href:string; createdAt:string; readAt:string|null};
+export function CustomerInbox() {
+  const [items,setItems]=useState<Notice[]>([]),[unread,setUnread]=useState(0),[error,setError]=useState(""),[cursor,setCursor]=useState<string|null>(null);
+  const load=useCallback(async (next?:string)=>{const res=await fetch("/api/public/account/notices"+(next?"?cursor="+next:""),{cache:"no-store"});if(!res.ok)throw Error("โหลดการแจ้งเตือนไม่สำเร็จ");const data=await res.json();setItems(old=>next?[...old,...data.items]:data.items);setUnread(data.unread);setCursor(data.nextCursor);},[]);
+  useEffect(()=>{void load().catch(e=>setError(e.message));const refresh=()=>{if(document.visibilityState==="visible")void load().catch(()=>{});};const timer=setInterval(refresh,60000);return()=>clearInterval(timer);},[load]);
+  return <details className="ui-panel"><summary>การแจ้งเตือนของฉัน {unread>0?`· ยังไม่อ่าน ${unread}`:""}</summary>{error&&<p role="alert">{error}</p>}{!items.length&&<p>ยังไม่มีการแจ้งเตือน</p>}{items.map(n=><article key={n.id} style={{padding:"1rem 0",borderBottom:"1px solid var(--border)"}}><strong>{!n.readAt&&"● "}{n.title}</strong><p>{n.message}</p><small>{new Date(n.createdAt).toLocaleString("th-TH",{timeZone:"Asia/Bangkok"})}</small><p><Link href={n.href} onClick={()=>void fetch("/api/public/account/notices",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:n.id})})}>ดูรายละเอียด →</Link></p></article>)}{cursor&&<button className="ui-button" onClick={()=>void load(cursor).catch(e=>setError(e.message))}>แสดงเพิ่มเติม</button>}<button className="ui-button" onClick={async()=>{const res=await fetch("/api/public/account/notices",{method:"PATCH",headers:{"Content-Type":"application/json"},body:"{}"});if(res.ok)await load();else setError("บันทึกสถานะไม่สำเร็จ");}}>อ่านทั้งหมดแล้ว</button></details>;
+}

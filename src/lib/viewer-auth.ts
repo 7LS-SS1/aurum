@@ -16,11 +16,10 @@ import { clientIp } from "@/lib/rate-limit";
 export const VIEWER_COOKIE_NAME = "aurum_viewer_session";
 const COOKIE_NAME = VIEWER_COOKIE_NAME;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const REFRESH_THRESHOLD_MS = 15 * 24 * 60 * 60 * 1000; // refresh once under 15 days remaining
 
 export interface ViewerActor {
   id: string;
-  email: string;
+  email: string | null;
   displayName: string;
 }
 
@@ -37,6 +36,8 @@ export function verifyPassword(password: string, passwordHash: string): Promise<
 }
 
 export async function createViewerSession(viewerId: string, req: Request): Promise<{ token: string; expiresAt: Date }> {
+  const member = await prisma.viewer.findUnique({ where: { id: viewerId }, select: { suspended: true } });
+  if (!member || member.suspended) throw new ApiError("account_unavailable", 403);
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -73,24 +74,14 @@ async function lookupViewerByToken(token: string | undefined): Promise<ViewerAct
   const tokenHash = hashToken(token);
   const session = await prisma.viewerSession.findUnique({
     where: { tokenHash },
-    include: { viewer: { select: { id: true, email: true, displayName: true } } },
+    include: { viewer: { select: { id: true, email: true, displayName: true, suspended: true } } },
   });
-  if (!session || session.expiresAt < new Date()) return null;
+  if (!session || session.viewer.suspended || session.expiresAt < new Date()) return null;
 
-  // Best-effort sliding expiration — never block/fail the caller on this.
-  const remainingMs = session.expiresAt.getTime() - Date.now();
-  if (remainingMs < REFRESH_THRESHOLD_MS) {
-    try {
-      await prisma.viewerSession.update({
-        where: { tokenHash },
-        data: { expiresAt: new Date(Date.now() + SESSION_TTL_MS) },
-      });
-    } catch {
-      // non-fatal — the session just expires a bit sooner than ideal
-    }
-  }
+  // Keep the DB and the issued cookie on the same fixed 30-day lifetime.
+  // Extending only the DB expiry leaves the browser cookie expired.
 
-  return session.viewer;
+  return { id: session.viewer.id, email: session.viewer.email, displayName: session.viewer.displayName };
 }
 
 /** For API route handlers (has a NextRequest with a synchronous cookie jar). */

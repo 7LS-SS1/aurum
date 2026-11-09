@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import authConfig from "@/auth.config";
+import { managementRoute } from "@/lib/management-host";
 
 /**
  * Route protection lives here (not per-handler `if (!session)` checks) so a
@@ -17,9 +18,14 @@ const { auth } = NextAuth(authConfig);
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl;
+  const routing = managementRoute(req.nextUrl, { enabled: process.env.MANAGEMENT_HOST_ENABLED === "true", origin: process.env.MANAGEMENT_APP_ORIGIN, publicOrigin: process.env.PUBLIC_APP_ORIGIN }, req.method);
+  if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
+  if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);
+  const { pathname } = routing;
+  // This exact endpoint authenticates its dedicated scheduler secret in Node.
+  if (pathname === "/api/internal/service-worker") return NextResponse.next();
 
-  const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
+  const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
   const isAdminArea = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isProtectedApi = pathname.startsWith("/api") && !isPublicApi;
 
@@ -39,9 +45,11 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (routing.kind === "rewrite") { const destination = req.nextUrl.clone(); destination.pathname = pathname; return NextResponse.rewrite(destination); }
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/:path*"],
+  // Raw artwork uploads authenticate in their handler; avoid middleware body cloning/truncation.
+  matcher: ["/", "/admin/:path*", "/api/((?!public/ads-attachments$).*)"],
 };

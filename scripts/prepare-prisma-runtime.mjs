@@ -6,7 +6,8 @@ import path from "node:path";
 // locked runtime dependency tree (including @prisma/config's transitive packages).
 const root = process.cwd();
 const modules = path.join(root, "node_modules");
-const output = path.join(root, ".next", "standalone", "node_modules");
+const buildDir = process.env.AURUM_RELEASE_REVIEW === "true" ? ".next-release-review" : ".next";
+const output = path.join(root, buildDir, "standalone", "node_modules");
 const visited = new Set();
 async function locate(name, from) {
   const require = createRequire(path.join(from, "package.json"));

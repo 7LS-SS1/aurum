@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Roboto, Playfair_Display } from "next/font/google";
 import "./globals.css";
+import "./ui-foundation.css";
+import "./workspace.css";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
+import { AurumTheme } from "@/components/ui/AurumTheme";
 
 const roboto = Roboto({
   subsets: ["latin"],
@@ -24,7 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className={`${roboto.variable} ${playfair.variable}`}>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning><AppRouterCacheProvider><AurumTheme>{children}</AurumTheme></AppRouterCacheProvider></body>
     </html>
   );
 }

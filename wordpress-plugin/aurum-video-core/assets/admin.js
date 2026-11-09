@@ -1,5 +1,20 @@
 (function () {
 	'use strict';
+	var exportType = document.getElementById('aurum-export-type');
+	var categoryField = document.getElementById('aurum-category-field');
+	if (exportType && categoryField) {
+		var syncCategory = function () { categoryField.hidden = exportType.value !== 'category'; };
+		exportType.addEventListener('change', syncCategory); syncCategory();
+	}
+	var fileInput = document.getElementById('aurum-csv-file');
+	var drop = fileInput && fileInput.closest('.aurum-csv-drop');
+	var fileName = document.getElementById('aurum-csv-file-name');
+	if (fileInput && drop && fileName) {
+		var showFile = function () { fileName.textContent = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : 'เลือกไฟล์ CSV'; };
+		fileInput.addEventListener('change', showFile);
+		['dragenter', 'dragover'].forEach(function (name) { drop.addEventListener(name, function (event) { event.preventDefault(); drop.classList.add('is-dragging'); }); });
+		['dragleave', 'drop'].forEach(function (name) { drop.addEventListener(name, function () { drop.classList.remove('is-dragging'); }); });
+	}
 	var form = document.getElementById('aurum-csv-apply');
 	if (!form) return;
 	form.addEventListener('submit', async function (event) {

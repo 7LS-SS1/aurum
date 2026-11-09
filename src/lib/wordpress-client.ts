@@ -179,7 +179,12 @@ export class WordPressClient {
         typeof data === "object" && data && "message" in data
           ? String((data as { message: unknown }).message)
           : `HTTP ${res.status} ${res.statusText}`;
-      throw new WordPressHttpError(res.status, `[${this.baseUrl}] ${message}`);
+      const diagnostic = /Error establishing a database connection/i.test(text)
+        ? "wordpress_database_connection_failed: ฐานข้อมูลของเว็บ WordPress ปลายทางเชื่อมต่อไม่ได้"
+        : message;
+      // Include only the route, never signed query strings or response HTML.
+      const route = new URL(url).pathname;
+      throw new WordPressHttpError(res.status, `[${this.baseUrl}] ${init.method ?? "GET"} ${route}: HTTP ${res.status} ${diagnostic}`);
     }
     return { data: data as T, status: res.status, headers: res.headers };
   }
@@ -394,7 +399,7 @@ export class WordPressClient {
   async updatePost(postId: number, payload: Record<string, unknown>): Promise<WpPost> {
     return this.json(`${this.api}/${this.postType}/${postId}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Aurum-Source": "aurum", "X-Aurum-Request-Id": crypto.randomUUID(), "X-Aurum-Operation": "update" },
       body: JSON.stringify(payload),
     });
   }
@@ -485,7 +490,7 @@ export class WordPressClient {
   async createPost(payload: Record<string, unknown>): Promise<WpPost> {
     return this.json(`${this.api}/${this.postType}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Aurum-Source": "aurum", "X-Aurum-Request-Id": crypto.randomUUID(), "X-Aurum-Operation": "create" },
       body: JSON.stringify(payload),
     });
   }

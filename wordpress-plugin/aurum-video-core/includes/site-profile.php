@@ -17,6 +17,7 @@ function aurum_video_core_register_profile() {
 		register_post_type( 'video', array(
 			'labels' => array( 'name' => 'วิดีโอ AURUM', 'singular_name' => 'วิดีโอ' ),
 			'public' => true, 'show_in_rest' => true, 'rest_base' => 'video',
+			'show_in_menu' => 'aurum-video-core',
 			'has_archive' => true, 'rewrite' => array( 'slug' => 'videos', 'with_front' => false ),
 			'menu_icon' => 'dashicons-video-alt3',
 			'supports' => array( 'title', 'editor', 'excerpt', 'thumbnail', 'author', 'comments', 'custom-fields', 'revisions' ),
@@ -34,15 +35,35 @@ function aurum_video_core_register_profile() {
 }
 add_action( 'init', 'aurum_video_core_register_profile', 30 );
 
+/** Pick a REST-visible taxonomy that actually belongs to the selected post type. */
+function aurum_video_core_profile_taxonomy( $type, $kind, $requested = '' ) {
+	$hierarchical = 'category' === $kind;
+	$candidates = array_filter( array(
+		$requested,
+		'video' === $type ? 'video_' . $kind : ( $hierarchical ? 'category' : 'post_tag' ),
+		$hierarchical ? 'category' : 'post_tag',
+	) );
+	foreach ( array_unique( $candidates ) as $name ) {
+		$tax = get_taxonomy( $name );
+		if ( $tax && $tax->public && $tax->show_in_rest && is_object_in_taxonomy( $type, $name ) ) {
+			return $name;
+		}
+	}
+	foreach ( get_object_taxonomies( $type, 'objects' ) as $tax ) {
+		if ( 'aurum_video_actor' !== $tax->name && $tax->public && $tax->show_in_rest && (bool) $tax->hierarchical === $hierarchical ) {
+			return $tax->name;
+		}
+	}
+	return '';
+}
+
 function aurum_video_core_profile( $post_type = null ) {
 	$settings = aurum_video_core_settings();
 	$type = $post_type ?: ( 'video' === $settings['profile'] ? 'video' : 'post' );
 	$object = get_post_type_object( $type );
 	$taxonomies = array();
 	foreach ( array( 'category' => 'category_taxonomy', 'tag' => 'tag_taxonomy' ) as $kind => $setting ) {
-		$fallback = 'video' === $type && taxonomy_exists( 'video_' . $kind ) && is_object_in_taxonomy( $type, 'video_' . $kind )
-			? 'video_' . $kind : ( 'tag' === $kind ? 'post_tag' : 'category' );
-		$chosen = $settings[ $setting ] ?: $fallback;
+		$chosen = aurum_video_core_profile_taxonomy( $type, $kind, $settings[ $setting ] );
 		$tax = get_taxonomy( $chosen );
 		$taxonomies[ $kind ] = array(
 			'name' => $chosen,

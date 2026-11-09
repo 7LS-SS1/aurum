@@ -14,6 +14,191 @@ function aurum_video_core_csv_taxonomies( $type ) {
 	return array( 'categories' => $profile['taxonomies']['category']['name'],
 		'tags' => $profile['taxonomies']['tag']['name'], 'actors' => 'aurum_video_actor' );
 }
+
+/** Export types available to administrators. */
+function aurum_video_core_csv_export_types() {
+	return array(
+		'all'      => 'วิดีโอทั้งหมด',
+		'category' => 'เลือกตามหมวดหมู่',
+		'new'      => 'วิดีโอใหม่ล่าสุด',
+		'thin'     => 'วิดีโอที่เนื้อหาต่ำกว่าเกณฑ์',
+	);
+}
+
+/** Post statuses intentionally exposed by the CSV management screen. */
+function aurum_video_core_csv_export_statuses() {
+	return array(
+		'publish' => 'เผยแพร่',
+		'draft'   => 'ฉบับร่าง',
+		'pending' => 'รอตรวจ',
+	);
+}
+
+/** Category taxonomies that are valid for at least one managed post type. */
+function aurum_video_core_csv_export_category_taxonomies() {
+	$taxonomies = array();
+	foreach ( array( 'post', 'video' ) as $type ) {
+		if ( ! post_type_exists( $type ) ) { continue; }
+		$taxonomy = aurum_video_core_csv_taxonomies( $type )['categories'];
+		if ( taxonomy_exists( $taxonomy ) && is_object_in_taxonomy( $type, $taxonomy ) ) {
+			$taxonomies[ $taxonomy ] = get_taxonomy( $taxonomy );
+		}
+	}
+	return $taxonomies;
+}
+
+/**
+ * Validate and normalize an export request independently from the download.
+ *
+ * @return array<string,mixed>|WP_Error
+ */
+function aurum_video_core_csv_export_filters( $input ) {
+	$type  = sanitize_key( wp_unslash( $input['export_type'] ?? 'all' ) );
+	$types = aurum_video_core_csv_export_types();
+	if ( ! isset( $types[ $type ] ) ) {
+		return new WP_Error( 'export_type', 'ประเภทการส่งออกไม่ถูกต้อง' );
+	}
+
+	$count = absint( $input['export_count'] ?? ( $input['export_per_page'] ?? 50 ) );
+	if ( $count < 1 || $count > 500 ) {
+		return new WP_Error( 'export_count', 'จำนวนที่ส่งออกต้องอยู่ระหว่าง 1 ถึง 500 รายการ' );
+	}
+
+	$allowed_statuses = aurum_video_core_csv_export_statuses();
+	$raw_statuses     = $input['export_status'] ?? ( isset( $input['export_status_present'] ) ? array() : array_keys( $allowed_statuses ) );
+	$raw_statuses     = is_array( $raw_statuses ) ? $raw_statuses : array( $raw_statuses );
+	$statuses         = array_values( array_unique( array_map( 'sanitize_key', wp_unslash( $raw_statuses ) ) ) );
+	if ( ! $statuses || array_diff( $statuses, array_keys( $allowed_statuses ) ) ) {
+		return new WP_Error( 'export_status', 'กรุณาเลือกสถานะอย่างน้อยหนึ่งสถานะจาก เผยแพร่ ฉบับร่าง หรือรอตรวจ' );
+	}
+
+	$category = null;
+	if ( 'category' === $type ) {
+		$value = sanitize_text_field( wp_unslash( $input['export_category'] ?? '' ) );
+		if ( ! preg_match( '/^([a-z0-9_-]+):(\d+)$/', $value, $matches ) ) {
+			return new WP_Error( 'export_category', 'กรุณาเลือกหมวดหมู่ที่ต้องการส่งออก' );
+		}
+		$taxonomy = sanitize_key( $matches[1] );
+		$term_id  = absint( $matches[2] );
+		if ( ! isset( aurum_video_core_csv_export_category_taxonomies()[ $taxonomy ] ) || ! term_exists( $term_id, $taxonomy ) ) {
+			return new WP_Error( 'export_category', 'หมวดหมู่ที่เลือกไม่มีอยู่หรือไม่รองรับกับวิดีโอ AURUM' );
+		}
+		$category = array( 'taxonomy' => $taxonomy, 'term_id' => $term_id );
+	}
+
+	return array(
+		'type'     => $type,
+		'statuses' => $statuses,
+		'count'    => $count,
+		'page'     => max( 1, absint( $input['export_page'] ?? 1 ) ),
+		'category' => $category,
+	);
+}
+
+/** Description exported to CSV and evaluated by the thin-content filter. */
+function aurum_video_core_csv_effective_description( $id ) {
+	$seo = trim( (string) get_post_meta( $id, 'rank_math_description', true ) );
+	if ( '' !== $seo ) { return trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( $seo, true ) ) ); }
+	$content = aurum_video_core_strip_fallback( (string) get_post_field( 'post_content', $id ) );
+	return trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( strip_shortcodes( $content ), true ) ) );
+}
+
+/** Normalize Unicode text for conservative title/description similarity checks. */
+function aurum_video_core_csv_normalize_comparison_text( $value ) {
+	$value = html_entity_decode( wp_strip_all_tags( (string) $value, true ), ENT_QUOTES, get_bloginfo( 'charset' ) ?: 'UTF-8' );
+	$value = function_exists( 'mb_strtolower' ) ? mb_strtolower( $value, 'UTF-8' ) : strtolower( $value );
+	$value = preg_replace( '/[^\p{L}\p{N}]+/u', '', $value );
+	return is_string( $value ) ? $value : '';
+}
+
+/** Detect descriptions that are effectively the title with only minor padding. */
+function aurum_video_core_csv_description_matches_title( $title, $description ) {
+	$title       = aurum_video_core_csv_normalize_comparison_text( $title );
+	$description = aurum_video_core_csv_normalize_comparison_text( $description );
+	if ( '' === $title || '' === $description ) { return false; }
+	if ( hash_equals( $title, $description ) ) { return true; }
+	$title_length       = function_exists( 'mb_strlen' ) ? mb_strlen( $title, 'UTF-8' ) : strlen( $title );
+	$description_length = function_exists( 'mb_strlen' ) ? mb_strlen( $description, 'UTF-8' ) : strlen( $description );
+	$shorter            = min( $title_length, $description_length );
+	$longer             = max( $title_length, $description_length );
+	return $shorter >= 8 && ( $shorter / $longer ) >= 0.75 && ( false !== strpos( $title, $description ) || false !== strpos( $description, $title ) );
+}
+
+/**
+ * Explain why a video fails the minimum content/SEO data threshold.
+ *
+ * @return string[]
+ */
+function aurum_video_core_csv_quality_issues( $id ) {
+	$post        = get_post( $id );
+	$description = aurum_video_core_csv_effective_description( $id );
+	$length      = function_exists( 'mb_strlen' ) ? mb_strlen( $description, 'UTF-8' ) : strlen( $description );
+	$issues      = array();
+	if ( ! $post || '' === trim( $post->post_title ) ) { $issues[] = 'missing_title'; }
+	if ( $length <= 128 ) { $issues[] = 'short_description'; }
+	if ( $post && aurum_video_core_csv_description_matches_title( $post->post_title, $description ) ) { $issues[] = 'description_matches_title'; }
+	if ( ! aurum_video_core_has_video( $id ) ) { $issues[] = 'missing_playback'; }
+	if ( ! aurum_video_core_thumbnail_url( $id ) ) { $issues[] = 'missing_thumbnail'; }
+	return array_values( array_unique( $issues ) );
+}
+
+/** Whether a video belongs in the content-repair export. */
+function aurum_video_core_csv_is_thin_content( $id ) {
+	return (bool) aurum_video_core_csv_quality_issues( $id );
+}
+
+/**
+ * Resolve IDs for a validated export request while scanning thin candidates in bounded batches.
+ *
+ * @return int[]
+ */
+function aurum_video_core_csv_export_ids( $filters ) {
+	$args = array(
+		'post_status'    => $filters['statuses'],
+		'fields'         => 'ids',
+		'meta_query'     => array( array( 'key' => 'aurum_movie_id', 'value' => '', 'compare' => '!=' ) ),
+		'orderby'        => 'new' === $filters['type'] ? array( 'date' => 'DESC', 'ID' => 'DESC' ) : 'ID',
+		'order'          => 'DESC',
+		'no_found_rows'  => true,
+		'suppress_filters' => false,
+	);
+	if ( $filters['category'] ) {
+		$args['tax_query'] = array( array(
+			'taxonomy'         => $filters['category']['taxonomy'],
+			'field'            => 'term_id',
+			'terms'            => array( $filters['category']['term_id'] ),
+			'include_children' => true,
+		) );
+	}
+
+	if ( 'thin' !== $filters['type'] ) {
+		$query = aurum_video_core_managed_query( array_merge( $args, array(
+			'posts_per_page' => $filters['count'],
+			'paged'          => $filters['page'],
+		) ) );
+		return array_map( 'intval', $query->posts );
+	}
+
+	$wanted_offset = ( $filters['page'] - 1 ) * $filters['count'];
+	$matched       = 0;
+	$ids           = array();
+	$scan_offset   = 0;
+	$scan_size     = 200;
+	do {
+		$query = aurum_video_core_managed_query( array_merge( $args, array(
+			'posts_per_page' => $scan_size,
+			'offset'         => $scan_offset,
+		) ) );
+		foreach ( $query->posts as $id ) {
+			if ( ! aurum_video_core_csv_is_thin_content( $id ) ) { continue; }
+			if ( $matched++ < $wanted_offset ) { continue; }
+			$ids[] = (int) $id;
+			if ( count( $ids ) >= $filters['count'] ) { break 2; }
+		}
+		$scan_offset += $scan_size;
+	} while ( count( $query->posts ) === $scan_size );
+	return $ids;
+}
 function aurum_video_core_csv_state( $id ) {
 	$post = get_post( $id );
 	$state = array( 'title' => $post->post_title, 'content' => $post->post_content, 'excerpt' => $post->post_excerpt,
@@ -48,7 +233,7 @@ function aurum_video_core_csv_export_row( $id ) {
 	$identity = aurum_video_core_csv_identity( $id );
 	$state = aurum_video_core_csv_state( $id );
 	$values = array( 'title' => $state['title'], 'excerpt' => $state['excerpt'],
-		'meta_description' => $state['seo'] ?: wp_strip_all_tags( aurum_video_core_strip_fallback( $state['content'] ) ),
+		'meta_description' => aurum_video_core_csv_effective_description( $id ),
 		'keywords' => $state['keywords'] );
 	foreach ( aurum_video_core_csv_taxonomies( get_post_type( $id ) ) as $field => $tax ) {
 		$slugs = taxonomy_exists( $tax ) ? wp_get_object_terms( $id, $tax, array( 'fields' => 'slugs' ) ) : array();

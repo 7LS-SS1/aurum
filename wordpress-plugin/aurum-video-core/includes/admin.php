@@ -62,35 +62,43 @@ function aurum_video_core_admin_videos() {
 	echo '</tbody></table></div><div class="aurum-core-pagination">' . wp_kses_post( paginate_links( array( 'base' => add_query_arg( 'paged', '%#%' ), 'current' => $page, 'total' => $query->max_num_pages ) ) ) . '</div></section></div>';
 }
 function aurum_video_core_admin_profile() {
-	aurum_video_core_admin_start( 'โปรไฟล์เว็บไซต์', 'รักษารูปแบบข้อมูลและ URL ที่เว็บไซต์ใช้อยู่ พร้อมกำหนดโปรไฟล์สำหรับเว็บใหม่' );
-	$settings = aurum_video_core_settings();
+	aurum_video_core_admin_start( 'รูปแบบวิดีโอ', 'เลือกเพียงครั้งเดียวที่เว็บไซต์นี้ แล้ว Project AURUM จะปรับการเชื่อมต่อให้ตรงอัตโนมัติ' );
+	$settings = aurum_video_core_settings(); $current = aurum_video_core_profile();
 	echo '<section class="aurum-core-panel">';
 	aurum_video_core_admin_form( 'aurum_core_save_profile' );
-	echo '<table class="form-table"><tr><th><label for="aurum-profile">รูปแบบวิดีโอ</label></th><td><select id="aurum-profile" name="profile">';
-	foreach ( array( 'auto' => 'ใช้ระบบเดิม (แนะนำสำหรับเว็บที่ใช้งานแล้ว)', 'posts' => 'เผยแพร่เป็นบทความ WordPress', 'video' => 'เผยแพร่เป็นชนิดโพสต์วิดีโอ' ) as $value => $label ) {
-		echo '<option value="' . esc_attr( $value ) . '"' . selected( $settings['profile'], $value, false ) . '>' . esc_html( $label ) . '</option>';
+	echo '<h2>วิดีโอใหม่จาก AURUM ควรอยู่ที่ไหน?</h2><div class="aurum-profile-options">';
+	$options = array(
+		'video' => array( 'วิดีโอแยกจากบทความ', 'แนะนำ — จัดการวิดีโอใต้เมนู AURUM โดยไม่ปะปนกับ Posts' ),
+		'posts' => array( 'รวมกับบทความ WordPress', 'สำหรับเว็บไซต์เดิมที่ตั้งใจเก็บวิดีโอไว้ใน Posts' ),
+		'auto'  => array( 'รักษาระบบเดิม', 'ให้ Core ใช้โครงสร้างเดิมของเว็บไซต์โดยไม่เปลี่ยนรูปแบบ' ),
+	);
+	foreach ( $options as $value => $copy ) {
+		echo '<label class="aurum-profile-option"><input type="radio" name="profile" value="' . esc_attr( $value ) . '"' . checked( $settings['profile'], $value, false ) . '><span><strong>' . esc_html( $copy[0] ) . '</strong><small>' . esc_html( $copy[1] ) . '</small></span></label>';
 	}
-	echo '</select><p class="description">การตั้งค่านี้ไม่ย้ายโพสต์เดิมและไม่เปลี่ยน URL เดิม ถ้าเลือกวิดีโอ Core จะสร้างชนิดโพสต์เฉพาะเมื่อยังไม่มีธีมหรือปลั๊กอินอื่นลงทะเบียนไว้</p></td></tr>';
+	echo '</div><p class="description">ไม่ย้ายโพสต์เดิมและไม่เปลี่ยน URL เดิม หลังบันทึกให้กลับไปกด “ตรวจสอบ” ใน Project AURUM หนึ่งครั้ง</p>';
+	echo '<details class="aurum-advanced"><summary>การตั้งค่าขั้นสูง</summary><p class="description">ปล่อยเป็นอัตโนมัติได้ในเว็บไซต์ทั่วไป ใช้ส่วนนี้เฉพาะเมื่อธีมหรือปลั๊กอินกำหนด taxonomy เอง</p><table class="form-table">';
 	foreach ( array( 'category_taxonomy' => 'หมวดหมู่', 'tag_taxonomy' => 'แท็ก' ) as $key => $label ) {
-		echo '<tr><th><label for="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</label></th><td><select id="' . esc_attr( $key ) . '" name="' . esc_attr( $key ) . '"><option value="">เลือกตามชนิดโพสต์</option>';
+		echo '<tr><th><label for="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</label></th><td><select id="' . esc_attr( $key ) . '" name="' . esc_attr( $key ) . '"><option value="">เลือกให้อัตโนมัติ</option>';
 		foreach ( get_taxonomies( array( 'public' => true, 'show_in_rest' => true ), 'objects' ) as $tax ) {
 			if ( 'aurum_video_actor' === $tax->name ) { continue; }
 			echo '<option value="' . esc_attr( $tax->name ) . '"' . selected( $settings[ $key ], $tax->name, false ) . '>' . esc_html( $tax->label . ' (' . $tax->name . ')' ) . '</option>';
 		}
 		echo '</select></td></tr>';
 	}
-	echo '<tr><th><label for="project_url">ที่อยู่ Project AURUM</label></th><td><input class="regular-text" type="url" id="project_url" name="project_url" value="' . esc_attr( $settings['project_url'] ) . '"><p class="description">ใช้เป็นลิงก์เปิดหน้าจัดการส่วนกลาง ไม่เก็บรหัสผ่านหรือ API key ในหน้านี้</p></td></tr></table>';
-	submit_button( 'บันทึกโปรไฟล์' ); echo '</form></section></div>';
+	echo '<tr><th><label for="project_url">ที่อยู่ Project AURUM</label></th><td><input class="regular-text" type="url" id="project_url" name="project_url" value="' . esc_attr( $settings['project_url'] ) . '"></td></tr></table></details>';
+	echo '<p class="aurum-profile-result"><strong>ค่าที่ใช้งาน:</strong> ' . esc_html( $current['restBase'] . ' · ' . $current['taxonomies']['category']['restBase'] . ' · ' . $current['taxonomies']['tag']['restBase'] ) . '</p>';
+	submit_button( 'บันทึกรูปแบบวิดีโอ' ); echo '</form></section></div>';
 }
 function aurum_video_core_save_profile() {
 	aurum_video_core_admin_guard( 'aurum_core_save_profile' );
 	$profile = sanitize_key( $_POST['profile'] ?? '' );
 	if ( ! in_array( $profile, array( 'auto', 'posts', 'video' ), true ) ) { wp_die( 'โปรไฟล์ไม่ถูกต้อง' ); }
 	$settings = array( 'profile' => $profile );
+	$type = 'video' === $profile ? 'video' : 'post';
 	foreach ( array( 'category_taxonomy', 'tag_taxonomy' ) as $key ) {
 		$name = sanitize_key( $_POST[ $key ] ?? '' ); $tax = $name ? get_taxonomy( $name ) : null;
 		if ( $name && ( ! $tax || ! $tax->public || ! $tax->show_in_rest || 'aurum_video_actor' === $name ) ) { wp_die( 'หมวดหมู่หรือแท็กไม่ถูกต้อง' ); }
-		$settings[ $key ] = $name;
+		$settings[ $key ] = $name && is_object_in_taxonomy( $type, $name ) ? $name : '';
 	}
 	$project_url = trim( wp_unslash( $_POST['project_url'] ?? '' ) );
 	if ( $project_url && ( ! wp_http_validate_url( $project_url ) || wp_parse_url( $project_url, PHP_URL_USER ) || wp_parse_url( $project_url, PHP_URL_PASS ) || wp_parse_url( $project_url, PHP_URL_QUERY ) ) ) { wp_die( 'ใช้ URL ของ Project ที่ไม่มีรหัสผ่านหรือ query parameters' ); }
@@ -118,19 +126,45 @@ function aurum_video_core_csv_stage_key( $token ) {
 	return preg_match( '/^[a-zA-Z0-9]{32}$/', $token ) ? 'aurum_csv_' . get_current_user_id() . '_' . $token : '';
 }
 function aurum_video_core_admin_csv() {
-	aurum_video_core_admin_start( 'นำเข้า / ส่งออก CSV', 'แก้ไขเนื้อหาและ SEO ของวิดีโอเดิม พร้อมตรวจสอบก่อนบันทึก' );
-	echo '<div class="aurum-core-cards"><section class="aurum-core-panel"><h2>1. ส่งออกข้อมูล</h2><p>ส่งออกครั้งละไม่เกิน 500 รายการ เฉพาะวิดีโอที่มีรหัส AURUM เลือกหน้าถัดไปเพื่อส่งออกเพิ่มเติม</p>';
+	aurum_video_core_admin_start( 'นำเข้า / ส่งออก CSV', 'แก้ไขข้อมูลวิดีโอจำนวนมากอย่างปลอดภัย โดยตรวจตัวอย่างก่อนบันทึกทุกครั้ง' );
+	echo '<nav class="aurum-csv-steps" aria-label="ขั้นตอนทำงาน"><span class="is-active"><b>1</b> ดาวน์โหลด</span><i></i><span><b>2</b> แก้ไขไฟล์</span><i></i><span><b>3</b> ตรวจและบันทึก</span></nav>';
+	echo '<div class="aurum-csv-layout"><section class="aurum-core-panel aurum-csv-card"><div class="aurum-csv-card-head"><span class="aurum-step-badge">1</span><div><h2>ดาวน์โหลดข้อมูล</h2><p>เลือกวิดีโอที่ต้องการ แล้วนำไฟล์ไปแก้ไขใน Excel หรือ Google Sheets</p></div></div>';
 	aurum_video_core_admin_form( 'aurum_core_csv_export' );
-	echo '<label>หน้าที่ส่งออก <input type="number" name="export_page" min="1" value="1"></label> <label>รายการต่อหน้า <select name="export_per_page"><option>20</option><option selected>50</option><option>100</option><option>500</option></select></label><p class="description">ใช้จำนวนต่อหน้าเท่าเดิมเมื่อส่งออกหน้าถัดไป ถ้าเนื้อหายาวให้ลดจำนวนต่อหน้าเพื่อให้ไฟล์ไม่เกิน 2 MB</p> ';
-	submit_button( 'ดาวน์โหลด CSV', 'secondary', 'submit', false ); echo '</form></section><section class="aurum-core-panel"><h2>2. ตรวจไฟล์ก่อนนำเข้า</h2><p>ไฟล์ UTF-8 ไม่เกิน 2 MB / 500 แถว ชื่อและรายละเอียดรองรับภาษาไทย</p>';
+	echo '<div class="aurum-export-fields"><label class="aurum-field aurum-field-wide"><span>ต้องการแก้ไขวิดีโอกลุ่มไหน?</span><select id="aurum-export-type" name="export_type">';
+	foreach ( aurum_video_core_csv_export_types() as $value => $label ) {
+		echo '<option value="' . esc_attr( $value ) . '"' . selected( 'all', $value, false ) . '>' . esc_html( $label ) . '</option>';
+	}
+	echo '</select><small>เลือก “เนื้อหาต่ำกว่าเกณฑ์” เพื่อเริ่มจากรายการที่ควรปรับปรุงก่อน</small></label><label id="aurum-category-field" class="aurum-field aurum-field-wide" hidden><span>หมวดหมู่</span><select name="export_category"><option value="">เลือกหมวดหมู่</option>';
+	foreach ( aurum_video_core_csv_export_category_taxonomies() as $taxonomy => $object ) {
+		$terms = get_terms( array( 'taxonomy' => $taxonomy, 'hide_empty' => false ) );
+		if ( is_wp_error( $terms ) || ! $terms ) { continue; }
+		echo '<optgroup label="' . esc_attr( $object->labels->singular_name . ' (' . $taxonomy . ')' ) . '">';
+		foreach ( $terms as $term ) {
+			echo '<option value="' . esc_attr( $taxonomy . ':' . $term->term_id ) . '">' . esc_html( $term->name . ' (' . $term->count . ')' ) . '</option>';
+		}
+		echo '</optgroup>';
+	}
+	echo '</select></label><label class="aurum-field"><span>จำนวนรายการ</span><input type="number" name="export_count" min="1" max="500" value="50"><small>สูงสุด 500 รายการ</small></label><label class="aurum-field"><span>หน้าที่</span><input type="number" name="export_page" min="1" value="1"><small>ใช้ดูชุดถัดไป</small></label></div>';
+	echo '<input type="hidden" name="export_status_present" value="1"><fieldset class="aurum-export-status"><legend>รวมสถานะ</legend><div class="aurum-status-options">';
+	foreach ( aurum_video_core_csv_export_statuses() as $value => $label ) {
+		echo '<label><input type="checkbox" name="export_status[]" value="' . esc_attr( $value ) . '" checked><span>' . esc_html( $label ) . '</span></label>';
+	}
+	echo '</div></fieldset><div class="aurum-csv-action"><span>ดาวน์โหลดเฉพาะข้อมูลที่แก้ไขได้ ไม่มีรหัสผ่านหรือ URL ลับ</span>';
+	submit_button( 'ดาวน์โหลดไฟล์ CSV', 'primary', 'submit', false ); echo '</div></form></section>';
+	echo '<section class="aurum-core-panel aurum-csv-card"><div class="aurum-csv-card-head"><span class="aurum-step-badge">2</span><div><h2>อัปโหลดไฟล์ที่แก้ไขแล้ว</h2><p>ระบบจะแสดงค่าที่เปลี่ยนให้ตรวจสอบก่อน ยังไม่บันทึกทันที</p></div></div>';
 	echo '<form method="post" enctype="multipart/form-data" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="aurum_core_csv_preview">';
 	wp_nonce_field( 'aurum_core_csv_preview' );
-	echo '<label class="screen-reader-text" for="aurum-csv-file">เลือกไฟล์ CSV</label><input required type="file" accept=".csv,text/csv" id="aurum-csv-file" name="csv_file"> ';
-	submit_button( 'แสดงตัวอย่าง', 'primary', 'submit', false ); echo '</form></section></div>';
-	echo '<section class="aurum-core-panel"><h2>ข้อมูลที่แก้ไขได้</h2><p>ชื่อวิดีโอ ข้อความย่อ รายละเอียด SEO คีย์เวิร์ด หมวดหมู่ แท็ก และนักแสดง</p><p><strong>meta_description จะบันทึกลงทั้งรายละเอียดวิดีโอและ Rank Math description</strong> แถวที่ไม่ได้แก้ไขจะถูกข้าม คอลัมน์ที่นำออกจากไฟล์จะรักษาค่าเดิม การล้างค่าที่เคยมีให้เว้นช่องนั้นว่าง</p><p>หมวดหมู่ แท็ก และนักแสดงใช้ slug ที่มีอยู่ในเว็บ คั่นด้วย | ไม่สร้าง term ใหม่ผ่าน CSV รหัสเว็บไซต์/โพสต์/วิดีโอและ snapshot ห้ามแก้ไข ระบบไม่สร้างโพสต์ใหม่หรือแก้ URL เครื่องเล่น</p></section>';
+	echo '<label class="aurum-csv-drop" for="aurum-csv-file"><span class="dashicons dashicons-upload"></span><strong id="aurum-csv-file-name">เลือกไฟล์ CSV</strong><small>หรือลากไฟล์มาวางที่นี่ · UTF-8 · ไม่เกิน 2 MB / 500 แถว</small><input required type="file" accept=".csv,text/csv" id="aurum-csv-file" name="csv_file"></label>';
+	echo '<div class="aurum-csv-action"><span>การตรวจตัวอย่างไม่แก้ไขข้อมูลจริง</span>';
+	submit_button( 'ตรวจสอบไฟล์', 'primary', 'submit', false ); echo '</div></form></section></div>';
+	echo '<details class="aurum-core-panel aurum-csv-help"><summary>ไฟล์นี้แก้ไขอะไรได้บ้าง?</summary><div><p><strong>แก้ไขได้:</strong> ชื่อวิดีโอ ข้อความย่อ รายละเอียด SEO คีย์เวิร์ด หมวดหมู่ แท็ก และนักแสดง</p><p><strong>ระบบปกป้องให้:</strong> แถวที่ไม่เปลี่ยนจะถูกข้าม คอลัมน์ที่ลบออกจะรักษาค่าเดิม และจะไม่สร้างโพสต์หรือแก้ URL เครื่องเล่น</p><p>ใช้ slug ที่มีอยู่แล้วสำหรับหมวดหมู่ แท็ก และนักแสดง คั่นหลายค่าด้วย <code>|</code> หากต้องการล้างค่าเดิมให้เว้นช่องนั้นว่าง</p></div></details>';
 	$token = sanitize_text_field( wp_unslash( $_GET['preview'] ?? '' ) ); $key = aurum_video_core_csv_stage_key( $token ); $stage = $key ? get_transient( $key ) : false;
 	if ( $stage && $stage['expires'] >= time() ) {
-		echo '<section class="aurum-core-panel"><h2>3. ตรวจผลและบันทึก</h2><p>ตัวอย่างนี้ใช้ได้ 15 นาที ระบบจะตรวจข้อมูลอีกครั้งก่อนบันทึกทีละรายการ</p><div class="aurum-core-table"><table class="widefat striped"><thead><tr><th>โพสต์</th><th>ข้อมูลที่เปลี่ยน</th><th>ค่าเดิม → ค่าที่จะบันทึก</th><th>ผลตรวจ</th></tr></thead><tbody>';
+		$total = count( $stage['rows'] ); $changed = 0; $unchanged = 0;
+		foreach ( $stage['rows'] as $item ) { empty( $item['changes'] ) ? ++$unchanged : ++$changed; }
+		echo '<section class="aurum-core-panel aurum-csv-preview"><div class="aurum-csv-card-head"><span class="aurum-step-badge">3</span><div><h2>ตรวจสอบก่อนบันทึก</h2><p>ตัวอย่างใช้ได้ 15 นาที และระบบจะตรวจความเปลี่ยนแปลงอีกครั้งก่อนเขียนข้อมูลจริง</p></div></div>';
+		echo '<div class="aurum-preview-stats"><div><strong>' . (int) $total . '</strong><span>ทั้งหมด</span></div><div class="is-change"><strong>' . (int) $changed . '</strong><span>มีการแก้ไข</span></div><div><strong>' . (int) $unchanged . '</strong><span>ไม่มีการเปลี่ยนแปลง</span></div></div>';
+		echo '<div class="aurum-core-table"><table class="widefat striped"><thead><tr><th>วิดีโอ</th><th>ฟิลด์ที่แก้ไข</th><th>เปรียบเทียบข้อมูล</th><th>สถานะ</th></tr></thead><tbody>';
 		foreach ( $stage['rows'] as $item ) {
 			echo '<tr><td>#' . (int) $item['row']['post_id'] . '</td><td>' . esc_html( implode( ', ', array_keys( $item['changes'] ) ) ) . '</td><td>';
 			$original = json_decode( $item['row']['snapshot'], true );
@@ -140,10 +174,10 @@ function aurum_video_core_admin_csv() {
 			}
 			echo '</td><td>' . esc_html( $item['message'] ) . '</td></tr>';
 		}
-		echo '</tbody></table></div><p id="aurum-csv-progress" role="status" aria-live="polite">' . (int) $stage['cursor'] . ' / ' . count( $stage['rows'] ) . ' รายการ</p>';
+		echo '</tbody></table></div><div class="aurum-csv-progress-wrap"><p id="aurum-csv-progress" role="status" aria-live="polite">ตรวจแล้ว ' . (int) $stage['cursor'] . ' / ' . (int) $total . ' รายการ</p></div>';
 		if ( $stage['cursor'] < count( $stage['rows'] ) ) {
 			echo '<form id="aurum-csv-apply" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="aurum_core_csv_apply"><input type="hidden" name="preview" value="' . esc_attr( $token ) . '">';
-			wp_nonce_field( 'aurum_core_csv_apply' ); submit_button( 'บันทึกรายการที่ผ่านการตรวจ' ); echo '</form>';
+			wp_nonce_field( 'aurum_core_csv_apply' ); echo '<div class="aurum-csv-action"><span>บันทึกเฉพาะรายการที่ผ่านการตรวจสอบ</span>'; submit_button( 'ยืนยันและบันทึกข้อมูล', 'primary', 'submit', false ); echo '</div></form>';
 		}
 		echo '</section>';
 	} elseif ( $token ) { echo '<div class="notice notice-warning"><p>ตัวอย่างหมดอายุหรือไม่พบข้อมูล กรุณาเลือกไฟล์เพื่อตรวจใหม่</p></div>'; }
@@ -151,20 +185,20 @@ function aurum_video_core_admin_csv() {
 }
 function aurum_video_core_csv_export_action() {
 	aurum_video_core_admin_guard( 'aurum_core_csv_export' );
-	$page = max( 1, absint( $_POST['export_page'] ?? 1 ) );
-	$per_page = absint( $_POST['export_per_page'] ?? 50 );
-	if ( ! in_array( $per_page, array( 20, 50, 100, 500 ), true ) ) { wp_die( 'จำนวนรายการต่อหน้าไม่ถูกต้อง' ); }
-	$query = aurum_video_core_managed_query( array( 'posts_per_page' => $per_page, 'paged' => $page, 'meta_query' => array( array( 'key' => 'aurum_movie_id', 'value' => '', 'compare' => '!=' ) ) ) );
+	$filters = aurum_video_core_csv_export_filters( $_POST );
+	if ( is_wp_error( $filters ) ) { wp_die( esc_html( $filters->get_error_message() ) ); }
+	$ids = aurum_video_core_csv_export_ids( $filters );
+	if ( ! $ids ) { wp_die( 'ไม่พบวิดีโอที่ตรงกับตัวกรองในหน้าที่เลือก' ); }
 	$stream = fopen( 'php://temp/maxmemory:2097152', 'w+b' ); fwrite( $stream, "\xEF\xBB\xBF" );
 	$headers = aurum_video_core_csv_headers(); fputcsv( $stream, $headers, ',', '"', '' );
-	foreach ( $query->posts as $post ) {
-		$row = aurum_video_core_csv_export_row( $post->ID ); $cells = array();
+	foreach ( $ids as $id ) {
+		$row = aurum_video_core_csv_export_row( $id ); $cells = array();
 		foreach ( $headers as $field ) { $cells[] = aurum_video_core_csv_escape( $row[ $field ] ); }
 		fputcsv( $stream, $cells, ',', '"', '' );
 	}
-	if ( ftell( $stream ) > 2 * 1024 * 1024 ) { fclose( $stream ); wp_die( 'ไฟล์เกิน 2 MB กรุณาลดจำนวนรายการต่อหน้าแล้วส่งออกใหม่' ); }
+	if ( ftell( $stream ) > 2 * 1024 * 1024 ) { fclose( $stream ); wp_die( 'ไฟล์เกิน 2 MB กรุณาลดจำนวนที่ส่งออกแล้วลองใหม่' ); }
 	nocache_headers(); header( 'Content-Type: text/csv; charset=utf-8' );
-	header( 'Content-Disposition: attachment; filename="aurum-videos-page-' . $page . '.csv"' );
+	header( 'Content-Disposition: attachment; filename="aurum-videos-' . $filters['type'] . '-page-' . $filters['page'] . '.csv"' );
 	rewind( $stream ); fpassthru( $stream );
 	fclose( $stream ); exit;
 }

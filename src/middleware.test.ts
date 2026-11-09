@@ -1,12 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
+vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: (req: NextRequest & { auth: unknown }) => Response) => (req: NextRequest & { auth: unknown }) => {
+  if (!process.env.AUTH_URL) return handler(req);
+  const rewritten = new NextRequest(req.url.replace(req.nextUrl.origin, new URL(process.env.AUTH_URL).origin), req) as NextRequest & { auth: unknown };
+  rewritten.auth = req.auth;
+  return handler(rewritten);
+} }) }));
 import middleware from "./middleware";
 const management = "https://system-management.aurum123.com";
 const invoke = middleware as unknown as (request: NextRequest & { auth: unknown }) => Response;
 function request(path: string, signedIn=false) { const req=new NextRequest(management+path) as NextRequest & {auth:unknown};req.auth=signedIn?{user:{role:"MANAGER"}}:null;return req; }
 afterEach(()=>vi.unstubAllEnvs());
 describe("management root authentication",()=>{
+ it("preserves ingress host when Auth.js overrides the request origin",()=>{
+   vi.stubEnv("AUTH_URL", management);
+   vi.stubEnv("MANAGEMENT_HOST_ENABLED","true");
+   vi.stubEnv("MANAGEMENT_APP_ORIGIN",management);
+   vi.stubEnv("PUBLIC_APP_ORIGIN","https://aurum123.com");
+   const req = new NextRequest("https://aurum123.com/admin", {method:"POST"}) as NextRequest & {auth:unknown};
+   req.auth=null;
+   expect(invoke(req).status).toBe(409);
+ });
  it("does not treat similarly named private APIs as public",()=>{
    for (const path of ["/api/publicity", "/api/auth-admin", "/api/health-secrets"]) {
      expect(invoke(request(path)).status).toBe(401);

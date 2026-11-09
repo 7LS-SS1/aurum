@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import authConfig from "@/auth.config";
 import { managementRoute } from "@/lib/management-host";
 
@@ -17,8 +17,11 @@ const { auth } = NextAuth(authConfig);
 
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
 
-export default auth((req) => {
-  const routing = managementRoute(req.nextUrl, { enabled: process.env.MANAGEMENT_HOST_ENABLED === "true", origin: process.env.MANAGEMENT_APP_ORIGIN, publicOrigin: process.env.PUBLIC_APP_ORIGIN }, req.method);
+export default function middleware(originalRequest: NextRequest, event: NextFetchEvent) {
+  // Auth.js rewrites req.nextUrl to AUTH_URL; preserve the actual ingress URL per request.
+  const originalUrl = originalRequest.nextUrl;
+  return auth((req) => {
+  const routing = managementRoute(originalUrl, { enabled: process.env.MANAGEMENT_HOST_ENABLED === "true", origin: process.env.MANAGEMENT_APP_ORIGIN, publicOrigin: process.env.PUBLIC_APP_ORIGIN }, req.method);
   if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
   if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);
   const { pathname } = routing;
@@ -41,14 +44,15 @@ export default auth((req) => {
     if (isProtectedApi) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    const loginUrl = new URL("/admin/login", req.nextUrl.origin);
+    const loginUrl = new URL("/admin/login", originalUrl.origin);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (routing.kind === "rewrite") { const destination = req.nextUrl.clone(); destination.pathname = pathname; return NextResponse.rewrite(destination); }
+  if (routing.kind === "rewrite") { const destination = originalUrl.clone(); destination.pathname = pathname; return NextResponse.rewrite(destination); }
   return NextResponse.next();
-});
+  })(originalRequest, event);
+}
 
 export const config = {
   // Raw artwork uploads authenticate in their handler; avoid middleware body cloning/truncation.

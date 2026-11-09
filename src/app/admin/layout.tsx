@@ -1,5 +1,6 @@
 import { AdminNotificationBell } from "@/components/admin/AdminNotificationBell";
 import { AdminWorkspace } from "@/components/admin/AdminWorkspace";
+import { MonitorNav } from "@/components/admin/MonitorPanel";
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
 import { AdminComicMenu } from "@/components/admin/AdminComicMenu";
@@ -20,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             ภาพรวมระบบ
           </Link>
         </div>
+        {role && can(role, "site:manage") && <div className="side-sec"><MonitorNav /></div>}
         <AdminVideoMenu canCreate={Boolean(role && can(role, "movie:create"))} />
         <AdminComicMenu />
         {role && can(role, "service:manage") && (

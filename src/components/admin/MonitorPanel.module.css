@@ -1,0 +1,607 @@
+.page {
+  max-width: 1600px;
+  margin: auto;
+  padding: 26px 24px 50px;
+  color: var(--text, #eee);
+}
+.heading,
+.controls,
+.sourceLine,
+.directory header,
+.trafficPanel header,
+.alertPanel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.heading {
+  margin-bottom: 20px;
+}
+.kicker {
+  font-size: 10px;
+  color: var(--gold-bright);
+  letter-spacing: 1.6px;
+}
+.heading h1 {
+  font-size: 25px;
+  margin: 7px 0 0;
+}
+.controls select {
+  max-width: 280px;
+  background: #242424;
+  color: #ddd;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.live {
+  font-size: 11px;
+  color: #aaa;
+}
+.sourceLine {
+  justify-content: flex-start;
+  gap: 12px;
+  margin: 0 0 16px;
+  font-size: 12px;
+}
+.sourceLine > span:not(.badge) {
+  color: #999;
+}
+.sourceLine strong {
+  font-weight: 500;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 20px;
+  padding: 5px 9px;
+  color: #aaa;
+  background: #ffffff06;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.badge[data-state="live"] {
+  color: #f0d487;
+  background: #d4af3714;
+}
+.badge[data-state="stale"] {
+  color: #efb279;
+  background: #dd96451a;
+}
+.gauges {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.gaugeCard {
+  background: linear-gradient(135deg, #22221f, #202020);
+  border: 1px solid #ffffff08;
+  border-radius: 12px;
+  padding: 20px;
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+.gaugeCard h2 {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ddd;
+}
+.gaugeCard p {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6ce86;
+  margin-top: 5px;
+}
+.ring {
+  width: 92px;
+  height: 92px;
+  align-self: flex-end;
+  position: relative;
+}
+.ring svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke-width: 7;
+}
+.ring circle:first-child {
+  stroke: #3b3a34;
+}
+.ring circle:last-child {
+  stroke: var(--gold, #d4af37);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s;
+}
+.ring[data-warning="true"] circle:last-child {
+  stroke: #efb279;
+}
+.ring strong {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  color: #f4ead0;
+}
+.overview,
+.directory,
+.trafficPanel,
+.alertPanel,
+.help {
+  background: #202020;
+  border: 1px solid #ffffff08;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.overview h2,
+.directory h2,
+.trafficPanel h2,
+.alertPanel h2 {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0;
+}
+.overview h2 span {
+  font-size: 11px;
+  font-weight: 400;
+  color: #888;
+  margin-left: 10px;
+}
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) 1.4fr;
+  margin-top: 22px;
+}
+.summary > div {
+  padding: 0 18px;
+  border-right: 1px solid #ffffff08;
+  min-width: 0;
+}
+.summary > div:first-child {
+  padding-left: 0;
+}
+.summary > div:last-child {
+  border: 0;
+}
+.summary span {
+  font-size: 12px;
+  color: #ccc;
+}
+.summary strong {
+  display: block;
+  color: #e8ce80;
+  font-size: 20px;
+  margin: 10px 0 5px;
+  font-weight: 600;
+}
+.summary small {
+  display: block;
+  color: #888;
+  font-size: 10px;
+}
+.summary em {
+  font-size: 12px;
+  font-style: normal;
+}
+.summary .sourceName {
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.summary [data-alert="true"] strong {
+  color: #efb279;
+}
+.workgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.directory,
+.trafficPanel {
+  min-width: 0;
+}
+.directory header a {
+  color: #c9b577;
+  font-size: 11px;
+  text-decoration: none;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 10px;
+}
+.toolbar > div {
+  display: flex;
+  gap: 4px;
+}
+.toolbar button {
+  border: 0;
+  color: #aaa;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.toolbar button[aria-pressed="true"] {
+  background: #d4af371a;
+  color: #edcf78;
+}
+.toolbar input {
+  width: 150px;
+  min-width: 0;
+  background: #171717;
+  color: #ddd;
+  border: 1px solid #383838;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.directoryList {
+  height: 278px;
+  overflow: auto;
+}
+.directoryRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-bottom: 1px solid #ffffff06;
+  padding: 13px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.directoryRow:hover {
+  background: #ffffff03;
+}
+.directoryRow[aria-pressed="true"] {
+  border-color: #d4af3740;
+  background: #d4af3709;
+}
+.directoryRow > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.directoryRow strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.directoryRow small {
+  display: block;
+  font-size: 10px;
+  color: #888;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.siteIcon {
+  font-size: 21px;
+  color: #bda45f;
+  width: 26px;
+  flex-shrink: 0;
+}
+.directory footer {
+  font-size: 10px;
+  color: #888;
+  border-top: 1px solid #ffffff08;
+  padding-top: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.trafficPanel header > span {
+  font-size: 10px;
+  color: #aaa;
+}
+.networkStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  background: #2a2a29;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0 16px;
+}
+.networkStats span {
+  font-size: 10px;
+  color: #aaa;
+}
+.networkStats div:first-child span {
+  color: #e8c65e;
+}
+.networkStats strong {
+  display: block;
+  font-size: 12px;
+  margin-top: 9px;
+  color: #e5e0d2;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+.networkChart {
+  min-height: 235px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.networkChart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 180px;
+}
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  font-size: 10px;
+  color: #e8c65e;
+  margin: 8px 0;
+}
+.legend span:last-child {
+  color: #d5d2c8;
+}
+.chartEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 235px;
+  color: #aaa;
+  gap: 12px;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 44px,
+    #ffffff05 45px
+  );
+}
+.chartEmpty > span {
+  font-size: 38px;
+  color: #796f4d;
+}
+.chartEmpty strong {
+  font-weight: 400;
+  font-size: 13px;
+}
+.chartEmpty p {
+  font-size: 11px;
+  color: #777;
+}
+.hint {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+.alertPanel header > span {
+  font-size: 10px;
+  color: #888;
+}
+.alert {
+  border-left: 3px solid #d4af37;
+  background: #d4af3708;
+  padding: 12px 16px;
+  margin-top: 12px;
+  border-radius: 6px;
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.alert span,
+.alert small {
+  color: #b6ab90;
+}
+.alertPanel details {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #aaa;
+}
+.recovered {
+  font-size: 12px;
+  color: #d4c49a;
+  margin-top: 10px;
+}
+.warning {
+  background: #d4af370c;
+  border: 1px solid #d4af3725;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #dfc17a;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 12px 0;
+}
+.help {
+  background: transparent;
+  font-size: 12px;
+  color: #999;
+}
+.help p {
+  line-height: 1.8;
+  margin-top: 12px;
+}
+.help summary,
+.alertPanel summary {
+  cursor: pointer;
+}
+.empty {
+  text-align: center;
+  padding: 70px 12px;
+  color: #888;
+  font-size: 12px;
+}
+.page button:focus-visible,
+.page input:focus-visible,
+.page select:focus-visible,
+.page summary:focus-visible,
+.page a:focus-visible {
+  outline: 2px solid #d4af37;
+  outline-offset: 3px;
+}
+@media (min-width: 1500px) {
+  .gaugeCard {
+    min-height: 180px;
+  }
+  .ring {
+    width: 100px;
+    height: 100px;
+  }
+}
+@media (max-width: 1100px) {
+  .workgrid {
+    grid-template-columns: 1fr;
+  }
+  .directoryList {
+    height: 220px;
+  }
+  .networkChart svg {
+    max-height: 290px;
+  }
+  .summary {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .summary > div:last-child {
+    grid-column: 1/-1;
+    border-top: 1px solid #ffffff08;
+    padding: 14px 0 0;
+    margin-top: 14px;
+  }
+  .summary > div:nth-child(4) {
+    border: 0;
+  }
+  .gauges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gaugeCard {
+    flex-direction: row-reverse;
+    align-items: center;
+    min-height: 132px;
+  }
+  .ring {
+    align-self: center;
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 560px) {
+  .page {
+    padding: 20px 12px 40px;
+  }
+  .controls {
+    width: 100%;
+    gap: 10px;
+  }
+  .controls select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .sourceLine {
+    gap: 8px;
+    font-size: 11px;
+  }
+  .gaugeCard {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    min-height: 170px;
+  }
+  .ring {
+    width: 80px;
+    height: 80px;
+    align-self: flex-end;
+  }
+  .ring strong {
+    font-size: 17px;
+  }
+  .gaugeCard p {
+    font-size: 10px;
+  }
+  .gauges {
+    gap: 10px;
+  }
+  .summary {
+    grid-template-columns: repeat(2, 1fr);
+    row-gap: 20px;
+  }
+  .summary > div {
+    padding: 0 12px;
+  }
+  .summary > div:nth-child(3) {
+    padding-left: 0;
+  }
+  .summary > div:nth-child(2) {
+    border: 0;
+  }
+  .overview,
+  .directory,
+  .trafficPanel,
+  .alertPanel,
+  .help {
+    padding: 16px;
+  }
+  .networkStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .toolbar input {
+    width: 110px;
+  }
+  .directoryRow {
+    gap: 8px;
+  }
+  .directoryRow .badge {
+    font-size: 9px;
+    padding: 4px 6px;
+    white-space: normal;
+  }
+  .networkChart {
+    min-height: 200px;
+  }
+  .heading h1 {
+    font-size: 23px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring circle:last-child {
+    transition: none;
+  }
+}
+.trafficPanel header select {
+  background: #252525;
+  color: #bbb;
+  border: 1px solid #404040;
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 11px;
+  max-width: 100%;
+}
+.percentChart {
+  width: 100%;
+}
+.percentChart svg {
+  width: 100%;
+  height: 210px;
+  display: block;
+}
+.percentChart > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  color: #999;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}

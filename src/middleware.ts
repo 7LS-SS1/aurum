@@ -25,7 +25,8 @@ export default auth((req) => {
   // This exact endpoint authenticates its dedicated scheduler secret in Node.
   if (pathname === "/api/internal/service-worker") return NextResponse.next();
 
-  const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // Monitor ingestion authenticates its scoped token in the Node handler.
+  const isPublicApi = pathname === "/api/monitor/ingest" || PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
   const isAdminArea = pathname.startsWith("/admin") && pathname !== "/admin/login";
   const isProtectedApi = pathname.startsWith("/api") && !isPublicApi;
 

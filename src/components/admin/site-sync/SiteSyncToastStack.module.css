@@ -1,10 +1,10 @@
-.stack {
+:global(.sync-toast-stack).stack {
   display: grid;
   gap: 0;
   bottom: max(24px, env(safe-area-inset-bottom));
   isolation: isolate;
 }
-.card {
+:global(.sync-toast).card {
   grid-area: 1 / 1;
   position: relative;
   min-width: 0;

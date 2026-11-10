@@ -1,5 +1,6 @@
 "use client";
 
+import AssetModal from "./AssetModal";
 import { useState, useTransition } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUploadWordpressThemeAsset } from "@/lib/upload-client";
@@ -237,7 +238,7 @@ export function WordpressThemesManager({ initialThemes, role }: { initialThemes:
       </div>
 
       {modalOpen && (
-        <div className="theme-modal-backdrop" role="presentation">
+        <AssetModal onClose={closeModal}>
           <div className="upload-wizard theme-modal" role="dialog" aria-modal="true" aria-label={draft.id ? "แก้ไข Theme" : "เพิ่ม Theme"}>
             <div className="upload-wizard-head">
               <div>
@@ -348,7 +349,7 @@ export function WordpressThemesManager({ initialThemes, role }: { initialThemes:
               </div>
             </div>
           </div>
-        </div>
+        </AssetModal>
       )}
 
       <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>

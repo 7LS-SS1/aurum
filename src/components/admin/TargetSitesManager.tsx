@@ -326,7 +326,7 @@ export function TargetSitesManager({
             </div>
             <div className={gallery.cardBody}>
               <div className={gallery.identity}>
-                <div><h4 title={s.name}>{s.name}</h4><span className={gallery.domain} title={s.baseUrl}>{siteUrl(s.baseUrl)?.hostname || s.baseUrl}</span></div>
+                <div><h4 title={s.name}><a href={`/admin/sites/${s.id}?type=${s.type}`}>{s.name}</a></h4><span className={gallery.domain} title={s.baseUrl}>{siteUrl(s.baseUrl)?.hostname || s.baseUrl}</span></div>
               {canManage && s.type === "video" && s.isActive && (
                 <input
                   type="checkbox"
@@ -337,7 +337,7 @@ export function TargetSitesManager({
                 />
               )}
               </div>
-              <p className={gallery.meta}>WordPress · เพิ่มเมื่อ {new Date(s.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })}</p>
+              <a className="ui-button ui-button--quiet" href={`/admin/sites/${s.id}?type=${s.type}`}>ดูรายละเอียดและการเชื่อมต่อ →</a><p className={gallery.meta}>WordPress · เพิ่มเมื่อ {new Date(s.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" })}</p>
               <div className={gallery.status}><span className={`health ${s.healthStatus}`} aria-hidden="true"/>{s.healthStatus === "OK" ? "ตรวจสอบสำเร็จ" : s.healthStatus === "ERROR" ? "เชื่อมต่อมีปัญหา" : "ยังไม่ตรวจสอบ"}{!s.isActive && <span className="badge neutral">ปิดใช้งาน</span>}</div>
             </div>
             {canManage && <details className={gallery.manage}>

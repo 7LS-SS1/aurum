@@ -4508,3 +4508,41 @@ html,
     background: Canvas;
   }
 }
+
+/* Overlay scale: navigation <= 1201, dialogs 1300, feedback 1400. */
+.theme-modal-backdrop.MuiModal-root {
+  z-index: 1300;
+  padding: clamp(8px, 2vw, 28px);
+}
+.theme-modal {
+  min-height: 0;
+  max-height: calc(100dvh - clamp(16px, 4vw, 56px));
+  min-width: 0;
+  outline: none;
+}
+.theme-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.theme-modal .theme-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block: 16px;
+  align-items: stretch;
+}
+.theme-modal .field,
+.theme-modal .theme-upload-box { min-width: 0; }
+.theme-modal .theme-upload-box span { overflow-wrap: anywhere; }
+.theme-modal .upload-wizard-head > div { min-width: 0; }
+.theme-modal .upload-close { flex-shrink: 0; }
+.theme-modal .upload-wizard-foot { flex-wrap: wrap; gap: 12px; }
+.toast { z-index: 1400; max-width: calc(100vw - 32px); }
+@media (max-width: 600px) {
+  .theme-modal .theme-form-grid,
+  .theme-modal .theme-upload-grid { grid-template-columns: minmax(0, 1fr); }
+  .theme-modal-body { padding: 16px; }
+  .theme-modal .upload-wizard-head,
+  .theme-modal .upload-wizard-foot { padding: 12px 16px; }
+}

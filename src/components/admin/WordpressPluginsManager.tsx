@@ -1,5 +1,6 @@
 "use client";
 
+import AssetModal from "./AssetModal";
 import { useState, useTransition } from "react";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUploadWordpressPluginAsset } from "@/lib/upload-client";
@@ -157,7 +158,7 @@ export function WordpressPluginsManager({ initialPlugins, role }: { initialPlugi
       </article>)}
       {!plugins.length && <div className="empty">ยังไม่มี Plugin ในระบบ</div>}
     </div>
-    {open && <div className="theme-modal-backdrop" role="presentation"><div className="upload-wizard theme-modal" role="dialog" aria-modal="true" aria-label={draft.id ? "แก้ไข Plugin" : "เพิ่ม Plugin"}>
+    {open && <AssetModal onClose={close}><div className="upload-wizard theme-modal" role="dialog" aria-modal="true" aria-label={draft.id ? "แก้ไข Plugin" : "เพิ่ม Plugin"}>
       <div className="upload-wizard-head"><div><h2>{draft.id ? `แก้ไข ${draft.name}` : "เพิ่ม Plugin ใหม่"}</h2><p>ระบบจะตรวจ root folder, main PHP file, Version header และ SHA-256 ก่อนบันทึก</p></div><button type="button" className="upload-close" onClick={close} aria-label="ปิด">x</button></div>
       <div className="theme-modal-body"><label className="theme-upload-box plugin-upload-box"><strong>ไฟล์ Plugin .zip</strong><span>{draft.packageUrl || "เลือกไฟล์ ZIP ที่มี root aurum-video-core/"}</span><em className="theme-file-btn">เลือกไฟล์ ZIP<input type="file" accept=".zip,application/zip" onChange={(event) => void upload(event.target.files?.[0] ?? null)} /></em>{progress > 0 && <small>{Math.round(progress)}%</small>}</label>
         <div className="theme-upload-grid"><div className="theme-upload-box plugin-upload-box"><strong>รูปพื้นหลัง Plugin</strong><span>{draft.screenshotUrl || "ยังไม่มีรูปพื้นหลัง"}</span><label className="theme-file-btn">{draft.screenshotUrl ? "เปลี่ยนรูปพื้นหลัง" : "เลือกรูปพื้นหลัง"}<input type="file" accept="image/*" onChange={(event) => void uploadScreenshot(event.target.files?.[0] ?? null)} /></label>{screenshotProgress > 0 && <small>{Math.round(screenshotProgress)}%</small>}</div>
@@ -167,7 +168,7 @@ export function WordpressPluginsManager({ initialPlugins, role }: { initialPlugi
         <div className="field"><label>คำอธิบาย</label><textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div><div className="field"><label>Changelog</label><textarea value={draft.changelog} onChange={(e) => setDraft({ ...draft, changelog: e.target.value })} /></div><div className="theme-manifest"><span>SHA-256</span><code>{draft.checksumSha256 || "จะคำนวณหลังอัปโหลด"}</code></div>
       </div>
       <div className="upload-wizard-foot"><div className="upload-foot-status">{draft.packageUrl ? "พร้อมตรวจสอบและบันทึก" : "ต้องอัปโหลดไฟล์ก่อน"}</div><button className="btn btn-gold" disabled={pending || !draft.packageUrl} onClick={save}>{draft.id ? "บันทึกการแก้ไข" : "เพิ่ม Plugin"}</button></div>
-    </div></div>}
+    </div></AssetModal>}
     <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
   </div>;
 }

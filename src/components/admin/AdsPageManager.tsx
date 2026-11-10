@@ -6,8 +6,7 @@ import { adsPageSchema, type AdsPageConfig } from "@/lib/ads-page-config";
 import { CouponEditor } from "./CouponEditor";
 import { AdsWebsiteSelector, type AdsTargetSite } from "./AdsWebsiteSelector";
 import styles from "./AdsPageManager.module.css";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
-const adsTheme = createTheme({ palette: { mode: "light", primary: { main: "#2563eb" }, success: { main: "#15803d" }, background: { default: "#f1f5f9", paper: "#ffffff" }, text: { primary: "#0f172a", secondary: "#475569" }, divider: "#e2e8f0" }, typography: { fontFamily: "Tahoma, sans-serif", button: { textTransform: "none" } }, shape: { borderRadius: 12 }, components: { MuiButton: { defaultProps: { disableElevation: true } } } });
+import { AurumTheme } from "@/components/ui/AurumTheme";
 
 export function AdsPageManager({ initial, targetSites }: { initial: { config: AdsPageConfig; revision: number; ready: boolean }; targetSites: AdsTargetSite[] }) {
   const [config, setConfig] = useState(initial.config);
@@ -45,7 +44,7 @@ export function AdsPageManager({ initial, targetSites }: { initial: { config: Ad
   function updatePost(index: number, changes: Partial<AdsPageConfig["promotions"][number]>) {
     setConfig({ ...config, promotions: config.promotions.map((post, i) => i === index ? { ...post, ...changes } : post) });
   }
-  return <ThemeProvider theme={adsTheme}><form className={styles.form} onSubmit={save}>
+  return <AurumTheme><form className={styles.form} onSubmit={save}>
     <header className={styles.heading}><span>ADVERTISING MANAGEMENT</span><h1>จัดการโฆษณาและโปรโมชั่น</h1><p>ดูแลเว็บไซต์ ราคา ส่วนลด และเนื้อหาที่ลูกค้าเห็นได้ในที่เดียว</p></header>
     <div className={styles.stats}><div><strong>{config.websites.length}</strong><span>เว็บไซต์ทั้งหมด</span></div><div><strong>{config.websites.filter(site => site.enabled).length}</strong><span>เว็บไซต์เปิดรับจอง</span></div><div><strong>{config.promotions.filter(post => post.published).length}</strong><span>โปรโมชั่นเผยแพร่</span></div><div><strong>{config.coupons.length}</strong><span>รหัสส่วนลด</span></div></div>
     <nav className={styles.navigation} aria-label="ส่วนการตั้งค่าโฆษณา">{[["ads-websites","เว็บไซต์"],["ads-pricing","ราคาและแพ็กเกจ"],["ads-promotions","โปรโมชั่น"],["ads-coupons","โค้ดส่วนลด"],["ads-content","เนื้อหาและติดต่อ"]].map(([id,label])=><a key={id} href={`#${id}`}>{label}</a>)}</nav>
@@ -84,5 +83,5 @@ export function AdsPageManager({ initial, targetSites }: { initial: { config: Ad
       })}</section>
       <section className={styles.section}><h2>แพ็กเกจเหมาทั้งเว็บไซต์</h2><div className={styles.grid}>{config.packages.map((plan, index) => <div className={styles.card} key={index}>{(["months", "price", "discount"] as const).map(key => <div key={key}>{field({ months: "จำนวนเดือน", price: "ราคารวม (บาท)", discount: "ส่วนลด (%)" }[key], plan[key], value => setConfig({ ...config, packages: config.packages.map((item, i) => i === index ? { ...item, [key]: Number(value) } : item) }))}</div>)}</div>)}</div></section>
     </fieldset>
-  </form></ThemeProvider>;
+  </form></AurumTheme>;
 }

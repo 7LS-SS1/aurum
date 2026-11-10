@@ -1,0 +1,15 @@
+import { beforeEach, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+const m=vi.hoisted(()=>({auth:vi.fn(),generate:vi.fn(),reveal:vi.fn(),audit:vi.fn(),page:vi.fn()}));
+vi.mock("@/lib/authz",()=>({requireMinRole:m.auth}));
+vi.mock("@/lib/ads-plugin-keys",()=>({generateAdsKey:m.generate,resolveAdsKey:m.reveal}));
+vi.mock("@/lib/ads-page-store",()=>({getAdsPage:m.page}));
+vi.mock("@/lib/prisma",()=>({prisma:{auditLog:{create:m.audit}}}));
+import { POST } from "./route";
+import { ApiError } from "@/lib/api-response";
+const id="11111111-1111-4111-8111-111111111111";
+const req=(action="reveal")=>new NextRequest("https://aurum.test/api/ads-websites/"+id+"/key",{method:"POST",body:JSON.stringify({action})});
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({id:"admin",role:"MANAGER"});m.page.mockResolvedValue({config:{websites:[{id}]}});m.reveal.mockResolvedValue("secret");m.audit.mockResolvedValue({});});
+it("does not read or generate secrets when authorization fails",async()=>{m.auth.mockRejectedValue(new ApiError("forbidden",403));expect((await POST(req(),{params:Promise.resolve({id})})).status).toBe(403);expect(m.reveal).not.toHaveBeenCalled();expect(m.generate).not.toHaveBeenCalled();});
+it("requires manager permissions, audits reveal and disables caching",async()=>{const r=await POST(req(),{params:Promise.resolve({id})});expect(m.auth).toHaveBeenCalledWith("MANAGER");expect(r.status).toBe(200);expect(r.headers.get("cache-control")).toContain("no-store");expect(m.audit).toHaveBeenCalled();expect(JSON.stringify(m.audit.mock.calls)).not.toContain("secret");});
+it("rejects unregistered IDs before reading keys",async()=>{m.page.mockResolvedValue({config:{websites:[]}});expect((await POST(req(),{params:Promise.resolve({id})})).status).toBe(404);expect(m.reveal).not.toHaveBeenCalled();});

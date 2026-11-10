@@ -1,3 +1,4 @@
+import { resolveAdsKey } from "@/lib/ads-plugin-keys";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const q = req.nextUrl.searchParams;
     const site = z.string().uuid().parse(q.get("websiteId")), orderId = z.string().uuid().parse(q.get("orderId")), fileId = z.string().uuid().parse(q.get("fileId"));
-    if (!validMediaSignature(site, orderId, fileId, Number(q.get("expires")), q.get("signature") || "")) throw new ApiError("invalid_media_link", 403);
+    if (!validMediaSignature(site, orderId, fileId, Number(q.get("expires")), q.get("signature") || "", await resolveAdsKey(site))) throw new ApiError("invalid_media_link", 403);
     const { config } = await getAdsPage();
     if (!config.websites.some(s => s.id === site)) throw new ApiError("website_unavailable", 404);
     const order = await prisma.adsOrder.findUnique({ where: { id: orderId } });

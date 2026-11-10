@@ -8,17 +8,17 @@ export function pluginKey(siteId: string) {
   if (!key) throw new ApiError("plugin_not_configured", 401);
   return key;
 }
-export function authenticateAdsPlugin(siteId: string, authorization: string | null) {
+export function authenticateAdsPlugin(siteId: string, authorization: string | null, key?: string) {
   z.string().uuid().parse(siteId);
-  const expected = pluginKey(siteId), provided = authorization?.replace(/^Bearer /, "") || "";
+  const expected = key ?? pluginKey(siteId), provided = authorization?.replace(/^Bearer /, "") || "";
   if (!timingSafeEqual(createHash("sha256").update(expected).digest(), createHash("sha256").update(provided).digest())) throw new ApiError("unauthorized", 401);
 }
-export function mediaSignature(siteId: string, orderId: string, fileId: string, expires: number) {
-  return createHmac("sha256", pluginKey(siteId)).update(JSON.stringify([siteId, orderId, fileId, expires])).digest("hex");
+export function mediaSignature(siteId: string, orderId: string, fileId: string, expires: number, key?: string) {
+  return createHmac("sha256", key ?? pluginKey(siteId)).update(JSON.stringify([siteId, orderId, fileId, expires])).digest("hex");
 }
-export function validMediaSignature(siteId: string, orderId: string, fileId: string, expires: number, signature: string) {
+export function validMediaSignature(siteId: string, orderId: string, fileId: string, expires: number, signature: string, key?: string) {
   if (!Number.isSafeInteger(expires) || expires < Math.floor(Date.now()/1000) || expires > Math.floor(Date.now()/1000)+900 || !/^[a-f0-9]{64}$/.test(signature)) return false;
-  return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(mediaSignature(siteId, orderId, fileId, expires), "hex"));
+  return timingSafeEqual(Buffer.from(signature, "hex"), Buffer.from(mediaSignature(siteId, orderId, fileId, expires, key), "hex"));
 }
 export function isServingAd(order: { status: string; startsAt: Date | null; endsAt: Date | null; quote: unknown }, now = Date.now()) {
   return !getSimulation(order.quote) && ["ACTIVE", "GRACE"].includes(order.status) && !!order.startsAt && order.startsAt.getTime() <= now && !!order.endsAt && order.endsAt.getTime() + (order.status === "GRACE" ? 72*3600000 : 0) > now;

@@ -36,7 +36,7 @@ export function AdsWebsiteSelector({ websites, targetSites, onChange }: {
       <Box><Typography variant="h6" sx={{ fontWeight: 700 }}>เว็บไซต์สำหรับลงโฆษณา</Typography><Typography color="text.secondary" variant="body2">เลือกจากเว็บปลายทางที่ผูกกับ Aurum และกำหนดว่าเว็บไซต์ใดเปิดรับจอง</Typography></Box>
       <Button component={Link} href="/admin/sites" variant="outlined">จัดการเว็บปลายทาง ↗</Button>
     </Stack>
-    <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#f8fafc" }}>
+    <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "background.default" }}>
       <Stack direction={{ xs: "column", sm: "row" }} sx={{ gap: 2 }}>
         <TextField select fullWidth size="small" label="เพิ่มเว็บไซต์จากทะเบียน" value={selectedSite ? selected : ""} onChange={e => setSelected(e.target.value)}>
           <MenuItem value="">เลือกเว็บไซต์</MenuItem>{choices.map(site => <MenuItem key={site.id} value={site.id}>{site.name} — {site.baseUrl}</MenuItem>)}
@@ -66,7 +66,7 @@ export function AdsWebsiteSelector({ websites, targetSites, onChange }: {
           {target && !target.isActive && <Typography variant="caption" color="warning.main">เว็บปลายทางปิดใช้งานอยู่ โปรดตรวจสอบก่อนเปิดรับจอง</Typography>}
           {changed && <Button type="button" size="small" variant="outlined" disabled={!usable(target)} onClick={() => onChange(websites.map(item => item.id === site.id ? { ...item, name: target.name, url: target.baseUrl } : item))}>อัปเดตชื่อและ URL จากทะเบียน</Button>}
           <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid", borderColor: "divider" }}><FormControlLabel sx={{ m: 0 }} control={<Switch size="small" checked={site.enabled} disabled={placeholder} onChange={e => onChange(websites.map(item => item.id === site.id ? { ...item, enabled: e.target.checked } : item))} />} label={<Typography variant="body2">เปิดให้ลูกค้าเลือกจอง</Typography>} /></Box>
-          <details><summary style={{ cursor: "pointer", fontSize: 12, color: "#64748b" }}>รหัสเว็บไซต์สำหรับปลั๊กอิน</summary><Typography component="code" variant="caption" sx={{ overflowWrap: "anywhere" }}>{site.id}</Typography></details>
+          <details><summary style={{ cursor: "pointer", fontSize: 12, color: "inherit" }}>รหัสเว็บไซต์สำหรับปลั๊กอิน</summary><Typography component="code" variant="caption" sx={{ overflowWrap: "anywhere" }}>{site.id}</Typography></details>
         </Paper>;
       })}
     </Box>

@@ -1,3 +1,4 @@
+vi.mock("@/lib/prisma", () => ({ prisma: { servicePageConfig: { findUnique: async () => null } } }));
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 const mock = vi.hoisted(() => ({ find: vi.fn(), rate: vi.fn() }));
@@ -11,7 +12,7 @@ const order = (status: string, id = "order") => ({ id, status, startsAt: new Dat
 beforeEach(() => { vi.resetAllMocks(); vi.stubEnv("ADS_PLUGIN_KEYS", JSON.stringify({[site]: "a".repeat(48)})); mock.rate.mockResolvedValue({ success: true }); mock.find.mockResolvedValue([]); });
 afterEach(() => vi.unstubAllEnvs());
 describe("WordPress ads feed", () => {
-  it("rejects invalid keys before database access", async () => { expect((await GET(request("wrong"))).status).toBe(401); expect(mock.find).not.toHaveBeenCalled(); });
+  it("rejects invalid keys before order database access", async () => { expect((await GET(request("wrong"))).status).toBe(401); expect(mock.find).not.toHaveBeenCalled(); });
   it("exposes reservations without serving unpaid artwork", async () => {
     mock.find.mockResolvedValue([order("PAYMENT")]);
     const data = await (await GET(request())).json();

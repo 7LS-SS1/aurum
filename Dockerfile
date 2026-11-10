@@ -60,6 +60,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/service-worker.mjs ./scripts/service-worker.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/site-analytics-worker.mjs ./scripts/site-analytics-worker.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/sync-wp-engagement-once.mjs ./scripts/sync-wp-engagement-once.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/release-preflight.mjs ./scripts/release-preflight.mjs
 
 COPY docker-entrypoint.sh ./docker-entrypoint.sh

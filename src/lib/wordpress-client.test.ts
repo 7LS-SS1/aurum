@@ -359,11 +359,11 @@ describe("post-write video meta verification", () => {
 });
 
 describe("getAurumEngagement", () => {
-  it("calls the aurum/v1 engagement endpoint for the given post id", async () => {
+  it("calls the measured engagement endpoint for the given post id", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ postId: 5, views: 10, likes: 2, dislikes: 0 }));
     vi.stubGlobal("fetch", fetchMock);
     const result = await client().getAurumEngagement(5);
     expect(result).toEqual({ postId: 5, views: 10, likes: 2, dislikes: 0 });
-    expect(fetchMock).toHaveBeenCalledWith("https://example.com/wp-json/aurum/v1/posts/5/engagement", expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith("https://example.com/wp-json/aurum-analytics/v1/posts/5/engagement", expect.anything());
   });
 });

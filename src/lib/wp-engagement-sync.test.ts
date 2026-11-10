@@ -29,6 +29,7 @@ function fakeRow(overrides: Record<string, unknown> = {}) {
     movieId: "m1",
     siteId: "s1",
     remotePostId: "10",
+    remoteViewCount: 0,
     remotePostType: null,
     remoteCategoryRestBase: null,
     remoteTagRestBase: null,
@@ -131,14 +132,32 @@ describe("syncWordPressEngagement", () => {
     expect(movieUpdate.mock.calls[0]?.[0].data).not.toHaveProperty("status");
   });
 
-  it("floors and clamps a negative/fractional view count from a misbehaving site to 0", async () => {
+  it("accepts a valid zero view count", async () => {
     distributionFindMany.mockResolvedValue([fakeRow()]);
-    getAurumEngagementMock.mockResolvedValue({ postId: 10, views: -3.7, likes: 0, dislikes: 0 });
+    getAurumEngagementMock.mockResolvedValue({ postId: 10, views: 0, likes: 0, dislikes: 0 });
     distributionAggregate.mockResolvedValue({ _sum: { remoteViewCount: 0 } });
 
     await syncWordPressEngagement();
 
     expect(distributionUpdate).toHaveBeenCalledWith({ where: { id: "d1" }, data: expect.objectContaining({ remoteViewCount: 0 }) });
+  });
+
+  it("preserves existing counters when a site returns invalid metrics", async () => {
+    distributionFindMany.mockResolvedValue([fakeRow()]);
+    getAurumEngagementMock.mockResolvedValue({ postId: 10, views: -3.7, likes: 0, dislikes: 0 });
+    const result = await syncWordPressEngagement();
+    expect(result.failed).toBe(1);
+    expect(distributionUpdate).toHaveBeenCalledWith({ where: { id: "d1" }, data: { engagementSyncedAt: expect.any(Date) } });
+    expect(movieUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite historical views when a new counter starts lower", async () => {
+    distributionFindMany.mockResolvedValue([fakeRow({ remoteViewCount: 100 })]);
+    getAurumEngagementMock.mockResolvedValue({ postId: 10, views: 1, likes: 0, dislikes: 0 });
+    const result = await syncWordPressEngagement();
+    expect(result.failed).toBe(1);
+    expect(distributionUpdate).toHaveBeenCalledWith({ where: { id: "d1" }, data: { engagementSyncedAt: expect.any(Date) } });
+    expect(movieUpdate).not.toHaveBeenCalled();
   });
 
   it("on failure, still stamps engagementSyncedAt (so a broken site doesn't get retried every run) and records the error", async () => {

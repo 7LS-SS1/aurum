@@ -81,7 +81,13 @@ export async function syncWordPressEngagement(options: SyncWpEngagementOptions =
     try {
       const client = makeClient(row.site, row);
       const engagement = await client.getAurumEngagement(postId);
-      const views = Number.isFinite(engagement.views) ? Math.max(0, Math.floor(engagement.views)) : 0;
+      if (Number(engagement.postId) !== Number(postId) || !Number.isSafeInteger(engagement.views) || engagement.views < 0) {
+        throw new Error("Invalid WordPress engagement response");
+      }
+      const views = engagement.views;
+      if (views < row.remoteViewCount) {
+        throw new Error("WordPress count is lower than the previously synced count; manual reconciliation required");
+      }
 
       await prisma.distribution.update({
         where: { id: row.id },

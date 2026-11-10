@@ -496,6 +496,7 @@ export class WordPressClient {
   }
 
   async getAurumEngagement(postId: string | number): Promise<WpEngagement> {
-    return this.json(`${this.aurumApi}/posts/${encodeURIComponent(String(postId))}/engagement`);
+    const id = encodeURIComponent(String(postId));
+    return this.json(`${this.baseUrl}/wp-json/aurum-analytics/v1/posts/${id}/engagement`);
   }
 }

@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { adsPageSchema, type AdsPageConfig } from "@/lib/ads-page-config";
 import { CouponEditor } from "./CouponEditor";
+import { AdsWebsiteSelector, type AdsTargetSite } from "./AdsWebsiteSelector";
 import styles from "./ServicePageManager.module.css";
 
-export function AdsPageManager({ initial }: { initial: { config: AdsPageConfig; revision: number; ready: boolean } }) {
+export function AdsPageManager({ initial, targetSites }: { initial: { config: AdsPageConfig; revision: number; ready: boolean }; targetSites: AdsTargetSite[] }) {
   const [config, setConfig] = useState(initial.config);
   const [saved, setSaved] = useState(initial.config);
   const [revision, setRevision] = useState(initial.revision);
@@ -47,7 +48,7 @@ export function AdsPageManager({ initial }: { initial: { config: AdsPageConfig; 
     {message && <p role="status" className={styles.notice}>{message}</p>}
     {!initial.ready && <p role="alert">ตารางตั้งค่ายังไม่พร้อม กรุณาติดตั้ง migration ของหน้าบริการก่อนบันทึก</p>}
     <fieldset className={styles.body} disabled={busy || !initial.ready}>
-      <section className={styles.section}><h2>เว็บไซต์สำหรับลงโฆษณา</h2><p>ลูกค้าเลือกเว็บไซต์ก่อนเลือกตำแหน่ง ราคาและจำนวนช่องใช้การตั้งค่าร่วมกันแต่แยกพื้นที่จองตามเว็บไซต์ ปิดรับจองได้โดยไม่กระทบประวัติคำสั่งซื้อเดิม</p><button type="button" className="btn-gold" disabled={config.websites.length >= 100} onClick={() => setConfig({ ...config, websites: [...config.websites, { id: crypto.randomUUID(), name: "เว็บไซต์ใหม่", url: "https://example.com", enabled: false }] })}>เพิ่มเว็บไซต์</button>{config.websites.map(site => <article key={site.id} className={styles.card}><p>Website ID สำหรับ AURUM Ads: <code>{site.id}</code></p>{field("ชื่อเว็บไซต์", site.name, name => setConfig({ ...config, websites: config.websites.map(s => s.id === site.id ? { ...s, name } : s) }))}{field("URL เว็บไซต์ (HTTPS)", site.url, url => setConfig({ ...config, websites: config.websites.map(s => s.id === site.id ? { ...s, url } : s) }))}<label><input type="checkbox" checked={site.enabled} onChange={e => setConfig({ ...config, websites: config.websites.map(s => s.id === site.id ? { ...s, enabled: e.target.checked } : s) })} /> เปิดให้ลูกค้าเลือกจอง</label></article>)}</section>
+      <AdsWebsiteSelector websites={config.websites} targetSites={targetSites} onChange={websites => setConfig({ ...config, websites })} />
       <section className={styles.section}><h2>ตำแหน่งโฆษณา</h2><p>Banner หลัก 32 ช่อง · Popup และ Fixed ตำแหน่งละ 1 ช่อง · Video Ads ใช้ตัวเล่นเดียว เรียงลำดับ 1–3 แต่ละลำดับรับได้หนึ่งคำสั่งซื้อ สถานะจองตรวจสอบจาก AURUM</p></section>
       <section className={styles.section}><h2>โพสต์โปรโมชั่น</h2><p>โพสต์ใหม่เป็นฉบับร่าง เลือก “เผยแพร่” แล้วบันทึกเพื่อแสดงบนหน้าสาธารณะ เรียงโพสต์ใหม่ไว้ด้านบน</p>
         <button type="button" className="btn-gold" disabled={config.promotions.length >= 30} onClick={() => setConfig({ ...config, promotions: [{ id: crypto.randomUUID(), title: "โปรโมชั่นใหม่", body: "รายละเอียดโปรโมชั่น", imageUrl: "", published: false }, ...config.promotions] })}>เพิ่มโปรโมชั่น</button>

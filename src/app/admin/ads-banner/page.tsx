@@ -13,5 +13,5 @@ export default async function AdminAdsBannerPage() {
     getAdsPage(),
     prisma.targetSite.findMany({ select: { id: true, name: true, baseUrl: true, isActive: true }, orderBy: { name: "asc" } }),
   ]);
-  return <section><div className="page-head"><h1>จัดการ Ads Banner และโปรโมชั่น</h1><p>แก้ไขเนื้อหา ราคา และโพสต์โปรโมชั่นบน /services/ads-banner</p></div><AdsPageManager initial={initial} targetSites={targetSites} /></section>;
+  return <section><AdsPageManager initial={initial} targetSites={targetSites} /></section>;
 }

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { adsPageSchema, type AdsPageConfig } from "@/lib/ads-page-config";
 import { CouponEditor } from "./CouponEditor";
 import { AdsWebsiteSelector, type AdsTargetSite } from "./AdsWebsiteSelector";
-import styles from "./ServicePageManager.module.css";
+import styles from "./AdsPageManager.module.css";
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+const adsTheme = createTheme({ palette: { mode: "light", primary: { main: "#2563eb" }, success: { main: "#15803d" }, background: { default: "#f1f5f9", paper: "#ffffff" }, text: { primary: "#0f172a", secondary: "#475569" }, divider: "#e2e8f0" }, typography: { fontFamily: "Tahoma, sans-serif", button: { textTransform: "none" } }, shape: { borderRadius: 12 }, components: { MuiButton: { defaultProps: { disableElevation: true } } } });
 
 export function AdsPageManager({ initial, targetSites }: { initial: { config: AdsPageConfig; revision: number; ready: boolean }; targetSites: AdsTargetSite[] }) {
   const [config, setConfig] = useState(initial.config);
@@ -43,14 +45,17 @@ export function AdsPageManager({ initial, targetSites }: { initial: { config: Ad
   function updatePost(index: number, changes: Partial<AdsPageConfig["promotions"][number]>) {
     setConfig({ ...config, promotions: config.promotions.map((post, i) => i === index ? { ...post, ...changes } : post) });
   }
-  return <form className={styles.form} onSubmit={save}>
+  return <ThemeProvider theme={adsTheme}><form className={styles.form} onSubmit={save}>
+    <header className={styles.heading}><span>ADVERTISING MANAGEMENT</span><h1>จัดการโฆษณาและโปรโมชั่น</h1><p>ดูแลเว็บไซต์ ราคา ส่วนลด และเนื้อหาที่ลูกค้าเห็นได้ในที่เดียว</p></header>
+    <div className={styles.stats}><div><strong>{config.websites.length}</strong><span>เว็บไซต์ทั้งหมด</span></div><div><strong>{config.websites.filter(site => site.enabled).length}</strong><span>เว็บไซต์เปิดรับจอง</span></div><div><strong>{config.promotions.filter(post => post.published).length}</strong><span>โปรโมชั่นเผยแพร่</span></div><div><strong>{config.coupons.length}</strong><span>รหัสส่วนลด</span></div></div>
+    <nav className={styles.navigation} aria-label="ส่วนการตั้งค่าโฆษณา">{[["ads-websites","เว็บไซต์"],["ads-pricing","ราคาและแพ็กเกจ"],["ads-promotions","โปรโมชั่น"],["ads-coupons","โค้ดส่วนลด"],["ads-content","เนื้อหาและติดต่อ"]].map(([id,label])=><a key={id} href={`#${id}`}>{label}</a>)}</nav>
     <div className={styles.toolbar}><div><strong>{dirty ? "มีการแก้ไขที่ยังไม่บันทึก" : "ข้อมูลล่าสุด"}</strong><p>จัดการพื้นที่โฆษณาบนเว็บไซต์ของเรา แยกจากบริการ Website API</p></div><Link href="/services/ads-banner" target="_blank">ดูหน้าสาธารณะ ↗</Link><button type="submit" className="btn-gold" disabled={busy || !initial.ready || !dirty}>{busy ? "กำลังบันทึก…" : "บันทึกการเปลี่ยนแปลง"}</button></div>
     {message && <p role="status" className={styles.notice}>{message}</p>}
     {!initial.ready && <p role="alert">ตารางตั้งค่ายังไม่พร้อม กรุณาติดตั้ง migration ของหน้าบริการก่อนบันทึก</p>}
     <fieldset className={styles.body} disabled={busy || !initial.ready}>
       <AdsWebsiteSelector websites={config.websites} targetSites={targetSites} onChange={websites => setConfig({ ...config, websites })} />
       <section className={styles.section}><h2>ตำแหน่งโฆษณา</h2><p>Banner หลัก 32 ช่อง · Popup และ Fixed ตำแหน่งละ 1 ช่อง · Video Ads ใช้ตัวเล่นเดียว เรียงลำดับ 1–3 แต่ละลำดับรับได้หนึ่งคำสั่งซื้อ สถานะจองตรวจสอบจาก AURUM</p></section>
-      <section className={styles.section}><h2>โพสต์โปรโมชั่น</h2><p>โพสต์ใหม่เป็นฉบับร่าง เลือก “เผยแพร่” แล้วบันทึกเพื่อแสดงบนหน้าสาธารณะ เรียงโพสต์ใหม่ไว้ด้านบน</p>
+      <section id="ads-promotions" className={styles.section}><h2>โพสต์โปรโมชั่น</h2><p>โพสต์ใหม่เป็นฉบับร่าง เลือก “เผยแพร่” แล้วบันทึกเพื่อแสดงบนหน้าสาธารณะ เรียงโพสต์ใหม่ไว้ด้านบน</p>
         <button type="button" className="btn-gold" disabled={config.promotions.length >= 30} onClick={() => setConfig({ ...config, promotions: [{ id: crypto.randomUUID(), title: "โปรโมชั่นใหม่", body: "รายละเอียดโปรโมชั่น", imageUrl: "", published: false }, ...config.promotions] })}>เพิ่มโปรโมชั่น</button>
         {config.promotions.map((post, index) => <article className={styles.card} key={post.id}>
           <h3>{post.published ? "เผยแพร่" : "ฉบับร่าง"} · {post.title}</h3>
@@ -61,13 +66,13 @@ export function AdsPageManager({ initial, targetSites }: { initial: { config: Ad
           <div><button type="button" onClick={() => { if (window.confirm("ลบโปรโมชั่นนี้? การลบจะมีผลเมื่อบันทึก")) setConfig({ ...config, promotions: config.promotions.filter(item => item.id !== post.id) }); }}>ลบโปรโมชั่น</button></div>
         </article>)}
       </section>
-      <section className={styles.section}><CouponEditor coupons={config.coupons} onChange={coupons => setConfig({ ...config, coupons })} /></section>
-      <section className={styles.section}><h2>เนื้อหาหน้าและช่องทางติดต่อ</h2>
+      <section id="ads-coupons" className={styles.section}><CouponEditor coupons={config.coupons} onChange={coupons => setConfig({ ...config, coupons })} /></section>
+      <section id="ads-content" className={styles.section}><h2>เนื้อหาหน้าและช่องทางติดต่อ</h2>
         {field("Telegram", config.telegram, telegram => setConfig({ ...config, telegram }))}
         <div className={styles.grid}>{Object.entries(config.copy).map(([key, value]) => <label className={styles.field} key={key}>{initial.config.copy[key as keyof typeof config.copy].slice(0, 70)}<textarea required rows={3} value={value} onChange={event => setConfig({ ...config, copy: { ...config.copy, [key]: event.target.value } })} /></label>)}</div>
       </section>
       <section className={styles.section}><h2>สิทธิประโยชน์</h2>{config.benefits.map((row, index) => <div className={styles.grid} key={index}>{row.map((value, cell) => <div key={cell}>{field(["ลำดับ", "หัวข้อ", "รายละเอียด"][cell]!, value, next => setConfig({ ...config, benefits: config.benefits.map((r, i) => i === index ? r.map((v, c) => c === cell ? next : v) as typeof row : r) }))}</div>)}</div>)}</section>
-      <section className={styles.section}><h2>ราคาพื้นที่โฆษณา</h2>{config.groups.map((group, index) => {
+      <section id="ads-pricing" className={styles.section}><h2>ราคาพื้นที่โฆษณา</h2>{config.groups.map((group, index) => {
         const update = (changes: Partial<typeof group>) => setConfig({ ...config, groups: config.groups.map((item, i) => i === index ? { ...item, ...changes } : item) });
         return <div className={styles.card} key={index}>
           {field("ชื่อหมวด", group.title, title => update({ title }))}
@@ -79,5 +84,5 @@ export function AdsPageManager({ initial, targetSites }: { initial: { config: Ad
       })}</section>
       <section className={styles.section}><h2>แพ็กเกจเหมาทั้งเว็บไซต์</h2><div className={styles.grid}>{config.packages.map((plan, index) => <div className={styles.card} key={index}>{(["months", "price", "discount"] as const).map(key => <div key={key}>{field({ months: "จำนวนเดือน", price: "ราคารวม (บาท)", discount: "ส่วนลด (%)" }[key], plan[key], value => setConfig({ ...config, packages: config.packages.map((item, i) => i === index ? { ...item, [key]: Number(value) } : item) }))}</div>)}</div>)}</div></section>
     </fieldset>
-  </form>;
+  </form></ThemeProvider>;
 }

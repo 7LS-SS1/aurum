@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdsWebsiteKey } from "./AdsWebsiteKey";
 import Link from "next/link";
 import type { AdsPageConfig } from "@/lib/ads-page-config";
 import { Box, Button, Chip, FormControlLabel, MenuItem, Paper, Stack, Switch, TextField, Typography } from "@mui/material";
@@ -20,6 +21,8 @@ function usable(site: AdsTargetSite) {
 export function AdsWebsiteSelector({ websites, targetSites, onChange }: {
   websites: Website[]; targetSites: AdsTargetSite[]; onChange: (websites: Website[]) => void;
 }) {
+  const [copyNotice,setCopyNotice]=useState("");
+  async function copyId(id:string){try{await navigator.clipboard.writeText(id);setCopyNotice(`คัดลอก ID ${id} แล้ว`);}catch{setCopyNotice("คัดลอกไม่ได้ กรุณาเลือก ID และคัดลอกด้วยตนเอง");}}
   const [selected, setSelected] = useState("");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -66,10 +69,16 @@ export function AdsWebsiteSelector({ websites, targetSites, onChange }: {
           {target && !target.isActive && <Typography variant="caption" color="warning.main">เว็บปลายทางปิดใช้งานอยู่ โปรดตรวจสอบก่อนเปิดรับจอง</Typography>}
           {changed && <Button type="button" size="small" variant="outlined" disabled={!usable(target)} onClick={() => onChange(websites.map(item => item.id === site.id ? { ...item, name: target.name, url: target.baseUrl } : item))}>อัปเดตชื่อและ URL จากทะเบียน</Button>}
           <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid", borderColor: "divider" }}><FormControlLabel sx={{ m: 0 }} control={<Switch size="small" checked={site.enabled} disabled={placeholder} onChange={e => onChange(websites.map(item => item.id === site.id ? { ...item, enabled: e.target.checked } : item))} />} label={<Typography variant="body2">เปิดให้ลูกค้าเลือกจอง</Typography>} /></Box>
-          <details><summary style={{ cursor: "pointer", fontSize: 12, color: "inherit" }}>รหัสเว็บไซต์สำหรับปลั๊กอิน</summary><Typography component="code" variant="caption" sx={{ overflowWrap: "anywhere" }}>{site.id}</Typography></details>
+          <Box sx={{borderTop:1,borderColor:"divider",pt:2}}>
+            <Typography variant="caption">Website ID สำหรับปลั๊กอิน</Typography>
+            <Typography component="code" variant="body2" sx={{display:"block",overflowWrap:"anywhere",my:1}}>{site.id}</Typography>
+            <Button type="button" size="small" variant="outlined" onClick={()=>copyId(site.id)}>คัดลอก ID</Button>
+            <AdsWebsiteKey id={site.id}/>
+          </Box>
         </Paper>;
       })}
     </Box>
+    <Typography role="status" variant="caption">{copyNotice}</Typography>
     {!visible.length && <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}><Typography color="text.secondary">{websites.length ? "ไม่พบเว็บไซต์ที่ตรงกับการค้นหา" : "ยังไม่มีเว็บไซต์ เพิ่มจากทะเบียนด้านบนเพื่อเริ่มต้น"}</Typography></Paper>}
     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 2 }}>แสดง {visible.length} จาก {websites.length} เว็บไซต์ · การเปลี่ยนแปลงมีผลเมื่อกดบันทึก โดยคงรหัสเว็บไซต์และประวัติการจองเดิม</Typography>
   </section>;

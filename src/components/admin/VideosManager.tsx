@@ -2,7 +2,7 @@
 
 import { BulkVideoEdit } from "./BulkVideoEdit";
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { Box, Stack, Paper, Typography, Button, Chip, TextField, MenuItem, Checkbox, FormControlLabel, Pagination, LinearProgress, Snackbar, Menu, Divider, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { can, type Role } from "@/lib/permissions";
 import { DEFAULT_TAXO } from "@/lib/taxonomy";
@@ -86,6 +86,8 @@ export function VideosManager({
   currentUserId: string;
   role: Role;
 }) {
+  const [actionMenu, setActionMenu] = useState<{ anchor: HTMLElement; movie: MovieRow } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ message: string; action: () => void } | null>(null);
   const [movies, setMovies] = useState(initialMovies);
   const [pagination, setPagination] = useState(initialPagination);
   const [toast, setToast] = useState<string | null>(null);
@@ -156,10 +158,14 @@ export function VideosManager({
     setDateTo("");
     setQ("");
     startTransition(async () => {
+      try {
       const res = await apiFetch<{ movies: MovieRow[]; pagination: PaginationState }>(`/api/movies?page=1&take=${PAGE_SIZE}`);
       setMovies(res.movies);
       setPagination(res.pagination);
       setSelectedIds(new Set());
+      } catch (err) {
+        notify(err instanceof ApiClientError ? err.message : "โหลดรายการไม่สำเร็จ");
+      }
     });
   }
 
@@ -192,8 +198,7 @@ export function VideosManager({
   }
 
   function archive(m: MovieRow) {
-    if (!window.confirm("เก็บถาวรวิดีโอนี้?")) return;
-    run(m.id, "เก็บถาวรแล้ว", () => apiFetch(`/api/movies/${m.id}/archive`, { method: "POST" }));
+    setConfirmation({ message: `เก็บถาวร “${m.title}”?`, action: () => { void run(m.id, "เก็บถาวรแล้ว", () => apiFetch(`/api/movies/${m.id}/archive`, { method: "POST" })); } });
   }
 
   function toggleSelected(id: string) {
@@ -210,7 +215,6 @@ export function VideosManager({
   }
 
   async function deleteMovie(m: MovieRow) {
-    if (!window.confirm(`ลบวิดีโอ "${m.title}"? การลบนี้จะลบประวัติการกระจายและข้อมูลร่างที่เกี่ยวข้องด้วย`)) return;
     await run(m.id, "ลบวิดีโอแล้ว", () => apiFetch(`/api/movies/${m.id}`, { method: "DELETE" }));
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -222,7 +226,7 @@ export function VideosManager({
   async function deleteSelected() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    if (!window.confirm(`ลบวิดีโอที่เลือก ${ids.length} รายการ? การลบนี้จะลบประวัติการกระจายและข้อมูลร่างที่เกี่ยวข้องด้วย`)) return;
+
 
     setBulkBusy(true);
     try {
@@ -243,7 +247,10 @@ export function VideosManager({
     const warning = mode === "overwrite_editorial"
       ? `เขียนทับ Title, slug, content, excerpt, หมวดหมู่ และแท็กของ "${m.title}" บน WordPress (${siteIds.length} เว็บ) — การแก้ไขของผู้ดูแลปลายทางจะถูกแทนที่ ยืนยัน?`
       : `อัปเดตข้อมูลวิดีโอ หมวดหมู่ และแท็กของ "${m.title}" (${siteIds.length} เว็บ) โดยรักษาชื่อ เนื้อหา slug รูปปก และ SEO ใน WordPress — ยืนยัน?`;
-    if (!window.confirm(warning)) return;
+    setConfirmation({ message: warning, action: () => executePublish(m, siteIds, mode) });
+  }
+
+  function executePublish(m: MovieRow, siteIds: string[], mode: "video_only" | "overwrite_editorial") {
     const successMessage = mode === "overwrite_editorial" ? "เขียนทับข้อมูล WordPress แล้ว" : "อัปเดตวิดีโอ หมวดหมู่ และแท็กแล้ว";
     run(m.id, (message: string) => message, async () => {
       const result = await apiFetch<DistributionOutcomeSummary>(`/api/movies/${m.id}/distribute`, {
@@ -283,198 +290,59 @@ export function VideosManager({
     return can(role, "movie:edit");
   }
 
-  function renderActions(m: MovieRow) {
-    const busy = busyId === m.id;
-    const canDeleteMovie = can(role, "movie:delete") && m.status !== "PUBLISHING";
-    return (
-      <div className="admin-video-actions">
-        {canEdit() && (
-          <Link href={`/admin/videos/${m.id}/edit`}>
-            <button disabled={busy}>แก้ไข</button>
-          </Link>
-        )}
-        {can(role, "movie:submit-review") && ["DRAFT", "REJECTED"].includes(m.status) && (role !== "STAFF" || m.createdBy?.id === currentUserId) && (
-          <button disabled={busy} onClick={() => submitReview(m)}>
-            เริ่มประมวลผล
-          </button>
-        )}
-        {can(role, "movie:publish") && m.status === "APPROVED" && (
-          <button disabled={busy} onClick={() => publishNow(m)}>
-            ส่งเข้า WordPress (ทดสอบ)
-          </button>
-        )}
-        {can(role, "movie:publish") && ["PARTIAL", "FAILED"].includes(m.status) && (
-          <button disabled={busy} onClick={() => retry(m)}>
-            ลองใหม่
-          </button>
-        )}
-        {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (
-          <button disabled={busy} onClick={() => publishNow(m, "video_only")}>
-            อัปเดตวิดีโอ + หมวดหมู่/แท็ก
-          </button>
-        )}
-        {can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(m.status) && (
-          <button className="danger" disabled={busy} onClick={() => publishNow(m, "overwrite_editorial")}>
-            เขียนทับข้อมูล WordPress
-          </button>
-        )}
-        {can(role, "movie:archive") && ["APPROVED", "DONE", "PARTIAL", "FAILED", "REJECTED"].includes(m.status) && (
-          <button className="danger" disabled={busy} onClick={() => archive(m)}>
-            เก็บถาวร
-          </button>
-        )}
-        {canDeleteMovie && (
-          <button className="danger" disabled={busy || bulkBusy} onClick={() => deleteMovie(m)}>
-            ลบ
-          </button>
-        )}
-      </div>
-    );
-  }
-
   const canDeleteMovies = can(role, "movie:delete");
+  const canSelect = canDeleteMovies || canEdit();
   const allVisibleSelected = movies.some(m => m.status !== "PUBLISHING") && movies.filter(m => m.status !== "PUBLISHING").every(m => selectedIds.has(m.id));
-
-  return (
-    <div>
-      <div className="filter-bar">
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">ทุกสถานะ</option>
-          {ALL_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
-            </option>
-          ))}
-        </select>
-        <select value={mainCategory} onChange={(e) => setMainCategory(e.target.value)}>
-          <option value="">ทุกหมวดหมู่</option>
-          {Object.keys(DEFAULT_TAXO).map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <select value={createdById} onChange={(e) => setCreatedById(e.target.value)}>
-          <option value="">ทุกผู้สร้าง</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name ?? u.email}
-            </option>
-          ))}
-        </select>
-        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        <input type="text" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อเรื่อง/slug" style={{ minWidth: 200 }} />
-        <button className="btn btn-ghost" disabled={pending} onClick={applyFilters}>
-          ค้นหา
-        </button>
-        <button className="btn btn-ghost" disabled={pending} onClick={clearFilters}>
-          ล้างตัวกรอง
-        </button>
-        {can(role, "movie:create") && (
-          <Link href="/admin/videos/new" className="btn btn-gold" style={{ marginLeft: "auto" }}>
-            + เพิ่มวิดีโอใหม่
-          </Link>
-        )}
-      </div>
-
-      <div className="admin-video-surface">
-        {movies.length === 0 ? (
-          <div className="empty">ไม่พบวิดีโอตามเงื่อนไข</div>
-        ) : (
-          <>
-            {canDeleteMovies && (
-              <div className="bulk-action-bar">
-                <label className="bulk-select-all">
-                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible} />
-                  <span>{allVisibleSelected ? "ยกเลิกเลือกทั้งหมด" : "เลือกทั้งหมด"}</span>
-                </label>
-                <span className="bulk-count">เลือกแล้ว {selectedIds.size} รายการ · เลือกเฉพาะหน้านี้</span>
-                <BulkVideoEdit ids={[...selectedIds]} disabled={bulkBusy || pending} onSaved={async () => { await fetchPage(pagination.page); notify("บันทึกข้อมูลที่เลือกแล้ว"); }} />
-                <button className="btn btn-ghost danger-text" disabled={!selectedIds.size || bulkBusy} onClick={deleteSelected}>
-                  {bulkBusy ? "กำลังลบ..." : "ลบรายการที่เลือก"}
-                </button>
-              </div>
-            )}
-            <div className="admin-video-grid">
-              {movies.map((m) => {
-                const statusMeta = STATUS_META[m.status];
-                const mediaMeta = (m.extraMeta as Record<string, unknown>) ?? {};
-                const totalViewCount = m.viewCount + m.wpViewCount;
-                const checked = selectedIds.has(m.id);
-                const selectable = canDeleteMovies && m.status !== "PUBLISHING";
-                return (
-                  <article key={m.id} className={`admin-video-card ${checked ? "selected" : ""}`}>
-                    {canDeleteMovies && (
-                      <label className={`admin-video-select ${!selectable ? "disabled" : ""}`}>
-                        <input type="checkbox" checked={checked} disabled={!selectable || bulkBusy} onChange={() => toggleSelected(m.id)} />
-                      </label>
-                    )}
-                  <Link className="vcard" href={`/admin/videos/${m.id}`}>
-                    <div className="vthumb">
-                      {m.thumbnailUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- admin preview supports CDN hosts from env
-                        <img src={m.thumbnailUrl} alt={m.title} loading="lazy" />
-                      ) : (
-                        <div className="admin-thumb-fallback">{(m.mainCategory ?? "A").charAt(0)}</div>
-                      )}
-                      {m.previewUrl && <video className="vpreview" src={m.previewUrl} muted loop playsInline autoPlay preload="metadata" />}
-                      <span className="hover-play">
-                        <span className="pp">
-                          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </span>
-                      </span>
-                      <span className={`badge admin-thumb-status ${statusMeta.cls}`}>{statusMeta.label}</span>
-                      {typeof mediaMeta.quality === "string" && <span className="badge-q">{mediaMeta.quality}</span>}
-                      {typeof mediaMeta.duration === "string" && <span className="badge-dur">{mediaMeta.duration}</span>}
-                    </div>
-                  </Link>
-                  <div className="admin-video-body">
-                    <div className="admin-video-title-row">
-                      <div className="chan-av">{(m.mainCategory ?? "A").charAt(0)}</div>
-                      <div className="vinfo">
-                        <Link href={`/admin/videos/${m.id}`} className="vtitle">
-                          {m.title}
-                        </Link>
-                        <div className="vchannel">{m.mainCategory ?? "ไม่ระบุหมวดหมู่"}</div>
-                        <div className="vstats admin-video-inline-meta">
-                          <span>{totalViewCount.toLocaleString("th-TH")} views</span>
-                          {m.wpViewCount > 0 && <span>WP {m.wpViewCount.toLocaleString("th-TH")}</span>}
-                          <span>{new Date(m.createdAt).toLocaleDateString("th-TH")}</span>
-                          <span>{m.createdBy?.name ?? m.createdBy?.email ?? "ไม่ระบุผู้สร้าง"}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="admin-video-card-meta">
-                      {m.slug && <span className="admin-video-slug">{m.slug}</span>}
-                    </div>
-                    {m.status === "REJECTED" && m.rejectionReason && <div className="admin-video-reject">เหตุผล: {m.rejectionReason}</div>}
-                    {renderActions(m)}
-                  </div>
-                  </article>
-                );
-              })}
-            </div>
-            {pagination.totalPages > 1 && (
-              <nav className="pagination admin-pagination" aria-label="Admin video pagination">
-                <button className="page-btn" disabled={pending || pagination.page <= 1} onClick={() => goToPage(pagination.page - 1)}>
-                  ก่อนหน้า
-                </button>
-                <span className="page-status">
-                  หน้า {pagination.page.toLocaleString("th-TH")} / {pagination.totalPages.toLocaleString("th-TH")}
-                </span>
-                <button className="page-btn" disabled={pending || pagination.page >= pagination.totalPages} onClick={() => goToPage(pagination.page + 1)}>
-                  ถัดไป
-                </button>
-              </nav>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
-    </div>
-  );
+  const menuMovie = actionMenu?.movie;
+  const color = (status: MovieStatus) => status === "DONE" ? "success" : ["FAILED", "REJECTED"].includes(status) ? "error" : ["PARTIAL", "PUBLISHING"].includes(status) ? "warning" : "default";
+  const action = (fn: () => void) => { setActionMenu(null); fn(); };
+  return <Stack spacing={3} sx={{ pb: 5, maxWidth: 1600, mx: "auto" }}>
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ justifyContent: "space-between" }}>
+      <Box><Typography variant="overline" color="primary">CONTENT LIBRARY</Typography><Typography variant="h1">คลังวิดีโอ</Typography><Typography color="text.secondary">ค้นหา จัดหมวดหมู่ และติดตามการเผยแพร่ในพื้นที่เดียว</Typography></Box>
+      {can(role, "movie:create") && <Button href="/admin/videos/new" variant="contained" sx={{ alignSelf: "center" }}>＋ เพิ่มวิดีโอ</Button>}
+    </Stack>
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" }, gap: 2 }}>
+      {[["ผลลัพธ์ทั้งหมด", pagination.total], ["รายการในหน้านี้", movies.length], ["ต้องตรวจสอบในหน้านี้", movies.filter(m => ["FAILED", "PARTIAL", "REJECTED"].includes(m.status)).length], ["เลือกแล้ว", selectedIds.size]].map(([label, value]) => <Paper variant="outlined" key={label} sx={{ p: 2.5 }}><Typography variant="body2" color="text.secondary">{label}</Typography><Typography variant="h4" sx={{ mt: 1, fontWeight: 700 }}>{Number(value).toLocaleString("th-TH")}</Typography></Paper>)}
+    </Box>
+    <Paper variant="outlined" sx={{ p: 2.5 }}><Stack spacing={2} component="form" onSubmit={e => { e.preventDefault(); applyFilters(); }}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}><TextField label="ค้นหาวิดีโอ" placeholder="ชื่อเรื่อง หรือ slug" value={q} onChange={e => setQ(e.target.value)} /><Button type="submit" variant="contained" disabled={pending}>ค้นหา</Button><Button disabled={pending} onClick={clearFilters} sx={{ whiteSpace: "nowrap" }}>ล้างตัวกรอง</Button></Stack>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(5, 1fr)" }, gap: 2 }}>
+        <TextField select label="สถานะ" value={status} onChange={e => setStatus(e.target.value)}><MenuItem value="">ทุกสถานะ</MenuItem>{ALL_STATUSES.map(s => <MenuItem key={s} value={s}>{STATUS_META[s].label} · {s}</MenuItem>)}</TextField>
+        <TextField select label="ประเภท" value={mainCategory} onChange={e => setMainCategory(e.target.value)}><MenuItem value="">ทุกประเภท</MenuItem>{Object.keys(DEFAULT_TAXO).map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}</TextField>
+        <TextField select label="ผู้สร้าง" value={createdById} onChange={e => setCreatedById(e.target.value)}><MenuItem value="">ทุกผู้สร้าง</MenuItem>{users.map(u => <MenuItem key={u.id} value={u.id}>{u.name ?? u.email}</MenuItem>)}</TextField>
+        <TextField type="date" label="ตั้งแต่วันที่" slotProps={{ inputLabel: { shrink: true } }} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+        <TextField type="date" label="ถึงวันที่" slotProps={{ inputLabel: { shrink: true } }} value={dateTo} onChange={e => setDateTo(e.target.value)} />
+      </Box>
+    </Stack></Paper>
+    <Paper variant="outlined" sx={{ overflow: "hidden" }} aria-busy={pending || bulkBusy}>
+      {pending && <LinearProgress />}
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ alignItems: { md: "center" }, p: 2, bgcolor: "action.hover", borderBottom: 1, borderColor: "divider" }}>
+        {canSelect && <FormControlLabel label="เลือกทั้งหน้า" control={<Checkbox checked={allVisibleSelected} indeterminate={selectedIds.size > 0 && !allVisibleSelected} disabled={pending || bulkBusy} onChange={toggleSelectAllVisible} />} />}
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{selectedIds.size ? `เลือก ${selectedIds.size} รายการ` : `แสดง ${movies.length} จาก ${pagination.total.toLocaleString("th-TH")} รายการ`}</Typography>
+        {canEdit() && <BulkVideoEdit ids={[...selectedIds]} disabled={bulkBusy || pending} onSaved={async () => { await fetchPage(pagination.page); notify("บันทึกข้อมูลที่เลือกแล้ว"); }} />}
+        {canDeleteMovies && <Button color="error" disabled={!selectedIds.size || bulkBusy || pending} onClick={() => setConfirmation({ message: `ลบ ${selectedIds.size} รายการ รวมประวัติการกระจายและข้อมูลร่างที่เกี่ยวข้อง? ไม่สามารถย้อนกลับได้`, action: () => { void deleteSelected(); } })}>ลบที่เลือก</Button>}
+      </Stack>
+      {!movies.length && <Box sx={{ py: 9, textAlign: "center" }}><Typography variant="h6">ไม่พบวิดีโอ</Typography><Typography color="text.secondary">ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</Typography><Button onClick={clearFilters}>แสดงทั้งหมด</Button></Box>}
+      {movies.map(m => { const meta = (m.extraMeta as Record<string, unknown>) ?? {}; return <Box component="article" key={m.id} sx={{ display: "grid", gridTemplateColumns: { xs: "32px 100px 1fr", md: "40px 180px minmax(0,1fr) 130px 120px" }, gap: { xs: 1, md: 2.5 }, p: { xs: 1.5, md: 2.5 }, alignItems: "center", borderBottom: 1, borderColor: "divider", bgcolor: selectedIds.has(m.id) ? "action.selected" : "transparent", "&:hover": { bgcolor: "action.hover" } }}>
+        <Box>{canSelect && <Checkbox size="small" slotProps={{ input: { "aria-label": `เลือก ${m.title}` } }} checked={selectedIds.has(m.id)} disabled={m.status === "PUBLISHING" || bulkBusy || pending} onChange={() => toggleSelected(m.id)} />}</Box>
+        <Box component="a" href={`/admin/videos/${m.id}`} sx={{ display: "block", position: "relative", aspectRatio: "16/9", bgcolor: "background.default", borderRadius: 2, overflow: "hidden" }}>{m.thumbnailUrl ? <Box component="img" src={m.thumbnailUrl} alt={m.title} loading="lazy" sx={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Box sx={{ display: "grid", placeItems: "center", height: "100%", color: "text.secondary" }}>ไม่มีรูปปก</Box>}{typeof meta.duration === "string" && <Chip size="small" label={meta.duration} sx={{ position: "absolute", bottom: 4, right: 4, bgcolor: "rgba(0,0,0,.8)" }} />}</Box>
+        <Stack spacing={.8} sx={{ minWidth: 0 }}><Typography component="a" href={`/admin/videos/${m.id}`} sx={{ fontWeight: 650, color: "text.primary", textDecoration: "none", overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", "&:hover": { color: "primary.main" } }}>{m.title}</Typography><Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}><Chip size="small" label={m.mainCategory || "ไม่ระบุประเภท"} variant="outlined" /><Chip size="small" label={STATUS_META[m.status].label} color={color(m.status)} /></Stack><Typography variant="caption" color="text.secondary">{m.createdBy?.name ?? m.createdBy?.email ?? "ไม่ระบุผู้สร้าง"} · {new Date(m.createdAt).toLocaleDateString("th-TH")}</Typography>{m.rejectionReason && <Typography variant="caption" color="error.main">{m.rejectionReason}</Typography>}</Stack>
+        <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}><Typography sx={{ fontWeight: 650 }}>{(m.viewCount + m.wpViewCount).toLocaleString("th-TH")}</Typography><Typography variant="caption" color="text.secondary">ยอดรับชมรวม</Typography></Box>
+        <Stack spacing={.5} sx={{ gridColumn: { xs: "3", md: "auto" } }}><Button href={`/admin/videos/${m.id}`} variant="outlined" size="small">เปิดจัดการ</Button><Button size="small" aria-label={`เมนูเพิ่มเติม ${m.title}`} disabled={busyId === m.id || bulkBusy || pending} onClick={e => setActionMenu({ anchor: e.currentTarget, movie: m })}>เพิ่มเติม ⋯</Button></Stack>
+      </Box>; })}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: "center", justifyContent: "space-between", p: 2.5 }}><Typography variant="body2" color="text.secondary">หน้า {pagination.page} / {pagination.totalPages}</Typography><Pagination count={pagination.totalPages} page={pagination.page} onChange={(_, page) => goToPage(page)} disabled={pending || bulkBusy} color="primary" size="small" /></Stack>
+    </Paper>
+    <Menu anchorEl={actionMenu?.anchor} open={!!actionMenu} onClose={() => setActionMenu(null)}>{menuMovie && [
+      canEdit() && <MenuItem key="edit" component="a" href={`/admin/videos/${menuMovie.id}/edit`}>แก้ไขข้อมูล</MenuItem>,
+      can(role, "movie:submit-review") && ["DRAFT", "REJECTED"].includes(menuMovie.status) && (role !== "STAFF" || menuMovie.createdBy?.id === currentUserId) && <MenuItem key="process" onClick={() => action(() => submitReview(menuMovie))}>เริ่มประมวลผล</MenuItem>,
+      can(role, "movie:publish") && ["APPROVED", "DONE", "PARTIAL", "FAILED"].includes(menuMovie.status) && <MenuItem key="publish" onClick={() => action(() => publishNow(menuMovie))}>ส่งวิดีโอ / อัปเดตหมวดหมู่และแท็ก</MenuItem>,
+      can(role, "movie:publish") && ["PARTIAL", "FAILED"].includes(menuMovie.status) && <MenuItem key="retry" onClick={() => action(() => { void retry(menuMovie); })}>ลองใหม่เฉพาะเว็บที่ล้มเหลว</MenuItem>,
+      can(role, "movie:publish") && ["DONE", "PARTIAL", "FAILED"].includes(menuMovie.status) && <MenuItem key="overwrite" onClick={() => action(() => publishNow(menuMovie, "overwrite_editorial"))}>เขียนทับบทความ WordPress</MenuItem>,
+      <Divider key="divider" />,
+      can(role, "movie:archive") && ["APPROVED", "DONE", "PARTIAL", "FAILED", "REJECTED"].includes(menuMovie.status) && <MenuItem key="archive" onClick={() => action(() => archive(menuMovie))}>เก็บถาวร</MenuItem>,
+      canDeleteMovies && menuMovie.status !== "PUBLISHING" && <MenuItem key="delete" sx={{ color: "error.main" }} onClick={() => action(() => setConfirmation({ message: `ลบ “${menuMovie.title}” รวมประวัติการกระจายและข้อมูลร่าง? ไม่สามารถย้อนกลับได้`, action: () => { void deleteMovie(menuMovie); } }))}>ลบวิดีโอ</MenuItem>
+    ]}</Menu>
+    <Dialog open={!!confirmation} onClose={() => setConfirmation(null)} fullWidth maxWidth="xs"><DialogTitle>ยืนยันการดำเนินการ</DialogTitle><DialogContent><Typography>{confirmation?.message}</Typography></DialogContent><DialogActions><Button onClick={() => setConfirmation(null)}>ยกเลิก</Button><Button variant="contained" onClick={() => { const fn = confirmation?.action; setConfirmation(null); fn?.(); }}>ยืนยัน</Button></DialogActions></Dialog>
+    <Snackbar open={!!toast} message={toast} autoHideDuration={5000} onClose={() => setToast(null)} />
+  </Stack>;
 }

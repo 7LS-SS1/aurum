@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ActorSelector } from "./ActorSelector";
+import { Box, Stack, Paper, Typography, Button, TextField, Chip, Autocomplete, Alert, LinearProgress, Tabs, Tab, Snackbar, Divider, CircularProgress } from "@mui/material";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
 
@@ -131,7 +131,7 @@ export function VideoForm({
   const thumbInput = useRef<HTMLInputElement>(null);
   const previewInput = useRef<HTMLInputElement>(null);
 
-  const mediaReady = Boolean(videoUrl);
+  const mediaReady = Boolean(videoUrl || initialMovie?.iframeUrl || initialMovie?.jwPlayerMediaId);
   const detailsReady = Boolean(title.trim() && thumbnailUrl);
   const canStartProcessing = mediaReady && detailsReady;
   const canProcessStatus = !initialMovie || ["DRAFT", "REJECTED"].includes(initialMovie.status);
@@ -139,14 +139,6 @@ export function VideoForm({
   function notify(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 2800);
-  }
-
-  function stepState(current: WizardStep) {
-    const currentIndex = STEPS.findIndex((item) => item.key === step);
-    const itemIndex = STEPS.findIndex((item) => item.key === current);
-    if (itemIndex < currentIndex) return "done";
-    if (itemIndex === currentIndex) return "current";
-    return "pending";
   }
 
   async function onVideoPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -211,9 +203,7 @@ export function VideoForm({
       .catch(() => setPopularTags([]));
   }, []);
 
-  function toggleCategory(name: string) {
-    setSelectedCategories((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
-  }
+
 
   async function addNewCategory() {
     const name = newCategoryName.trim();
@@ -297,7 +287,7 @@ export function VideoForm({
   }
 
   function validate(): string | null {
-    if (!videoUrl) return "กรุณาอัปโหลดวิดีโอก่อน";
+    if (!mediaReady) return "กรุณาอัปโหลดวิดีโอก่อน";
     if (!thumbnailUrl) return "กรุณาอัปโหลดรูปหน้าปกก่อน";
     if (!title.trim()) return "กรุณากรอกชื่อเรื่อง";
     if (!mainCategory) return "กรุณาเลือกหมวดหมู่หลัก";
@@ -313,8 +303,7 @@ export function VideoForm({
       mainCategory,
       thumbnailUrl,
       previewUrl: previewUrl.trim() || undefined,
-      videoUrl,
-      videoProvider: "bunny",
+      ...(videoUrl !== (initialMovie?.videoUrl ?? "") || !initialMovie ? { videoUrl, videoProvider: "bunny" } : {}),
       categories: selectedCategories,
       tags,
       actorIds: selectedActorIds,
@@ -367,441 +356,34 @@ export function VideoForm({
     }
   }
 
-  return (
-    <div className="upload-wizard-shell">
-      <div className="upload-wizard">
-        <div className="upload-wizard-head">
-          <div>
-            <h2>{title.trim() || "อัปโหลดวิดีโอใหม่"}</h2>
-            <p>{sourceFileName || "เลือกไฟล์วิดีโอ แล้วกรอกรายละเอียดที่จำเป็น"}</p>
-          </div>
-          <button type="button" className="upload-close" onClick={() => router.push("/admin/videos")} aria-label="ปิด">
-            x
-          </button>
-        </div>
-
-        <div className="upload-wizard-steps">
-          {STEPS.map((item, index) => {
-            const state = stepState(item.key);
-            return (
-              <div key={item.key} className={`upload-step ${state}`}>
-                <span>{state === "done" ? "OK" : index + 1}</span>
-                <b>{item.label}</b>
-              </div>
-            );
-          })}
-        </div>
-
-        {initialMovie?.status === "REJECTED" && initialMovie.rejectionReason && (
-          <div className="warn-banner" style={{ margin: "18px 0 0" }}>
-            <span className="wb-icon">!</span>
-            <div>
-              <strong>ต้องแก้ไขก่อนเริ่มประมวลผลใหม่</strong>
-              <span>เหตุผล: {initialMovie.rejectionReason}</span>
-            </div>
-          </div>
-        )}
-
-        {step === "upload" && (
-          <div className="upload-first-panel">
-            <label className="youtube-upload-zone">
-              <input ref={videoInput} type="file" accept="video/*" onChange={onVideoPick} />
-              <span className="upload-cloud">UP</span>
-              <strong>ลากไฟล์วิดีโอมาวาง หรือเลือกไฟล์</strong>
-              <small>ระบบจะอัปโหลดไป Bunny Stream และไม่ผ่านขั้นตอนรอตรวจสอบ</small>
-              <em>เลือกไฟล์</em>
-            </label>
-            {videoProgress !== null && (
-              <div className="upload-wizard-progress">
-                <div style={{ width: `${Math.round(videoProgress)}%` }} />
-                <span>{Math.round(videoProgress)}%</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === "details" && (
-          <div className="upload-details-grid">
-            <div className="upload-details-main">
-              <div className="field">
-                <label>
-                  ชื่อเรื่อง <span className="req">*</span>
-                </label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ใส่ชื่อวิดีโอ" />
-              </div>
-              <div className="field">
-                <label>Slug (URL)</label>
-                <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="ปล่อยว่างเพื่อสร้างจากชื่อเรื่องอัตโนมัติ" />
-                <div className="hint">ใช้เป็นส่วนหนึ่งของลิงก์วิดีโอ — ปล่อยว่างไว้ ระบบจะสร้างให้จากชื่อเรื่องเอง</div>
-              </div>
-              <div className="field">
-                <label>คำอธิบายและเนื้อหาเพิ่มเติม</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ใส่คำอธิบายและเนื้อหาเพิ่มเติมสำหรับ WordPress" />
-              </div>
-
-              <div className="field">
-                <label>
-                  รูปหน้าปก <span className="req">*</span>
-                </label>
-                <div className="thumb-picker-row">
-                  {thumbnailUrl ? (
-                    <div className="thumb-preview-card">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
-                    </div>
-                  ) : (
-                    <div className="thumb-empty">ยังไม่มีรูปหน้าปก</div>
-                  )}
-                  <label className="btn btn-ghost">
-                    เลือกรูปหน้าปก
-                    <input ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} style={{ display: "none" }} />
-                  </label>
-                </div>
-                {thumbProgress !== null && (
-                  <div className="upload-wizard-progress compact">
-                    <div style={{ width: `${Math.round(thumbProgress)}%` }} />
-                    <span>{Math.round(thumbProgress)}%</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="field">
-                <label>วิดีโอพรีวิวตอน hover</label>
-                <div className="preview-picker-row">
-                  {previewUrl ? (
-                    <video className="preview-clip-card" src={previewUrl} muted loop playsInline controls preload="metadata" />
-                  ) : (
-                    <div className="preview-clip-empty">ยังไม่มีวิดีโอพรีวิว</div>
-                  )}
-                  <div className="preview-picker-actions">
-                    <label className="btn btn-ghost">
-                      เลือกไฟล์พรีวิว
-                      <input ref={previewInput} type="file" accept="video/*" onChange={onPreviewPick} style={{ display: "none" }} />
-                    </label>
-                    {previewUrl && (
-                      <button type="button" className="btn-ghost" onClick={() => setPreviewUrl("")}>
-                        ลบพรีวิว
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {previewProgress !== null && (
-                  <div className="upload-wizard-progress compact">
-                    <div style={{ width: `${Math.round(previewProgress)}%` }} />
-                    <span>{Math.round(previewProgress)}%</span>
-                  </div>
-                )}
-                <input type="url" value={previewUrl} onChange={(e) => setPreviewUrl(e.target.value)} placeholder="หรือวาง URL วิดีโอพรีวิว .mp4/.webm" />
-              </div>
-            </div>
-
-            <aside className="upload-preview-side">
-              <div className="video-preview-box">
-                {thumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumbnailUrl} alt="ตัวอย่างวิดีโอ" />
-                ) : (
-                  <span>ระบบจะแสดงรูปหน้าปกที่นี่</span>
-                )}
-              </div>
-              <div className="upload-copy-field">
-                <span>ลิงก์วิดีโอ</span>
-                <b>{videoUrl || "กำลังรอวิดีโอ"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>ชื่อไฟล์</span>
-                <b>{sourceFileName || "ไฟล์ที่อัปโหลดแล้ว"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>วิดีโอพรีวิว</span>
-                <b>{previewUrl || "ยังไม่มีวิดีโอพรีวิว"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>ปลายทาง</span>
-                <b>{sites.length ? "ตามหมวดหมู่หลักที่เลือก (เฉพาะโดเมนที่รับหมวดหมู่นี้)" : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {step === "taxonomy" && (
-          <div className="upload-details-grid single">
-            <div className="upload-details-main">
-              <div className="field">
-                <label>
-                  หมวดหมู่หลัก <span className="req">*</span>
-                </label>
-                <div className="category-grid">
-                  {mainCategoryList.map((c) => (
-                    <label key={c.id} className="category-option">
-                      <input type="radio" name="mainCategory" checked={mainCategory === c.name} onChange={() => setMainCategory(c.name)} />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
-                {showAddMainCategory ? (
-                  <div className="thumb-picker-row" style={{ marginTop: 10 }}>
-                    <input
-                      type="text"
-                      value={newMainCategoryName}
-                      onChange={(e) => setNewMainCategoryName(e.target.value)}
-                      onKeyDown={onNewMainCategoryKeyDown}
-                      placeholder="ชื่อหมวดหมู่หลักใหม่"
-                      style={{ flex: 1 }}
-                    />
-                    <button type="button" className="btn btn-gold" disabled={addingMainCategory || !newMainCategoryName.trim()} onClick={addNewMainCategory}>
-                      เพิ่ม
-                    </button>
-                    <button type="button" className="btn-ghost" onClick={() => setShowAddMainCategory(false)}>
-                      ยกเลิก
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setShowAddMainCategory(true)}>
-                    + เพิ่มหมวดหมู่หลักใหม่
-                  </button>
-                )}
-              </div>
-
-              <div className="field">
-                <label>หมวดหมู่</label>
-                <div className="category-grid">
-                  {categoryList.map((c) => (
-                    <label key={c.id} className="category-option">
-                      <input type="checkbox" checked={selectedCategories.includes(c.name)} onChange={() => toggleCategory(c.name)} />
-                      {c.name}
-                    </label>
-                  ))}
-                </div>
-                {showAddCategory ? (
-                  <div className="thumb-picker-row" style={{ marginTop: 10 }}>
-                    <input
-                      type="text"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={onNewCategoryKeyDown}
-                      placeholder="ชื่อหมวดหมู่ใหม่"
-                      style={{ flex: 1 }}
-                    />
-                    <button type="button" className="btn btn-gold" disabled={addingCategory || !newCategoryName.trim()} onClick={addNewCategory}>
-                      เพิ่ม
-                    </button>
-                    <button type="button" className="btn-ghost" onClick={() => setShowAddCategory(false)}>
-                      ยกเลิก
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={() => setShowAddCategory(true)}>
-                    + เพิ่มหมวดหมู่ใหม่
-                  </button>
-                )}
-              </div>
-
-              <div className="field">
-                <label>
-                  แท็ก <span style={{ color: "var(--muted)", fontWeight: 400 }}>({tags.length}/{MAX_TAGS})</span>
-                </label>
-                <div className="tagbox">
-                  {tags.map((t) => (
-                    <span key={t} className="tag">
-                      {t}
-                      <button type="button" onClick={() => removeTag(t)} aria-label={`ลบแท็ก ${t}`}>
-                        x
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={onTagInputKeyDown}
-                    placeholder="พิมพ์แท็กแล้วกด Enter (ใช้ , คั่นได้หลายแท็ก)"
-                  />
-                </div>
-                {popularTags && popularTags.length > 0 && (
-                  <>
-                    <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={addAllPopularTags}>
-                      เพิ่มแท็กอัตโนมัติ (20 แท็ก)
-                    </button>
-                    <div className="chipbar" style={{ padding: "10px 0 0" }}>
-                      {popularTags.map(({ tag }) => (
-                        <button key={tag} type="button" className={`chip ${tags.includes(tag) ? "active" : ""}`} onClick={() => (tags.includes(tag) ? removeTag(tag) : addTag(tag))}>
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <ActorSelector actors={actors} selectedIds={selectedActorIds} onChange={setSelectedActorIds} disabled={saving} />
-            </div>
-          </div>
-        )}
-
-        {step === "review" && (
-          <div className="upload-details-grid">
-            <div className="upload-details-main">
-              <div className="field">
-                <label>รูปหน้าปกและชื่อเรื่อง</label>
-                <div className="thumb-picker-row">
-                  {thumbnailUrl ? (
-                    <div className="thumb-preview-card">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" />
-                    </div>
-                  ) : (
-                    <div className="thumb-empty">ยังไม่มีรูปหน้าปก</div>
-                  )}
-                  <div>
-                    <b style={{ display: "block", color: "var(--text)", fontSize: 15 }}>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
-                    {description && <p style={{ color: "var(--muted-2)", fontSize: 12.5, marginTop: 6 }}>{description}</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div className="field">
-                <label>หมวดหมู่ที่เลือก</label>
-                {selectedCategories.length ? (
-                  <div className="chipbar" style={{ padding: "10px 0 0", overflowX: "visible", flexWrap: "wrap" }}>
-                    {selectedCategories.map((c) => (
-                      <span key={c} className="chip active">
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: "var(--muted-2)", fontSize: 13, marginTop: 8 }}>ยังไม่ได้เลือกหมวดหมู่</p>
-                )}
-              </div>
-
-              <div className="field">
-                <label>
-                  แท็กที่เลือก <span style={{ color: "var(--muted)", fontWeight: 400 }}>({tags.length}/{MAX_TAGS})</span>
-                </label>
-                <div className="tagbox review-only">
-                  {tags.length ? (
-                    tags.map((t) => (
-                      <span key={t} className="tag">
-                        {t}
-                      </span>
-                    ))
-                  ) : (
-                    <span style={{ color: "var(--muted-2)", fontSize: 13 }}>ยังไม่มีแท็ก</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <aside className="upload-preview-side">
-              <div className="upload-summary-head">สรุปข้อมูลก่อนเผยแพร่</div>
-              <div className="upload-copy-field">
-                <span>ชื่อเรื่อง</span>
-                <b>{title || "ยังไม่ได้ตั้งชื่อ"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>หมวดหมู่หลัก</span>
-                <b>{mainCategory || "ยังไม่ได้เลือกหมวดหมู่หลัก"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>หมวดหมู่ที่เลือก</span>
-                <b>{selectedCategories.length ? selectedCategories.join(", ") : "ยังไม่ได้เลือกหมวดหมู่"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>จำนวนแท็ก</span>
-                <b>{tags.length}/{MAX_TAGS}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>วิดีโอพรีวิว</span>
-                <b>{previewUrl || "ยังไม่มีวิดีโอพรีวิว"}</b>
-              </div>
-              <div className="upload-copy-field">
-                <span>ปลายทาง</span>
-                <b>{sites.length ? "ตามหมวดหมู่หลักที่เลือก (เฉพาะโดเมนที่รับหมวดหมู่นี้)" : "ยังไม่มีโดเมนที่เปิดใช้งาน"}</b>
-              </div>
-            </aside>
-          </div>
-        )}
-
-        {step === "processing" && (
-          <div className="upload-processing-panel">
-            <div className="processing-ring" />
-            <h3>กำลังเผยแพร่วิดีโอ</h3>
-            <p>กำลังบันทึกข้อมูลและส่งโพสต์ไปยังทุกเว็บ WordPress ปลายทางทันที</p>
-          </div>
-        )}
-
-        {step === "complete" && (
-          <div className="upload-processing-panel">
-            <div className="complete-mark">OK</div>
-            <h3>เสร็จสิ้น</h3>
-            <p>กำลังพาไปหน้าแสดงวิดีโอตัวอย่าง</p>
-            {completedMovieId && (
-              <button className="btn btn-gold" type="button" onClick={() => router.push(`/admin/videos/${completedMovieId}/preview`)}>
-                เปิดหน้าตัวอย่าง
-              </button>
-            )}
-          </div>
-        )}
-
-        <div className="upload-wizard-foot">
-          <div className="upload-foot-status">
-            {videoProgress !== null
-              ? "กำลังอัปโหลดวิดีโอ..."
-              : thumbProgress !== null
-                ? "กำลังอัปโหลดรูปหน้าปก..."
-                : previewProgress !== null
-                  ? "กำลังอัปโหลดวิดีโอพรีวิว..."
-                  : canStartProcessing
-                    ? step === "review"
-                      ? "พร้อมประมวลผล"
-                      : step === "taxonomy"
-                        ? "พร้อมไปขั้นตอนตรวจสอบข้อมูล"
-                        : "พร้อมไปขั้นตอนหมวดหมู่และแท็ก"
-                    : "ต้องมีวิดีโอ รูปหน้าปก และชื่อเรื่อง"}
-          </div>
-          <div className="upload-foot-actions">
-            {step === "details" && (
-              <>
-                <button type="button" className="btn btn-ghost" onClick={() => setStep("upload")} disabled={saving}>
-                  กลับ
-                </button>
-                <button type="button" className="btn btn-gold" onClick={() => setStep("taxonomy")} disabled={saving || !canStartProcessing}>
-                  ถัดไป
-                </button>
-              </>
-            )}
-            {step === "taxonomy" && (
-              <>
-                <button type="button" className="btn btn-ghost" onClick={() => setStep("details")} disabled={saving}>
-                  กลับ
-                </button>
-                <button type="button" className="btn btn-gold" onClick={() => setStep("review")} disabled={saving || !canStartProcessing || !mainCategory}>
-                  ถัดไป
-                </button>
-              </>
-            )}
-            {step === "review" && (
-              <>
-                <button type="button" className="btn btn-ghost" onClick={() => setStep("taxonomy")} disabled={saving}>
-                  กลับ
-                </button>
-                {canProcessStatus ? (
-                  <button type="button" className="btn btn-gold" onClick={startProcessing} disabled={saving || !canStartProcessing}>
-                    {saving ? "กำลังประมวลผล..." : "เริ่มประมวลผล"}
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-gold" onClick={saveOnly} disabled={saving || !canStartProcessing}>
-                    {saving ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className={`toast ${toast ? "show" : ""}`}>{toast}</div>
-    </div>
-  );
+  const uploading = videoProgress !== null || thumbProgress !== null || previewProgress !== null;
+  const locked = saving || uploading;
+  const editorStep = ["upload", "details", "taxonomy", "review"].includes(step);
+  return <Stack spacing={3} sx={{ maxWidth: 1280, mx: "auto", pb: 2 }}>
+    <Box><Typography variant="h5" sx={{ fontWeight: 700 }}>{initialMovie ? "แก้ไขข้อมูลวิดีโอ" : "เพิ่มวิดีโอใหม่"}</Typography><Typography color="text.secondary">ข้อมูลเนื้อหา ไฟล์ประกอบ และการจัดหมวดหมู่</Typography></Box>
+    {initialMovie?.rejectionReason && <Alert severity="warning">{initialMovie.rejectionReason}</Alert>}
+    <Tabs value={editorStep ? step : false} onChange={(_, value) => setStep(value)} variant="scrollable" allowScrollButtonsMobile>{STEPS.slice(0,4).map((s, i) => <Tab key={s.key} value={s.key} disabled={locked} label={`${i + 1}. ${s.label}`} />)}</Tabs>
+    {step === "upload" && <Paper variant="outlined" sx={{ p: { xs: 3, md: 6 }, textAlign: "center", borderStyle: "dashed" }}><Stack spacing={2} sx={{ alignItems: "center" }}><Typography variant="h5">ไฟล์วิดีโอหลัก</Typography><Typography color="text.secondary">{sourceFileName || (mediaReady ? "มีวิดีโอแล้ว เลือกไฟล์ใหม่เมื่อต้องการแทนที่" : "เลือกวิดีโอเพื่ออัปโหลดไป Bunny Stream")}</Typography><Button component="label" variant="contained" disabled={locked}>เลือกไฟล์วิดีโอ<Box component="input" hidden ref={videoInput} type="file" accept="video/*" onChange={onVideoPick} /></Button>{videoProgress !== null && <Box sx={{ width: "100%" }}><LinearProgress variant="determinate" value={videoProgress} /><Typography>{Math.round(videoProgress)}%</Typography></Box>}{mediaReady && <Button onClick={() => setStep("details")} disabled={locked}>ใช้วิดีโอนี้ต่อ →</Button>}</Stack></Paper>}
+    {step === "details" && <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1.6fr) minmax(280px, 1fr)" }, gap: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={3}><Typography variant="h6">ข้อมูลเนื้อหา</Typography><TextField required label="ชื่อเรื่อง" value={title} disabled={locked} onChange={e => setTitle(e.target.value)} /><TextField label="Slug" value={slug} disabled={locked} onChange={e => setSlug(e.target.value)} helperText="ปล่อยว่างเพื่อสร้างจากชื่อเรื่อง" /><TextField multiline minRows={8} label="คำอธิบายและเนื้อหา" value={description} disabled={locked} onChange={e => setDescription(e.target.value)} /><Divider /><Typography variant="h6">วิดีโอพรีวิว</Typography>{previewUrl && <Box component="video" src={previewUrl} controls muted preload="none" sx={{ width: "100%", maxHeight: 220, borderRadius: 2, bgcolor: "#000" }} />}<TextField label="URL พรีวิว" value={previewUrl} disabled={locked} onChange={e => setPreviewUrl(e.target.value)} /><Stack direction="row" spacing={1}><Button component="label" variant="outlined" disabled={locked}>อัปโหลดพรีวิว<Box component="input" hidden ref={previewInput} type="file" accept="video/*" onChange={onPreviewPick} /></Button><Button color="error" disabled={locked || !previewUrl} onClick={() => setPreviewUrl("")}>นำพรีวิวออก</Button></Stack>{previewProgress !== null && <LinearProgress variant="determinate" value={previewProgress} />}</Stack></Paper>
+      <Stack spacing={2}><Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={2}><Typography variant="h6">รูปหน้าปก</Typography>{thumbnailUrl ? <Box component="img" src={thumbnailUrl} alt="ตัวอย่างรูปหน้าปก" sx={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 2 }} /> : <Box sx={{ p: 5, bgcolor: "action.hover", textAlign: "center", borderRadius: 2 }}>ยังไม่มีรูปหน้าปก</Box>}<Button component="label" variant="outlined" disabled={locked}>เปลี่ยนรูปหน้าปก<Box component="input" hidden ref={thumbInput} type="file" accept="image/*" onChange={onThumbPick} /></Button>{thumbProgress !== null && <LinearProgress variant="determinate" value={thumbProgress} />}</Stack></Paper><Alert severity="info">เว็บไซต์ปลายทางจะเลือกตามหมวดหมู่หลักที่รองรับ มีเว็บไซต์เปิดใช้งาน {sites.length} แห่ง</Alert></Stack>
+    </Box>}
+    {step === "taxonomy" && <Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={3}>
+      <Typography variant="h6">จัดประเภทและค้นพบเนื้อหา</Typography>
+      <Autocomplete options={mainCategoryList.map(c => c.name)} value={mainCategory || null} onChange={(_, value) => setMainCategory(value || "")} disabled={locked} renderInput={params => <TextField {...params} required label="ประเภท / หมวดหมู่หลัก" />} />
+      <Button sx={{ alignSelf: "start" }} disabled={locked} onClick={() => setShowAddMainCategory(!showAddMainCategory)}>＋ เพิ่มประเภทใหม่</Button>
+      {showAddMainCategory && <Stack direction="row" spacing={1}><TextField label="ชื่อประเภทใหม่" value={newMainCategoryName} onChange={e => setNewMainCategoryName(e.target.value)} onKeyDown={onNewMainCategoryKeyDown} /><Button disabled={addingMainCategory || !newMainCategoryName.trim()} onClick={addNewMainCategory}>เพิ่ม</Button></Stack>}
+      <Autocomplete multiple options={categoryList.map(c => c.name)} value={selectedCategories} onChange={(_, value) => setSelectedCategories(value)} disabled={locked} renderInput={params => <TextField {...params} label="หมวดหมู่" />} />
+      <Button sx={{ alignSelf: "start" }} disabled={locked} onClick={() => setShowAddCategory(!showAddCategory)}>＋ เพิ่มหมวดหมู่ใหม่</Button>
+      {showAddCategory && <Stack direction="row" spacing={1}><TextField label="ชื่อหมวดหมู่ใหม่" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={onNewCategoryKeyDown} /><Button disabled={addingCategory || !newCategoryName.trim()} onClick={addNewCategory}>เพิ่ม</Button></Stack>}
+      <Divider /><TextField label={`แท็ก (${tags.length}/${MAX_TAGS})`} value={tagInput} disabled={locked} onChange={e => setTagInput(e.target.value)} onKeyDown={onTagInputKeyDown} helperText="กด Enter เพื่อเพิ่ม หรือใช้เครื่องหมายจุลภาคคั่นหลายแท็ก" /><Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>{tags.map(t => <Chip key={t} label={t} disabled={locked} onDelete={() => removeTag(t)} />)}</Stack>
+      {!!popularTags?.length && <Box><Button disabled={locked} onClick={addAllPopularTags}>เพิ่มแท็กยอดนิยม 20 แท็ก</Button><Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 1 }}>{popularTags.map(({ tag }) => <Chip key={tag} label={tag} color={tags.includes(tag) ? "primary" : "default"} variant="outlined" disabled={locked} onClick={() => tags.includes(tag) ? removeTag(tag) : addTag(tag)} />)}</Stack></Box>}
+      <Autocomplete multiple options={actors} getOptionLabel={a => a.name} isOptionEqualToValue={(a,b) => a.id === b.id} value={actors.filter(a => selectedActorIds.includes(a.id))} onChange={(_, value) => setSelectedActorIds(value.map(a => a.id))} disabled={locked} renderInput={params => <TextField {...params} label="นักแสดง" />} />
+    </Stack></Paper>}
+    {step === "review" && <Paper variant="outlined" sx={{ p: 3 }}><Stack spacing={2}><Typography variant="h6">ตรวจสอบก่อนบันทึก</Typography>{thumbnailUrl && <Box component="img" src={thumbnailUrl} alt="รูปปก" sx={{ maxWidth: 400, width: "100%", aspectRatio: "16/9", objectFit: "cover", borderRadius: 2 }} />}<Typography variant="h5">{title || "ยังไม่มีชื่อเรื่อง"}</Typography><Typography color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>{description || "ยังไม่มีคำอธิบาย"}</Typography><Divider /><Typography>ประเภท: {mainCategory || "ยังไม่ได้เลือก"}</Typography><Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>{selectedCategories.map(c => <Chip key={c} label={c} />)}{tags.map(t => <Chip key={t} label={`#${t}`} variant="outlined" />)}</Stack><Typography color="text.secondary">นักแสดง {selectedActorIds.length} คน · {previewUrl ? "มีวิดีโอพรีวิว" : "ไม่มีวิดีโอพรีวิว"}</Typography></Stack></Paper>}
+    {step === "processing" && <Stack spacing={2} sx={{ alignItems: "center", py: 6 }}><CircularProgress /><Typography>กำลังบันทึกและประมวลผลวิดีโอ…</Typography></Stack>}
+    {step === "complete" && <Alert severity="success" action={completedMovieId && <Button href={`/admin/videos/${completedMovieId}/preview`}>เปิดตัวอย่าง</Button>}>บันทึกและประมวลผลสำเร็จ</Alert>}
+    {editorStep && <Paper variant="outlined" sx={{ position: "sticky", bottom: 16, p: 2, zIndex: 2, boxShadow: 6 }}><Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}><Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{uploading ? "กำลังอัปโหลด กรุณารอสักครู่" : canStartProcessing && mainCategory ? "ข้อมูลพร้อมบันทึก" : "ต้องมีวิดีโอ รูปปก ชื่อเรื่อง และประเภท"}</Typography><Button disabled={locked || step === "upload"} onClick={() => setStep(step === "review" ? "taxonomy" : step === "taxonomy" ? "details" : "upload")}>ย้อนกลับ</Button>{step !== "review" ? <Button variant="contained" disabled={locked || !mediaReady} onClick={() => setStep(step === "upload" ? "details" : step === "details" ? "taxonomy" : "review")}>ถัดไป →</Button> : <><Button variant="outlined" disabled={locked || !canStartProcessing || !mainCategory} onClick={saveOnly}>บันทึกข้อมูล</Button>{canProcessStatus && <Button variant="contained" disabled={locked || !canStartProcessing || !mainCategory} onClick={startProcessing}>บันทึกและเริ่มประมวลผล</Button>}</>}</Stack></Paper>}
+    <Snackbar open={!!toast} message={toast} onClose={() => setToast(null)} autoHideDuration={5000} />
+  </Stack>;
 }

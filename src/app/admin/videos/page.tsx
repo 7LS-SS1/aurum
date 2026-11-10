@@ -20,12 +20,6 @@ export default async function VideosPage() {
 
   return (
     <section>
-      <div className="page-head">
-        <h1>
-          <span className="g">วิดีโอทั้งหมด</span>
-        </h1>
-        <p>ภาพรวมวิดีโอทุกสถานะ ตั้งแต่ร่างจนถึงเผยแพร่ — action ที่ทำได้ขึ้นกับสิทธิ์ของคุณ</p>
-      </div>
       <VideosManager
         initialMovies={JSON.parse(JSON.stringify(movies))}
         users={users}

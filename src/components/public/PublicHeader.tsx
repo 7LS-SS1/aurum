@@ -35,6 +35,7 @@ export async function PublicHeader({ q = "", searchAction = "/" }: { q?: string;
         </form>
       </div>
       <div className="tb-spacer" />
+      <Link href="/services/websites" className="public-service-link">เว็บไซต์ตัวอย่าง</Link>
       <Link href="/services/select" className="public-service-link">บริการของเรา</Link>
       <Link className="icon-btn search-icon-mobile" href="/" aria-label="ค้นหา">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

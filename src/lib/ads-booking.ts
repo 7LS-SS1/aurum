@@ -15,8 +15,9 @@ export const extraPlacements = [
   { id: "fixed_bottom", label: "Fixed ล่าง · ทุกหน้า", group: 2, row: 2 },
   { id: "video_ad", label: "Video Ads Pre-Player", group: 1, row: 2 },
 ] as const;
-export function getInventory(config: Pick<AdsPageConfig, "inventoryCounts">) {
-  return [...inventory, ...extraPlacements.flatMap(p => Array.from({ length: config.inventoryCounts[p.id] }, (_, i) => ({ id: `${p.id}:${i + 1}`, label: `${p.label} · ช่อง ${i + 1}`, group: p.group, row: p.row })))];
+export function getInventory(_config: Pick<AdsPageConfig, "inventoryCounts">) {
+  void _config; // Retain the caller contract; physical capacities are now fixed.
+  return [...inventory, ...extraPlacements.flatMap(p => Array.from({ length: p.id === "video_ad" ? 3 : 1 }, (_, i) => ({ id: `${p.id}:${i + 1}`, label: `${p.label} · ${p.id === "video_ad" ? "ลำดับ" : "ช่อง"} ${i + 1}`, group: p.group, row: p.row })))];
 }
 export const statusLabels: Record<string, string> = {
   SCHEDULED: "อนุมัติต่ออายุแล้ว รอเริ่มรอบใหม่", GRACE: "ช่วงต่ออายุ 3 วัน · ยังคงแสดงป้าย",
@@ -64,8 +65,21 @@ export function quoteBooking(input: Pick<BookingInput, "kind" | "slots" | "days"
   if (!Number.isSafeInteger(amount) || amount < 0 || amount > 2147483647) throw new Error("invalid_amount");
   const lines = input.kind === "slots" ? selected.map(s => ({ label: s.label, quantity: input.days / 30, unitPrice: config.groups[s.group]!.rows[s.row]![2], amount: config.groups[s.group]!.rows[s.row]![2] * (input.days / 30) })) : [{ label: "แพ็กเกจ " + input.kind + " · " + input.days + " วัน", quantity: 1, unitPrice: subtotal, amount:subtotal }];
   if(coupon)lines.push({label:`ส่วนลด ${coupon.code} (${coupon.percent}%)`,quantity:1,unitPrice:-discount,amount:-discount});
-  return { lines, subtotal, discount, ...(coupon?{coupon:{code:coupon.code,percent:coupon.percent}}:{}), slots: ids, items: selected.map(s => s.label), amount, currency: "THB", days: input.days, kind: input.kind };
+  return { lines, subtotal, discount, ...(coupon?{coupon:{code:coupon.code,percent:coupon.percent,startsAt:coupon.startsAt,endsAt:coupon.endsAt}}:{}), slots: ids, items: selected.map(s => s.label), amount, currency: "THB", days: input.days, kind: input.kind };
 }
 export function activeWindow(days: number, now = new Date()) {
   return { startsAt: now, endsAt: new Date(now.getTime() + days * 86400000) };
+}
+
+/** Old extra slots block their physical placement until explicitly removed. */
+export function occupiedPhysicalSlots(slots: string[]) {
+  return [...new Set(slots.flatMap(slot => {
+    if (/^(popup|fixed_left|fixed_right|fixed_bottom):\d+$/.test(slot)) return [slot, slot.split(":")[0] + ":1"];
+    if (/^video_ad:\d+$/.test(slot) && Number(slot.split(":")[1]) > 3) return [slot, "video_ad:1", "video_ad:2", "video_ad:3"];
+    return [slot];
+  }))];
+}
+export function adsSlotsOverlap(left: string[], right: string[]) {
+  const occupied = new Set(occupiedPhysicalSlots(left));
+  return occupiedPhysicalSlots(right).some(slot => occupied.has(slot));
 }

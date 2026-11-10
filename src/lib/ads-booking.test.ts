@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeWindow, getInventory, inventory, quoteBooking } from "./ads-booking";
+import { activeWindow, getInventory, inventory, quoteBooking, adsSlotsOverlap, occupiedPhysicalSlots } from "./ads-booking";
 import { defaultAdsPage } from "./ads-page-config";
 describe("advertising booking", () => {
   it("snapshots public coupon discounts with exact line totals",()=>{
@@ -9,10 +9,10 @@ describe("advertising booking", () => {
     expect(()=>quoteBooking({kind:"homepage",slots:[],days:30,couponCode:"INVALID"},config)).toThrow("invalid_coupon");
     expect(()=>quoteBooking({kind:"homepage",slots:[],days:30,couponCode:"WELCOME"},{...config,coupons:config.coupons.map(c=>({...c,enabled:false}))})).toThrow("invalid_coupon");
   });
-  it("has eight slots per main position and independently configured extras", () => {
+  it("has eight banner slots per main position and exactly three ordered video slots", () => {
     expect(inventory).toHaveLength(32);
     expect(new Set(inventory.map(s => s.id)).size).toBe(32);
-    expect(getInventory(defaultAdsPage)).toHaveLength(37);
+    expect(getInventory(defaultAdsPage)).toHaveLength(39);
     expect(getInventory({ inventoryCounts: { ...defaultAdsPage.inventoryCounts, popup: 3 } })).toHaveLength(39);
   });
   it("combines multiple pages and formats with server-side prices", () => {
@@ -33,5 +33,18 @@ describe("advertising booking", () => {
     const window = activeWindow(30, now);
     expect(window.startsAt).toBe(now);
     expect(window.endsAt.toISOString()).toBe("2026-03-02T12:00:00.000Z");
+  });
+});
+
+describe("physical slot locks", () => {
+  it("locks each video position independently and maps legacy overflow conservatively", () => {
+    expect(adsSlotsOverlap(["video_ad:1"], ["video_ad:2"])).toBe(false);
+    expect(adsSlotsOverlap(["video_ad:1"], ["video_ad:1"])).toBe(true);
+    expect(occupiedPhysicalSlots(["video_ad:4"])).toContain("video_ad:1");
+    expect(adsSlotsOverlap(["fixed_left:2"], ["fixed_left:1"])).toBe(true);
+    expect(adsSlotsOverlap(["home_top:L1"], ["home_top:L2"])).toBe(false);
+  });
+  it("rejects new requests for a fourth pre-roll or second floating banner", () => {
+    for (const slot of ["video_ad:4", "popup:2", "fixed_left:2"]) expect(() => quoteBooking({ kind: "slots", slots: [slot], days: 30 }, defaultAdsPage)).toThrow("invalid_slots");
   });
 });

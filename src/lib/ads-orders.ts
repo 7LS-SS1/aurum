@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "./prisma";
 import { ApiError } from "./api-response";
 import { adsPageSchema, defaultAdsPage } from "./ads-page-config";
-import { getInventory, quoteBooking, type BookingInput } from "./ads-booking";
+import { adsSlotsOverlap, occupiedPhysicalSlots, getInventory, quoteBooking, type BookingInput } from "./ads-booking";
 import type { Actor } from "./authz";
 import { readAttachment } from "./ads-attachments";
 import { getSimulation, newSimulation } from "./ads-simulation";
@@ -74,7 +74,7 @@ export async function availability(websiteId?: string, renewalOfId?: string, vie
     const parent = renewalOfId ? await renewalParent(tx, renewalOfId, viewerId || "") : null;
     if (parent && (orderWebsite(parent.quote) !== websiteId || Boolean(getSimulation(parent.quote)) !== simulationEnabled())) throw new ApiError("invalid_renewal", 409);
     const rows = await tx.adsOrder.findMany({ where: { ...(parent ? { id: { not: parent.id } } : {}), status: { in: reservedStatuses } }, select: { slots: true, quote: true } });
-    return [...new Set(rows.filter(row => Boolean(getSimulation(row.quote)) === simulationEnabled() && (!websiteId || !orderWebsite(row.quote) || orderWebsite(row.quote) === websiteId)).flatMap(row => row.slots))];
+    return occupiedPhysicalSlots([...new Set(rows.filter(row => Boolean(getSimulation(row.quote)) === simulationEnabled() && (!websiteId || !orderWebsite(row.quote) || orderWebsite(row.quote) === websiteId)).flatMap(row => row.slots))]);
   });
 }
 export async function createOrder(input: BookingInput, token: string, viewerId: string) {
@@ -108,9 +108,9 @@ export async function createOrder(input: BookingInput, token: string, viewerId: 
     const renewal = parent ? { mode: input.renewalMode!, previousEndsAt: parent.endsAt!.toISOString(), deadline: renewalDeadline(parent.endsAt!).toISOString(), artworkChanged:false } : null;
     if (quote.amount !== input.expectedAmount) throw new ApiError("price_changed", 409);
     const simulation = simulationEnabled() ? newSimulation(quote.amount) : null;
-    if (simulation || parent) {
-      const candidates = await tx.adsOrder.findMany({ where: { ...(parent ? { id: { not: parent.id } } : {}), slots: { hasSome: quote.slots }, status: { in: reservedStatuses } }, select: { quote: true } });
-      if (candidates.some(row => Boolean(getSimulation(row.quote)) === Boolean(simulation) && (!orderWebsite(row.quote) || orderWebsite(row.quote) === website.id))) throw new ApiError("slots_unavailable", 409);
+    {
+      const candidates = await tx.adsOrder.findMany({ where: { ...(parent ? { id: { not: parent.id } } : {}), status: { in: reservedStatuses } }, select: { quote: true, slots: true } });
+      if (candidates.some(row => adsSlotsOverlap(row.slots, quote.slots) && Boolean(getSimulation(row.quote)) === Boolean(simulation) && (!orderWebsite(row.quote) || orderWebsite(row.quote) === website.id))) throw new ApiError("slots_unavailable", 409);
     }
     const attachments = input.attachments || [];
     if (attachments.length !== quote.slots.length || new Set(attachments.map(a => a.slot)).size !== quote.slots.length || attachments.some(a => !quote.slots.includes(a.slot))) throw new ApiError("attachments_required",422);
@@ -238,8 +238,8 @@ export async function actOnOrder(id: string, input: Action, actor: Actor) {
         const websiteId = orderWebsite(order.quote);
         if (websiteId && !config.websites.some(site => site.id === websiteId && site.enabled)) throw new ApiError("website_unavailable", 409);
         if (order.slots.some(id => !all.some(s => s.id === id))) throw new ApiError("inventory_changed", 409);
-        const candidates = await tx.adsOrder.findMany({ where: { id: { notIn: [id, ...(order.renewalOfId ? [order.renewalOfId] : [])] }, slots: { hasSome: order.slots }, status: { in: reservedStatuses } }, select: { quote: true } });
-        const conflict = candidates.some(other => !getSimulation(other.quote) && (!websiteId || !orderWebsite(other.quote) || orderWebsite(other.quote) === websiteId));
+        const candidates = await tx.adsOrder.findMany({ where: { id: { notIn: [id, ...(order.renewalOfId ? [order.renewalOfId] : [])] }, status: { in: reservedStatuses } }, select: { quote: true, slots: true } });
+        const conflict = candidates.some(other => adsSlotsOverlap(other.slots, order.slots) && !getSimulation(other.quote) && (!websiteId || !orderWebsite(other.quote) || orderWebsite(other.quote) === websiteId));
         if (conflict) throw new ApiError("slots_unavailable", 409);
         Object.assign(data, { status: "PAYMENT", paymentUrl: input.paymentUrl, holdUntil: renewalHold(order.quote, new Date(Date.now() + 24 * 3600000)) });
         break;

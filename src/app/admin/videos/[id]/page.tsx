@@ -1,160 +1,24 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { VideoForm } from "@/components/admin/VideoForm";
+import { VideoWorkspace } from "@/components/admin/VideoWorkspace";
+import { VideoPlayer } from "@/components/public/VideoPlayer";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
 import { getDefaultVideoControllerConfig } from "@/lib/player-settings";
-import { VideoPlayer } from "@/components/public/VideoPlayer";
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "ร่าง",
-  APPROVED: "พร้อมเผยแพร่",
-  PUBLISHING: "กำลังเผยแพร่",
-  DONE: "เผยแพร่แล้ว",
-  PARTIAL: "เผยแพร่บางส่วน",
-  REJECTED: "ต้องแก้ไข",
-};
-
-function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-function getJsonRecord(value: unknown) {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function getStringArray(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
-}
-
-export default async function AdminVideoWatchPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminVideoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
-  const [movie, suggestions] = await Promise.all([
-    prisma.movie.findUnique({ where: { id }, include: { tags: { select: { name: true } } } }),
-    prisma.movie.findMany({
-      where: {
-        id: { not: id },
-        OR: [{ videoUrl: { not: null } }, { jwPlayerMediaId: { not: null } }, { iframeUrl: { not: null } }],
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 8,
-      select: {
-        id: true,
-        title: true,
-        thumbnailUrl: true,
-        mainCategory: true,
-        status: true,
-        createdAt: true,
-        extraMeta: true,
-      },
-    }),
+  const session = await auth();
+  const [movie, sites, categories, mainCategories, actors] = await Promise.all([
+    prisma.movie.findUnique({ where: { id }, include: { tags: { select: { name: true } }, actors: { select: { id: true } }, distributions: { include: { site: { select: { name: true } } } } } }),
+    prisma.targetSite.findMany({ where: { isActive: true }, select: { id: true, name: true, baseUrl: true, healthStatus: true }, orderBy: { name: "asc" } }),
+    prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.mainCategory.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.actor.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-
-  if (!movie || (!movie.videoUrl && !movie.jwPlayerMediaId && !movie.iframeUrl)) notFound();
-
-  const iframeUrl =
-    movie.iframeUrl ??
-    (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig()) : undefined);
-  const controller = await getDefaultVideoControllerConfig();
-  const meta = getJsonRecord(movie.extraMeta);
-  const tags = movie.tags.map((t) => t.name);
-  const categories = getStringArray(movie.categories);
-  const description = movie.content || movie.excerpt || "ยังไม่มีรายละเอียดเพิ่มเติม";
-  const duration = typeof meta.duration === "string" ? meta.duration : null;
-  const quality = typeof meta.quality === "string" ? meta.quality : null;
-  const totalViewCount = movie.viewCount + movie.wpViewCount;
-
-  return (
-    <section className="admin-watch-page">
-      <div className="admin-watch-main">
-        <div className="admin-watch-player">
-          {iframeUrl ? (
-            <iframe src={iframeUrl} title={movie.title} allowFullScreen />
-          ) : (
-            <VideoPlayer src={movie.videoUrl!} poster={movie.thumbnailUrl ?? undefined} controller={controller} />
-          )}
-        </div>
-
-        <h1 className="admin-watch-title">{movie.title}</h1>
-
-        <div className="admin-watch-meta-row">
-          <div className="admin-watch-channel">
-            <div className="chan-av">{(movie.mainCategory ?? "A").charAt(0)}</div>
-            <div>
-              <strong>{movie.mainCategory ?? "ไม่ระบุหมวดหมู่"}</strong>
-              <span>
-                {formatDate(movie.createdAt)}
-                {quality ? ` · ${quality}` : ""}
-                {duration ? ` · ${duration}` : ""}
-              </span>
-            </div>
-          </div>
-
-          <div className="admin-watch-actions">
-            <span className="badge ok">{STATUS_LABEL[movie.status] ?? movie.status}</span>
-            <Link className="watch-pill" href={`/admin/videos/${movie.id}/edit`}>
-              แก้ไข
-            </Link>
-            <Link className="watch-pill" href={`/admin/videos/${movie.id}/preview`}>
-              Preview
-            </Link>
-          </div>
-        </div>
-
-        <div className="admin-watch-description">
-          <div className="admin-watch-description-head">
-            <strong>{movie.slug ?? movie.id}</strong>
-            <span>
-              {totalViewCount.toLocaleString("th-TH")} views - App {movie.viewCount.toLocaleString("th-TH")} - WP{" "}
-              {movie.wpViewCount.toLocaleString("th-TH")}
-              {movie.updatedAt ? ` - updated ${formatDate(movie.updatedAt)}` : ""}
-            </span>
-          </div>
-          <p>{description}</p>
-          {(tags.length > 0 || categories.length > 0) && (
-            <div className="admin-watch-tags">
-              {[...new Set([...categories, ...tags])].slice(0, 12).map((tag) => (
-                <span key={tag}>#{tag}</span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <aside className="admin-watch-side">
-        <h2>วิดีโอแนะนำ</h2>
-        <div className="admin-watch-suggestions">
-          {suggestions.map((item) => {
-            const itemMeta = getJsonRecord(item.extraMeta);
-            const itemDuration = typeof itemMeta.duration === "string" ? itemMeta.duration : null;
-            return (
-              <Link key={item.id} className="admin-watch-suggestion" href={`/admin/videos/${item.id}`}>
-                <div className="admin-watch-suggestion-thumb">
-                  {item.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- admin thumbnails can come from configured CDN hosts
-                    <img src={item.thumbnailUrl} alt={item.title} loading="lazy" />
-                  ) : (
-                    <div className="admin-thumb-fallback">{(item.mainCategory ?? "A").charAt(0)}</div>
-                  )}
-                  {itemDuration && <span>{itemDuration}</span>}
-                </div>
-                <div className="admin-watch-suggestion-info">
-                  <strong>{item.title}</strong>
-                  <span>{item.mainCategory ?? "ไม่ระบุหมวดหมู่"}</span>
-                  <span>
-                    {STATUS_LABEL[item.status] ?? item.status} · {formatDate(item.createdAt)}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-          {suggestions.length === 0 && <p className="hint">ยังไม่มีวิดีโออื่นสำหรับแนะนำ</p>}
-        </div>
-      </aside>
-    </section>
-  );
+  if (!movie) notFound();
+  const initialMovie = { ...JSON.parse(JSON.stringify(movie)), tags: movie.tags.map(t => t.name), actorIds: movie.actors.map(a => a.id) };
+  const iframe = movie.iframeUrl || (movie.videoProvider === "jwplayer" ? buildJwPlayerIframeUrl(movie.jwPlayerMediaId, await getDefaultJwPlayerConfig()) : undefined);
+  const player = iframe ? <iframe src={iframe} title={movie.title} allowFullScreen style={{ width: "100%", aspectRatio: "16/9", border: 0 }} /> : movie.videoUrl ? <VideoPlayer src={movie.videoUrl} poster={movie.thumbnailUrl ?? undefined} controller={await getDefaultVideoControllerConfig()} /> : <p>ยังไม่มีไฟล์วิดีโอ — เพิ่มไฟล์ในแท็บแก้ไขข้อมูล</p>;
+  return <VideoWorkspace movie={{ id, title: movie.title, status: movie.status, mainCategory: movie.mainCategory, views: movie.viewCount + movie.wpViewCount, description: movie.content || movie.excerpt || "", tags: movie.tags.map(t => t.name), updatedAt: movie.updatedAt.toISOString() }} role={session!.user.role} sites={sites} distributions={movie.distributions.map(d => ({ siteId: d.siteId, name: d.site.name, status: d.status, error: d.errorMessage, url: d.remotePostUrl, attempts: d.attempts }))} player={player} editor={<VideoForm sites={sites} categories={categories} mainCategories={mainCategories} actors={actors} initialMovie={initialMovie} />} />;
 }

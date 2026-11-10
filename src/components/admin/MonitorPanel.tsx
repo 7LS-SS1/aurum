@@ -9,6 +9,7 @@ import {
   type Metric,
 } from "@/lib/monitor/types";
 import styles from "./MonitorPanel.module.css";
+import { bandwidthScale } from "@/lib/monitor/bandwidth";
 const names = {
   cpu: "CPU",
   memory: "Memory",
@@ -96,6 +97,7 @@ export function MonitorNav() {
   );
 }
 function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
+  const scale = bandwidthScale(row.history, row.source.capacityMbps);
   const history = row.history,
     start = history[0] ? Date.parse(history[0].timestamp) : 0,
     end = history.at(-1) ? Date.parse(history.at(-1)!.timestamp) : start;
@@ -105,7 +107,7 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
       end > start
         ? ((Date.parse(s.timestamp) - start) / (end - start)) * 600
         : 0,
-    y: values(s, row.source.capacityMbps)[metric],
+    y: values(s, scale.mbps)[metric],
   }));
   let d = "",
     continuing = false,
@@ -134,12 +136,12 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
           stroke="#ffffff12"
           fill="none"
         />
-        <path
+        {!(metric === "bandwidth" && scale.estimated) && <path
           d={`M0 ${100 - row.source.thresholds[metric]}H600`}
           stroke="#e9a055"
           strokeDasharray="5 5"
           fill="none"
-        />
+        />}
         <path
           d={d}
           stroke="#edd181"
@@ -152,7 +154,7 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
         <span>
           {history[0] ? time(history[0].timestamp) : "ยังไม่มีข้อมูล"}
         </span>
-        <span>0–100% · เส้นประ = เกณฑ์เตือน</span>
+        <span>{metric === "bandwidth" && scale.estimated ? `เพดานประเมิน ${scale.mbps ?? "—"} Mbps · ไม่ใช่ขีดจำกัดลิงก์จริง` : "0–100% · เส้นประ = เกณฑ์เตือน"}</span>
         <span>{history.at(-1) ? time(history.at(-1)!.timestamp) : "—"}</span>
       </div>
     </div>
@@ -160,8 +162,9 @@ function Chart({ row, metric }: { row: MonitorRow; metric: Metric }) {
 }
 
 function Gauges({ row }: { row?: MonitorRow }) {
+  const scale = bandwidthScale(row?.history ?? [], row?.source.capacityMbps);
   const last = row?.history.at(-1),
-    v = last ? values(last, row?.source.capacityMbps) : null;
+    v = last ? values(last, scale.mbps) : null;
   const detail: Record<Metric, string> = {
     cpu: "การใช้งานหน่วยประมวลผล",
     memory: last
@@ -170,9 +173,9 @@ function Gauges({ row }: { row?: MonitorRow }) {
     disk: last
       ? `${bytes(last.diskUsed)} / ${bytes(last.diskTotal)}`
       : "รอข้อมูลพื้นที่จัดเก็บ",
-    bandwidth: row?.source.capacityMbps
-      ? `ความจุ ${row.source.capacityMbps} Mbps`
-      : "ยังไม่ระบุความจุลิงก์",
+    bandwidth: scale.mbps
+      ? `${scale.estimated ? "เพดานประเมินอัตโนมัติ" : "ความจุ"} ${scale.mbps.toLocaleString("th-TH")} Mbps`
+      : "รอ Traffic เพื่อประเมินเพดาน",
   };
   return (
     <div className={styles.gauges}>
@@ -183,6 +186,7 @@ function Gauges({ row }: { row?: MonitorRow }) {
             <div
               className={styles.ring}
               data-warning={
+                !(metric === "bandwidth" && scale.estimated) &&
                 value !== null &&
                 !!row &&
                 value >= row.source.thresholds[metric]
@@ -204,6 +208,7 @@ function Gauges({ row }: { row?: MonitorRow }) {
             <div>
               <h2>{names[metric]}</h2>
               <p>{detail[metric]}</p>
+              {metric === "bandwidth" && scale.estimated && <small>อิงค่าสูงสุดในช่วงกราฟ + 25% · ไม่ใช่ขีดจำกัดจริง</small>}
             </div>
           </article>
         );
@@ -712,7 +717,7 @@ export function MonitorPanel() {
         <p>
           CPU / Memory / Storage เตือนตามเกณฑ์ของ source ส่วน Bandwidth
           ใช้อัตรารับหรือส่งที่สูงกว่าเทียบกับความจุลิงก์ การมีค่า —
-          หมายถึงยังวัดไม่ได้ ไม่ใช่ศูนย์ การรับข้อมูลทำงานต่อได้แม้ปิดหน้าเว็บ
+          หมายถึงยังวัดไม่ได้ ไม่ใช่ศูนย์ หากไม่ได้กำหนดความจุลิงก์ ระบบประเมินเพดานจาก Traffic สูงสุดในช่วงกราฟ เผื่อ 25% และปัดขึ้น เพดานนี้ปรับตามข้อมูล ไม่ใช่ความเร็วสูงสุดของผู้ให้บริการหรือโควตารายเดือน และไม่ใช้สร้าง Alert การรับข้อมูลทำงานต่อได้แม้ปิดหน้าเว็บ
         </p>
         <p>
           Alert แสดงเฉพาะใน AURUM และป้าย Monitor Panel ของผู้ดูแล

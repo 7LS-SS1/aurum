@@ -8,6 +8,8 @@ import styles from "./AdsBooking.module.css";
 import { AdsBookingMap } from "./AdsBookingMap";
 import { AdsArtworkFields, type Artwork } from "./AdsArtworkFields";
 import { z } from "zod";
+import { couponState, couponDate } from "@/lib/coupon-schedule";
+import { Alert, Button, Stack, Typography } from "@mui/material";
 
 const draftSchema=z.object({savedAt:z.number(),websiteId:z.string(),kind:z.enum(["slots","homepage","video","everypage","website"]),days:z.union([z.literal(30),z.literal(90),z.literal(180)]),slots:z.array(z.string()).max(72),files:z.record(z.string(),z.object({fileId:z.string().uuid(),name:z.string(),targetUrl:z.string()})),attempt:z.object({requestId:z.string().uuid(),token:z.string().regex(/^[a-f0-9]{64}$/)}).nullable()});
 
@@ -27,6 +29,8 @@ type RenewalSeed = { id: string; mode: "same" | "change"; websiteId: string; slo
 export function AdsBooking({ config, simulation = false, renewal }: { renewal?: RenewalSeed; simulation?: boolean; config: Pick<AdsPageConfig, "groups" | "telegram" | "packages" | "inventoryCounts" | "websites" | "coupons"> }) {
   const router = useRouter();
   const [couponCode,setCouponCode]=useState("");
+  const [couponNow, setCouponNow] = useState<number | null>(null);
+  useEffect(() => { setCouponNow(Date.now()); const timer = setInterval(() => setCouponNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const [websiteId, setWebsiteId] = useState(renewal?.websiteId || "");
   const website = config.websites.find(site => site.id === websiteId);
   const [kind, setKind] = useState<BookingInput["kind"]>(renewal?.mode === "same" ? renewal.kind : "slots");
@@ -71,11 +75,13 @@ export function AdsBooking({ config, simulation = false, renewal }: { renewal?: 
     let cancelled = false;
     setReady(false); setOccupied([]);
     if (!websiteId) return;
-    fetch("/api/public/ads-orders?websiteId=" + encodeURIComponent(websiteId) + (renewal ? "&renewalOfId=" + renewal.id : ""), { cache: "no-store" }).then(async response => {
+    const refresh = () => fetch("/api/public/ads-orders?websiteId=" + encodeURIComponent(websiteId) + (renewal ? "&renewalOfId=" + renewal.id : ""), { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error();
       const result = await response.json(); if (!cancelled) { setOccupied(result.occupied); setReady(true); }
-    }).catch(() => { if (!cancelled) setMessage("เลือกดูราคาและสรุปรายการได้ แต่ขณะนี้ยังยืนยันพื้นที่ไม่ได้ กรุณาติดต่อทีมงานผ่าน Telegram"); });
-    return () => { cancelled = true; };
+    }).catch(() => { if (!cancelled) { setReady(false); setMessage("เลือกดูราคาและสรุปรายการได้ แต่ขณะนี้ยังยืนยันพื้นที่ไม่ได้ กรุณาติดต่อทีมงานผ่าน Telegram"); } });
+    void refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, [websiteId, renewal]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,7 +125,14 @@ export function AdsBooking({ config, simulation = false, renewal }: { renewal?: 
         <label>อีเมล (ไม่บังคับสำหรับสมาชิกที่ใช้เบอร์โทร)<input name="email" value={contact.email} onChange={e=>setContact({...contact,email:e.target.value})} type="email" maxLength={200} autoComplete="email" /></label>
         <label>Telegram / เบอร์โทร<input name="contact" value={contact.contact} onChange={e=>setContact({...contact,contact:e.target.value})} required minLength={3} maxLength={200} /></label>
       </div><p>เว็บไซต์ที่ลงโฆษณา: {website?.name} · {website?.url}</p>{quote && <AdsArtworkFields slots={quote.slots} labels={quote.items} files={files} setFiles={setFiles} uploading={uploading} setUploading={setUploading} errors={uploadError} setErrors={setUploadError} />}<label>รายละเอียดเพิ่มเติมสำหรับทีมงาน<textarea name="note" maxLength={2000} rows={3} /></label></fieldset>
-      <fieldset disabled={busy} hidden={step !== 2}><legend>3. ตรวจสอบคำขอ</legend><label>รหัสส่วนลด (ถ้ามี)<input value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase().trim());setAttempt(null);}} maxLength={30}/></label>{couponCode&&!quote&&<p role="alert">รหัสส่วนลดไม่ถูกต้องหรือหมดอายุ กรุณาลบรหัสเพื่อดูยอดเดิม</p>}{quote&&quote.discount>0&&<p>ยอดก่อนส่วนลด {quote.subtotal.toLocaleString()} บาท · ส่วนลด {quote.discount.toLocaleString()} บาท · ใช้ได้ครั้งเดียวต่อบัญชีและนับสิทธิ์เมื่อส่งคำสั่งซื้อ</p>}
+      <fieldset disabled={busy} hidden={step !== 2}><legend>3. ตรวจสอบคำขอ</legend><Stack spacing={2} sx={{ my: 2 }}>
+          <Typography variant="h6">ส่วนลดที่ใช้ได้กับคำสั่งซื้อนี้</Typography>
+          {couponNow !== null && config.coupons.filter(c => couponState(c, couponNow) === "ใช้งานได้").map(c => <Alert key={c.code} severity="info" action={<Button type="button" disabled={busy} onClick={() => { setCouponCode(c.code); setAttempt(null); }}>ใช้โค้ด</Button>}>
+            <strong>{c.code} · ลด {c.percent}%</strong><br />ตั้งแต่ {couponDate(c.startsAt)} ถึงก่อน {couponDate(c.endsAt)} (เวลาไทย)<br />จำกัด {c.maxUses.toLocaleString("th-TH")} สิทธิ์ · 1 ครั้งต่อบัญชี · ระบบตรวจจำนวนสิทธิ์อีกครั้งเมื่อส่งคำสั่งซื้อ
+          </Alert>)}
+          {couponNow !== null && !config.coupons.some(c => couponState(c, couponNow) === "ใช้งานได้") && <Typography>ขณะนี้ไม่มีโค้ดส่วนลดที่อยู่ในช่วงใช้งาน</Typography>}
+          {quote?.coupon && <Alert severity="success">ใช้โค้ด {quote.coupon.code} ลด {quote.coupon.percent}% ({quote.discount.toLocaleString("th-TH")} บาท)<br />ยอดก่อนลด {quote.subtotal.toLocaleString("th-TH")} บาท · ยอดหลังลด {quote.amount.toLocaleString("th-TH")} บาท<br />สิ้นสุด {couponDate(quote.coupon.endsAt)} (เวลาไทย)</Alert>}
+        </Stack><label>รหัสส่วนลด (ถ้ามี)<input value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase().trim());setAttempt(null);}} maxLength={30}/></label>{couponCode&&!quote&&<p role="alert">รหัสส่วนลดไม่ถูกต้องหรือหมดอายุ กรุณาลบรหัสเพื่อดูยอดเดิม</p>}{quote&&quote.discount>0&&<p>ยอดก่อนส่วนลด {quote.subtotal.toLocaleString()} บาท · ส่วนลด {quote.discount.toLocaleString()} บาท · ใช้ได้ครั้งเดียวต่อบัญชีและนับสิทธิ์เมื่อส่งคำสั่งซื้อ</p>}
         <p>เว็บไซต์: {website?.name} · {website?.url}</p>
         {quote ? <><p>{quote.items.length} ช่อง · {days} วัน</p><ul>{quote.items.map(item => <li key={item}>{item}</li>)}</ul><strong className={styles.total}>{quote.amount.toLocaleString()} บาท</strong><p>ราคานี้ยังไม่เรียกเก็บเงิน ระยะเวลา 90/180 วันของรายช่องและเหมาหน้าแรกคิดตามสัดส่วน ไม่มีส่วนลดเหมาทั้งเว็บไซต์</p></> : <p>กรุณาเลือกอย่างน้อยหนึ่งช่อง</p>}
         <label className={styles.check}><input name="acceptedTerms" type="checkbox" required /> ยอมรับราคาและระยะเวลาตามคำสั่งซื้อ เจ้าหน้าที่ตรวจสื่อหลังชำระเงิน หากไม่ผ่านต้องดำเนินการคืนเงินก่อนยุติรายการ {renewal ? "และนับรอบต่ออายุจากวันสิ้นสุดสัญญาเดิมเมื่อเจ้าหน้าที่อนุมัติ" : "และเริ่มนับอายุเมื่ออนุมัติเริ่มแสดง"}</label>

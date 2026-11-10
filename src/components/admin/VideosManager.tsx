@@ -1,5 +1,6 @@
 "use client";
 
+import { BulkVideoEdit } from "./BulkVideoEdit";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
@@ -205,7 +206,7 @@ export function VideosManager({
   }
 
   function toggleSelectAllVisible() {
-    setSelectedIds((prev) => (prev.size === movies.length ? new Set() : new Set(movies.map((movie) => movie.id))));
+    setSelectedIds((prev) => (movies.filter(m => m.status !== "PUBLISHING").every(m => prev.has(m.id)) ? new Set() : new Set(movies.filter(m => m.status !== "PUBLISHING").map(movie => movie.id))));
   }
 
   async function deleteMovie(m: MovieRow) {
@@ -332,7 +333,7 @@ export function VideosManager({
   }
 
   const canDeleteMovies = can(role, "movie:delete");
-  const allVisibleSelected = movies.length > 0 && selectedIds.size === movies.length;
+  const allVisibleSelected = movies.some(m => m.status !== "PUBLISHING") && movies.filter(m => m.status !== "PUBLISHING").every(m => selectedIds.has(m.id));
 
   return (
     <div>
@@ -388,7 +389,8 @@ export function VideosManager({
                   <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible} />
                   <span>{allVisibleSelected ? "ยกเลิกเลือกทั้งหมด" : "เลือกทั้งหมด"}</span>
                 </label>
-                <span className="bulk-count">เลือกแล้ว {selectedIds.size} รายการ</span>
+                <span className="bulk-count">เลือกแล้ว {selectedIds.size} รายการ · เลือกเฉพาะหน้านี้</span>
+                <BulkVideoEdit ids={[...selectedIds]} disabled={bulkBusy || pending} onSaved={async () => { await fetchPage(pagination.page); notify("บันทึกข้อมูลที่เลือกแล้ว"); }} />
                 <button className="btn btn-ghost danger-text" disabled={!selectedIds.size || bulkBusy} onClick={deleteSelected}>
                   {bulkBusy ? "กำลังลบ..." : "ลบรายการที่เลือก"}
                 </button>

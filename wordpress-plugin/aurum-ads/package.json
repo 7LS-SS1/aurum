@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"build":"tailwindcss -i ./assets/admin.input.css -o ./assets/admin.css --minify"},"devDependencies":{"@tailwindcss/cli":"^4.0.0","jsdom":"^31.0.0","tailwindcss":"^4.0.0"}}

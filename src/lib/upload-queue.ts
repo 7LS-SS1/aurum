@@ -73,6 +73,7 @@ export function validateUploadQueueItem(item: UploadQueueValidationItem): string
 
 const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
   ".avif": "image/avif",
+  ".gif": "image/gif",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
   ".m2ts": "video/mp2t",

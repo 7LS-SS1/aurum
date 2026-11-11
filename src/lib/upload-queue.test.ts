@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { failurePhaseLabel, formatUploadError, resolveUploadContentType, retryActionLabel, validateUploadQueueItem } from "./upload-queue";
 
 describe("resolveUploadContentType", () => {
+  it("recognizes GIF files without a browser MIME type", () => {
+    expect(resolveUploadContentType({ name: "banner.GIF", type: "" })).toBe("image/gif");
+  });
   it("keeps a browser-provided MIME type", () => {
     expect(resolveUploadContentType({ name: "clip.mkv", type: "video/custom" })).toBe("video/custom");
   });

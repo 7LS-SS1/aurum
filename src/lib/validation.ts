@@ -152,7 +152,7 @@ export const presignBatchSchema = z
   .max(60);
 export type PresignBatchInput = z.infer<typeof presignBatchSchema>;
 
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/x-matroska", "video/webm", "video/mp2t"]);
 const THEME_PACKAGE_TYPES = new Set(["application/zip", "application/x-zip-compressed", "application/octet-stream"]);
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15 MB

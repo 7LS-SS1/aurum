@@ -105,7 +105,7 @@ describe("viewerRegisterSchema", () => {
 
 describe("assertUploadAllowed", () => {
   it("throws ValidationError for an unsupported image content-type", () => {
-    expect(() => assertUploadAllowed("image", "image/gif")).toThrow(ValidationError);
+    expect(() => assertUploadAllowed("image", "image/svg+xml")).toThrow(ValidationError);
   });
 
   it("allows a supported image type under the size limit", () => {
@@ -138,7 +138,7 @@ describe("assertThemeUploadAllowed", () => {
 
   it("delegates to the image checks for a screenshot", () => {
     expect(() => assertThemeUploadAllowed("screenshot", "shot.png", "image/png")).not.toThrow();
-    expect(() => assertThemeUploadAllowed("screenshot", "shot.gif", "image/gif")).toThrow(ValidationError);
+    expect(() => assertThemeUploadAllowed("screenshot", "shot.svg", "image/svg+xml")).toThrow(ValidationError);
   });
 });
 
@@ -153,6 +153,8 @@ describe("assertPluginUploadAllowed", () => {
 describe("assertUploadAllowedAuto", () => {
   it("infers 'image' for an image content-type", () => {
     expect(assertUploadAllowedAuto("image/webp")).toBe("image");
+    expect(assertUploadAllowedAuto("image/gif", 15 * 1024 * 1024)).toBe("image");
+    expect(() => assertUploadAllowedAuto("image/gif", 15 * 1024 * 1024 + 1)).toThrow(ValidationError);
   });
 
   it("infers 'video' for a video content-type", () => {

@@ -1,0 +1,15 @@
+import { beforeEach, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { ApiError } from "@/lib/api-response";
+const m=vi.hoisted(()=>({auth:vi.fn(),find:vi.fn(),write:vi.fn(),key:vi.fn()}));
+vi.mock("@/lib/authz",()=>({requireMinRole:m.auth}));
+vi.mock("@/lib/prisma",()=>({prisma:{servicePageConfig:{findMany:m.find,upsert:m.write}}}));
+vi.mock("@/lib/storage/r2",()=>({getR2ObjectKeyFromPublicUrl:m.key}));
+import { GET, POST } from "./route";
+const media={url:"https://media.example/images/banner.gif",name:"Banner.gif",type:"image/gif",size:1024};
+const req=(value=media)=>new NextRequest("https://aurum.example/api/ads-media",{method:"POST",body:JSON.stringify(value)});
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({id:"admin"});m.find.mockResolvedValue([]);m.key.mockReturnValue("images/banner.gif");});
+it("protects both library listing and registration",async()=>{m.auth.mockRejectedValue(new ApiError("Forbidden",403));expect((await GET()).status).toBe(403);expect((await POST(req())).status).toBe(403);expect(m.find).not.toHaveBeenCalled();expect(m.write).not.toHaveBeenCalled();});
+it("registers GIF uploads idempotently by URL",async()=>{expect((await POST(req())).status).toBe(200);await POST(req());expect(m.write.mock.calls[0]?.[0].where.id).toBe(m.write.mock.calls[1]?.[0].where.id);expect(m.write.mock.calls[0]?.[0].create.config).toEqual(media);});
+it("rejects foreign URLs and excessive image sizes",async()=>{m.key.mockReturnValue(null);expect((await POST(req())).status).toBe(422);m.key.mockReturnValue("images/banner.gif");expect((await POST(req({...media,size:15*1024*1024+1}))).status).toBe(422);expect(m.write).not.toHaveBeenCalled();});
+it("combines saved uploads and legacy manual ads without duplicate URLs",async()=>{m.find.mockResolvedValue([{id:"ads-media:one",config:media},{id:"manual-ads:site",config:[{slot:"home_top:L1",title:"Old",url:media.url,targetUrl:"https://example.org",startsAt:"2026-01-01T00:00:00.000Z",endsAt:"2026-12-01T00:00:00.000Z",enabled:true},{slot:"video_ad:1",title:"Video",url:"https://media.example/videos/ad.mp4",targetUrl:"https://example.org",startsAt:"2026-01-01T00:00:00.000Z",endsAt:"2026-12-01T00:00:00.000Z",enabled:true}]}]);const response=await GET();expect(response.headers.get("Cache-Control")).toBe("no-store");const body=await response.json();expect(body.items).toHaveLength(2);expect(body.items[0].name).toBe("Banner.gif");expect(body.items[1].type).toBe("video/mp4");});

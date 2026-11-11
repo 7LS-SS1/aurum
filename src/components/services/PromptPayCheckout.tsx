@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { OrderRenewal } from "@/components/services/OrderRenewal";
+import { PaymentSlipHelp } from "./PaymentSlipHelp";
 import { ContractSummary } from "./ContractSummary";
 import { OrderRequests } from "./OrderRequests";
 import { statusLabels } from "@/lib/ads-booking";
@@ -54,6 +55,7 @@ export function PromptPayCheckout({ id }: { id: string }) {
         {order.promptpay && ["PAYMENT", "EXPIRED"].includes(order.status) && <button className="ui-button" disabled={busy || !ready} onClick={() => act("check")}>{busy ? "กำลังตรวจสอบ…" : "ตรวจสอบการชำระเงินกับ Gateway"}</button>}
         {order.promptpay && <div className={s.receipt}><small>เลขอ้างอิงใบสั่งชำระ</small><code>{order.promptpay.invoiceNo}</code>{order.promptpay.reference && <p>รายการรับชำระ: {order.promptpay.reference}</p>}</div>}
         {order.staffNote && <div className={s.update}><small>อัปเดตจากเจ้าหน้าที่</small><p>{order.staffNote}</p></div>}
+        {["REVIEW", "PAYMENT", "PAYMENT_REVIEW", "EXPIRED"].includes(order.status) && <PaymentSlipHelp id={order.id} amount={order.amount} expanded={!ready || !!message || order.status === "EXPIRED"}/> }
         <ContractSummary quote={order.quote} startsAt={order.startsAt} endsAt={order.endsAt} days={order.days} status={order.status} /><OrderHistory key={order.revision} id={id}/><OrderRenewal id={id} /><OrderRequests id={id} />
       </section><aside className={s.panel}><h2>สรุปคำสั่งซื้อ</h2><p className={s.orderId}>{id}</p><ul className={s.items}>{order.quote.items.map((item, index) => <li key={index}>{item}</li>)}</ul><div className={s.total}><span>ยอดชำระทั้งหมด</span><strong>{order.amount.toLocaleString()} บาท</strong></div><dl className={s.info}><div><dt>ระยะเวลา</dt><dd>{order.days} วัน</dd></div><div><dt>เริ่มสัญญา</dt><dd>{date(order.startsAt)}</dd></div><div><dt>สิ้นสุดสัญญา</dt><dd>{date(order.endsAt)}</dd></div></dl><p className={s.muted}>ระยะบริการเริ่มเมื่อเจ้าหน้าที่ติดตั้งและอนุมัติผลงานแล้ว</p></aside></div>
     </>}

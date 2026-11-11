@@ -1,3 +1,4 @@
+import { readManualAds,manualReserved,manualServing } from "@/lib/ads-manual";
 import { resolveAdsKey } from "@/lib/ads-plugin-keys";
 import { NextRequest } from "next/server";
 import { apiError, ApiError, jsonOk } from "@/lib/api-response";
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     if (!(await rateLimit("ads-plugin:"+siteId, { limit: 30, windowMs: 60000 })).success) throw new ApiError("rate_limited", 429);
     const { config } = await getAdsPage();
     if (!config.websites.some(s => s.id === siteId)) throw new ApiError("website_unavailable", 404);
-    const orders = await locked(tx => tx.adsOrder.findMany({ where: { status: { in: reservedStatuses } } }));
+    const {orders,manual}=await locked(async tx=>({orders:await tx.adsOrder.findMany({where:{status:{in:reservedStatuses}}}),manual:(await readManualAds(tx,siteId)).ads}));
     const scoped = orders.filter(o => !getSimulation(o.quote) && (!orderWebsite(o.quote) || orderWebsite(o.quote) === siteId));
     const expires = Math.floor(Date.now()/1000)+600;
     const origin = new URL(process.env.SERVICE_PUBLIC_ORIGIN || "https://aurum123.com").origin;
@@ -27,6 +28,9 @@ export async function GET(req: NextRequest) {
       const owner = serving.length === 1 && owners.every(o => orderWebsite(o.quote) === siteId) ? serving[0] : undefined;
       const file = owner && isServingAd(owner) ? adFiles(owner).find(f => f.slot === slot.id) : undefined;
       const media = file && owner ? { targetUrl: file.targetUrl, kind: slot.id.startsWith("video_ad:") ? "video" : "image", url: origin + "/api/public/ads-plugin/media?" + new URLSearchParams({ websiteId: siteId, orderId: owner.id, fileId: file.fileId, expires: String(expires), signature: mediaSignature(siteId, owner.id, file.fileId, expires, key) }), endsAt: new Date(owner.endsAt!.getTime()+(owner.status === "GRACE" ? 72*3600000 : 0)).toISOString() } : null;
+      const admin=manual.find(a=>a.slot===slot.id&&manualReserved(a));
+      const adminMedia=admin&&manualServing(admin)&&owners.length===0?{targetUrl:admin.targetUrl,kind:slot.id.startsWith("video_ad:")?"video":"image",url:admin.url,endsAt:admin.endsAt}:null;
+      if(admin) return {id:slot.id,label:slot.label,locked:true,state:owners.length?"conflict":adminMedia?"active":"reserved",media:owners.length?null:adminMedia};
       return { id: slot.id, label: slot.label, locked: owners.length > 0, state: serving.length > 1 ? "conflict" : media ? "active" : owners.length ? "reserved" : "available", media };
     });
     return jsonOk({ version: 1, websiteId: siteId, generatedAt: new Date().toISOString(), expiresAt: new Date(expires*1000).toISOString(), slots }, { headers: { "Cache-Control": "private, no-store" } });

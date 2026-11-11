@@ -1,15 +1,15 @@
 vi.mock("@/lib/prisma", () => ({ prisma: { servicePageConfig: { findUnique: async () => null } } }));
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-const mock = vi.hoisted(() => ({ find: vi.fn(), rate: vi.fn() }));
-vi.mock("@/lib/ads-orders", () => ({ locked: (fn: (tx: unknown) => unknown) => fn({ adsOrder: { findMany: mock.find } }), orderWebsite: (q: { website?: { id: string } }) => q.website?.id || null }));
+const mock = vi.hoisted(() => ({ find: vi.fn(), rate: vi.fn(), manual: vi.fn() }));
+vi.mock("@/lib/ads-orders", () => ({ locked: (fn: (tx: unknown) => unknown) => fn({ adsOrder: { findMany: mock.find }, servicePageConfig:{findUnique:mock.manual} }), orderWebsite: (q: { website?: { id: string } }) => q.website?.id || null }));
 vi.mock("@/lib/ads-page-store", () => ({ getAdsPage: async () => ({ config: { websites: [{ id: "11111111-1111-4111-8111-111111111111", enabled: true }], inventoryCounts: {} } }) }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mock.rate }));
 import { GET } from "./route";
 const site = "11111111-1111-4111-8111-111111111111";
 const request = (key = "a".repeat(48)) => new NextRequest("https://aurum.example/api/public/ads-plugin?websiteId="+site, { headers: { Authorization: "Bearer "+key } });
 const order = (status: string, id = "order") => ({ id, status, startsAt: new Date(Date.now()-1000), endsAt: new Date(Date.now()+60000), slots: ["video_ad:1"], currentArtwork: null, quote: { website: { id: site }, attachments: [{ slot: "video_ad:1", fileId: "22222222-2222-4222-8222-222222222222", targetUrl: "https://advertiser.example" }] }, customer: { email: "private@example.org" } });
-beforeEach(() => { vi.resetAllMocks(); vi.stubEnv("ADS_PLUGIN_KEYS", JSON.stringify({[site]: "a".repeat(48)})); mock.rate.mockResolvedValue({ success: true }); mock.find.mockResolvedValue([]); });
+beforeEach(() => { vi.resetAllMocks(); vi.stubEnv("ADS_PLUGIN_KEYS", JSON.stringify({[site]: "a".repeat(48)})); mock.rate.mockResolvedValue({ success: true }); mock.find.mockResolvedValue([]); mock.manual.mockResolvedValue(null); });
 afterEach(() => vi.unstubAllEnvs());
 describe("WordPress ads feed", () => {
   it("rejects invalid keys before order database access", async () => { expect((await GET(request("wrong"))).status).toBe(401); expect(mock.find).not.toHaveBeenCalled(); });
@@ -34,4 +34,14 @@ describe("WordPress ads feed", () => {
     const data = await (await GET(request())).json();
     expect(data.slots.every((s: { locked: boolean }) => !s.locked)).toBe(true);
   });
+});
+
+it("serves manual artwork and locks it",async()=>{
+ mock.manual.mockResolvedValue({revision:1,config:[{slot:"home_top:L1",title:"Manual",url:"https://media.example/ad.jpg",targetUrl:"https://ad.example",startsAt:new Date(Date.now()-1000).toISOString(),endsAt:new Date(Date.now()+60000).toISOString(),enabled:true}]});
+ const data=await(await GET(request())).json();expect(data.slots.find((s:{id:string})=>s.id==="home_top:L1")).toMatchObject({locked:true,state:"active",media:{kind:"image"}});
+});
+it("fails closed when a manual ad conflicts with a customer",async()=>{
+ mock.manual.mockResolvedValue({revision:1,config:[{slot:"video_ad:1",title:"Manual",url:"https://media.example/ad.mp4",targetUrl:"https://ad.example",startsAt:new Date(Date.now()-1000).toISOString(),endsAt:new Date(Date.now()+60000).toISOString(),enabled:true}]});
+ mock.find.mockResolvedValue([order("ACTIVE")]);
+ const data=await(await GET(request())).json();expect(data.slots.find((s:{id:string})=>s.id==="video_ad:1")).toMatchObject({state:"conflict",media:null});
 });

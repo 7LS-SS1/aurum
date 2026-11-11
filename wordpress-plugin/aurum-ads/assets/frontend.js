@@ -12,6 +12,23 @@
   }
   // Also used by the local runtime tests, without requiring a browser.
   if (typeof module !== "undefined" && module.exports) { module.exports = { activeSlots, videoQueue }; return; }
+  function insertZones() {
+    const options = window.aurumAdsPlacement || {};
+    const ensure = (name, target, position) => {
+      if (!target || document.querySelector('[data-aurum-ads-zone="' + name + '"]')) return;
+      const node = document.createElement("div"); node.className = "aurum-ads-zone"; node.dataset.aurumAdsZone = name;
+      target.insertAdjacentElement(position, node);
+    };
+    if (options.home) {
+      const main = document.querySelector('main, #main, .site-main, [role="main"]');
+      ensure("home_top", main, "afterbegin"); ensure("home_bottom", main, "beforeend");
+    }
+    if (options.single) {
+      const candidates = document.querySelectorAll('[data-ads-banner-video-target], .aurum-ads-gate, .video-player, .player-wrapper, .video-wrapper, .player-container, .wp-block-video, .wp-video, .video-js, .plyr, .player, main video, main iframe');
+      const player = Array.from(candidates).find(node => !node.closest('.aurum-ads-zone, .rtb-banner, [data-preview], [data-video-preview], .card__poster, .card__preview, .post-thumbnail, .video-preview, .video-thumbnail, .thumbnail, .preview'));
+      ensure("video_top", player, "beforebegin"); ensure("video_bottom", player, "afterend");
+    }
+  }
   async function manifest() {
     const r = await fetch(window.aurumAdsEndpoint, { cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!r.ok) throw new Error("ads_unavailable");
@@ -82,7 +99,7 @@
     next();
   }
   document.querySelectorAll(".aurum-ads-gate").forEach(gate => gate.querySelector(".aurum-ads-start")?.addEventListener("click", () => start(gate)));
-  async function refresh() { try { banners(await manifest()); } catch { banners(null); } }
+  async function refresh() { insertZones(); try { banners(await manifest()); } catch { banners(null); } }
   void refresh();
   setInterval(refresh, 30000);
 })();

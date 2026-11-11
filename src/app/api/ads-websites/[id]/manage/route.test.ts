@@ -1,0 +1,16 @@
+import {beforeEach,it,expect,vi} from "vitest";
+import {NextRequest} from "next/server";
+const m=vi.hoisted(()=>({auth:vi.fn(),find:vi.fn(),orders:vi.fn(),write:vi.fn(),audit:vi.fn()}));
+vi.mock("@/lib/authz",()=>({requireMinRole:m.auth}));
+vi.mock("@/lib/ads-orders",()=>({locked:(fn:(tx:unknown)=>unknown)=>fn({servicePageConfig:{findUnique:m.find,upsert:m.write},adsOrder:{findMany:m.orders},auditLog:{create:m.audit}}),orderWebsite:(q:{website?:{id:string}})=>q.website?.id??null}));
+import {PUT} from "./route";
+import {defaultAdsPage} from "@/lib/ads-page-config";
+import {ApiError} from "@/lib/api-response";
+const id="11111111-1111-4111-8111-111111111111";
+const ad={slot:"home_top:L1",title:"Manual",url:"https://media.example/a.jpg",targetUrl:"https://example.org",startsAt:new Date().toISOString(),endsAt:new Date(Date.now()+86400000).toISOString(),enabled:true};
+const request=(revision=0)=>new NextRequest("https://aurum.example/manage",{method:"PUT",body:JSON.stringify({revision,ads:[ad]})});
+beforeEach(()=>{vi.resetAllMocks();m.auth.mockResolvedValue({id:"admin",role:"HEAD"});m.find.mockImplementation(async({where}:{where:{id:string}})=>where.id==="ads-banner"?{config:{...defaultAdsPage,websites:[{id,name:"Site",url:"https://example.org",enabled:true}]}}:null);m.orders.mockResolvedValue([]);});
+it("rejects unauthorized writes",async()=>{m.auth.mockRejectedValue(new ApiError("Forbidden",403));expect((await PUT(request(),{params:Promise.resolve({id})})).status).toBe(403);expect(m.write).not.toHaveBeenCalled();});
+it("never overwrites reserved customer inventory",async()=>{m.orders.mockResolvedValue([{id:"order",slots:[ad.slot],quote:{website:{id}},status:"PAID"}]);expect((await PUT(request(),{params:Promise.resolve({id})})).status).toBe(409);expect(m.write).not.toHaveBeenCalled();});
+it("rejects stale editor saves",async()=>{expect((await PUT(request(2),{params:Promise.resolve({id})})).status).toBe(409);expect(m.write).not.toHaveBeenCalled();});
+it("saves empty inventory with an audit",async()=>{expect((await PUT(request(),{params:Promise.resolve({id})})).status).toBe(200);expect(m.write).toHaveBeenCalledOnce();expect(m.audit).toHaveBeenCalledOnce();});

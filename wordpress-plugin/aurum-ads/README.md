@@ -1,4 +1,4 @@
-# AURUM Ads 1.0.0
+# AURUM Ads 1.1.0
 
 WordPress plugin paired with AURUM's `/api/public/ads-plugin` endpoint. Requires the matching AURUM release; it does not import advertisements from other plugins automatically.
 
@@ -16,7 +16,7 @@ WordPress plugin paired with AURUM's `/api/public/ads-plugin` endpoint. Requires
 
 1. Back up the project, database and current WordPress advertising settings. Audit existing active ads before changing plugins. This release has no Prisma migration.
 2. Deploy the matching AURUM code to staging first. Add the HTTPS WordPress website to AURUM's advertising website catalog; obtain its Website ID (not the unrelated content TargetSite ID).
-3. Generate a unique random key of at least 40 alphanumeric/underscore/hyphen characters per website. In AURUM runtime secrets set `ADS_PLUGIN_KEYS` to a JSON map of `{ "website-uuid": "unique-secret" }`. Set `SERVICE_PUBLIC_ORIGIN` to the public HTTPS AURUM origin. Never put these keys in Git, public JavaScript, or screenshots.
+3. In AURUM, use Generate key / Copy on the website card. Paste that key into WordPress. Existing ADS_PLUGIN_KEYS secrets remain supported. Set SERVICE_PUBLIC_ORIGIN to the public HTTPS AURUM origin. Never expose keys to visitors.
 4. Upload `aurum-ads-1.0.0.zip`, activate, open **AURUM Ads**, enter the AURUM origin, Website ID and matching key. Save and sync. A blank key input retains the existing key; keys are never rendered back into the form.
 5. Configure real WordPress cron once per minute. WP-Cron alone is traffic-dependent. The manifest expires after 10 minutes; expired data stops displaying ads rather than claiming a slot is free. The public WP manifest refreshes banners every 30 seconds. AURUM's booking screen refreshes availability every 15 seconds and validates it again under a database advisory lock.
 6. Map the four main banner zones into the theme using `[aurum_ads placement="home_top"]`, `home_bottom`, `video_top`, `video_bottom`. The eight slots are two columns on desktop and one on mobile. Popup/Fixed positions render via `wp_footer`.
@@ -45,3 +45,14 @@ node tests/player.cjs
 ## Rollback
 
 Deactivate this plugin and restore the previous theme integration and ad configuration. Preserve newly created AURUM orders and media; do not restore an old database dump over new customer transactions. Disable sales for affected websites until the previous inventory renderer and contract assignments are reconciled. No media download, deletion or re-encoding is part of installation or rollback.
+
+
+## 1.1.0: automatic banners and per-website management
+
+- Homepage top/bottom automatically mount inside the theme main container. Video top/bottom mount outside the primary player; preview cards are excluded. Existing AURUM shortcode zones are reused, not duplicated. Themes without a recognized main/player container still require a shortcode or theme integration.
+- Popup/fixed zones continue using the footer. Automatic insertion does not replace another plugin's existing campaigns or hijack its pre-roll player. Disable overlapping legacy placements only after checking their active contracts.
+- In AURUM: Website details → Ads Banner → Manage Ads (also available on each advertising website card). Customer reservations link to their original order workflow. Staff can upload an image/MP4 or specify its HTTPS URL, destination URL, start/end times and enable/disable a manual advertisement.
+- Manual enabled/future advertisements reserve their slots until expiry or disablement. The same database lock serializes manual changes and bookings. Existing customer reservations cannot be overwritten; ambiguous conflicts serve no media.
+- Generate/reveal/copy the website key from the AURUM card; the older ADS_PLUGIN_KEYS configuration remains supported. Keys are never sent to site visitors.
+- No schema migration. Manual advertisements are versioned in ServicePageConfig under manual-ads:<website ID>, with audit records. Back up these records with the database. Before reverting the server to a pre-1.1.0 release, disable manual advertisements or pause bookings: older releases do not account for their reserved slots.
+- Rollout: deploy the matching server, then install ZIP on one backed-up WordPress site; purge page cache and verify homepage + video page before broad rollout. Existing plugin configuration is preserved. This release does not auto-import legacy 7M Ads campaigns.

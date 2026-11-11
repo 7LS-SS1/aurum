@@ -74,6 +74,7 @@ export function AdsWebsiteSelector({ websites, targetSites, onChange }: {
             <Typography component="code" variant="body2" sx={{display:"block",overflowWrap:"anywhere",my:1}}>{site.id}</Typography>
             <Button type="button" size="small" variant="outlined" onClick={()=>copyId(site.id)}>คัดลอก ID</Button>
             <AdsWebsiteKey id={site.id}/>
+            <Button component={Link} href={`/admin/ads-banner/${site.id}`} variant="contained" sx={{mt:2}}>Manage Ads · จัดการป้าย</Button>
           </Box>
         </Paper>;
       })}

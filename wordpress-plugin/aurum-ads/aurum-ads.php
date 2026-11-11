@@ -2,13 +2,13 @@
 /**
  * Plugin Name: AURUM Ads
  * Description: Central AURUM advertising inventory, exclusive banners and a three-step pre-roll player.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * License: GPL-2.0-or-later
  */
 defined('ABSPATH') || exit;
-define('AURUM_ADS_VERSION', '1.0.0');
+define('AURUM_ADS_VERSION', '1.1.0');
 function aurum_ads_settings() { return get_option('aurum_ads_settings', array()); }
 function aurum_ads_sync() {
     $s = aurum_ads_settings();
@@ -91,12 +91,14 @@ function aurum_ads_admin() {
           <p>ซิงก์ล่าสุด: <?php echo esc_html(get_option('aurum_ads_last_sync') ? wp_date('d/m/Y H:i:s', get_option('aurum_ads_last_sync')) : 'ยังไม่เคยเชื่อมต่อ'); ?></p>
         </section>
       </div>
-      <section class="aa:bg-white aa:p-6 aa:rounded-2xl aa:border aa:border-slate-200"><h2 class="aa:text-xl aa:font-bold">วางตำแหน่งบนธีม</h2><p>Banner: <code>[aurum_ads placement="home_top"]</code> · ใช้ home_bottom, video_top, video_bottom ได้ด้วย</p><p>ตัวเล่นที่รอโฆษณาครบก่อนเริ่มเนื้อหา: <code>[aurum_ads_player src="https://…/video.mp4"]</code> หรือ <code>[aurum_ads_player iframe="https://…/embed/…"]</code></p><p>Popup / Fixed แสดงอัตโนมัติ ส่วนตำแหน่งในหน้าให้วาง shortcode เพียงครั้งเดียวต่อจุดตามธีม ห้ามเปิดระบบ Pre-roll เดิมซ้อนกัน</p></section>
+      <section class="aa:bg-white aa:p-6 aa:rounded-2xl aa:border aa:border-slate-200"><h2 class="aa:text-xl aa:font-bold">วางตำแหน่งบนธีม</h2><p>Banner: <code>[aurum_ads placement="home_top"]</code> · ใช้ home_bottom, video_top, video_bottom ได้ด้วย</p><p>ตัวเล่นที่รอโฆษณาครบก่อนเริ่มเนื้อหา: <code>[aurum_ads_player src="https://…/video.mp4"]</code> หรือ <code>[aurum_ads_player iframe="https://…/embed/…"]</code></p><p>หน้าแรกและเหนือ/ใต้กรอบวิดีโอแทรกอัตโนมัติ เมื่อพบพื้นที่หลักของธีม ไม่แทรกซ้ำกับ shortcode ที่มีอยู่ · Popup / Fixed แสดงอัตโนมัติ ห้ามเปิดระบบ Pre-roll เดิมซ้อนกัน</p></section>
     </div><?php
 }
 add_action('wp_enqueue_scripts', function() {
+    if (is_admin() || is_feed()) return;
     wp_enqueue_style('aurum-ads', plugins_url('assets/frontend.css', __FILE__), array(), AURUM_ADS_VERSION);
     wp_enqueue_script('aurum-ads', plugins_url('assets/frontend.js', __FILE__), array(), AURUM_ADS_VERSION, true);
+    wp_add_inline_script('aurum-ads', 'window.aurumAdsPlacement=' . wp_json_encode(array('home'=>is_front_page() || is_home(), 'single'=>is_singular() && !is_front_page())) . ';', 'before');
     wp_add_inline_script('aurum-ads', 'window.aurumAdsEndpoint=' . wp_json_encode(rest_url('aurum-ads/v1/manifest')) . ';', 'before');
 });
 add_shortcode('aurum_ads', function($attributes) {

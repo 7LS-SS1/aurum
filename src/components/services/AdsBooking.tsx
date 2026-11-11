@@ -5,6 +5,7 @@ import type { Simulation } from "@/lib/ads-simulation";
 import { quoteBooking, statusLabels, type BookingInput } from "@/lib/ads-booking";
 import type { AdsPageConfig } from "@/lib/ads-page-config";
 import styles from "./AdsBooking.module.css";
+import { AdsBookingReview } from "./AdsBookingReview";
 import { AdsBookingMap } from "./AdsBookingMap";
 import { AdsArtworkFields, type Artwork } from "./AdsArtworkFields";
 import { z } from "zod";
@@ -125,16 +126,14 @@ export function AdsBooking({ config, simulation = false, renewal }: { renewal?: 
         <label>อีเมล (ไม่บังคับสำหรับสมาชิกที่ใช้เบอร์โทร)<input name="email" value={contact.email} onChange={e=>setContact({...contact,email:e.target.value})} type="email" maxLength={200} autoComplete="email" /></label>
         <label>Telegram / เบอร์โทร<input name="contact" value={contact.contact} onChange={e=>setContact({...contact,contact:e.target.value})} required minLength={3} maxLength={200} /></label>
       </div><p>เว็บไซต์ที่ลงโฆษณา: {website?.name} · {website?.url}</p>{quote && <AdsArtworkFields slots={quote.slots} labels={quote.items} files={files} setFiles={setFiles} uploading={uploading} setUploading={setUploading} errors={uploadError} setErrors={setUploadError} />}<label>รายละเอียดเพิ่มเติมสำหรับทีมงาน<textarea name="note" maxLength={2000} rows={3} /></label></fieldset>
-      <fieldset disabled={busy} hidden={step !== 2}><legend>3. ตรวจสอบคำขอ</legend><Stack spacing={2} sx={{ my: 2 }}>
-          <Typography variant="h6">ส่วนลดที่ใช้ได้กับคำสั่งซื้อนี้</Typography>
+      <fieldset disabled={busy} hidden={step !== 2}><legend>3. ตรวจสอบคำขอ</legend><AdsBookingReview quote={quote} website={website} contact={contact} files={files} days={days} renewal={!!renewal} simulation={simulation}><Stack spacing={2} sx={{ my: 2 }}>
+
           {couponNow !== null && config.coupons.filter(c => couponState(c, couponNow) === "ใช้งานได้").map(c => <Alert key={c.code} severity="info" action={<Button type="button" disabled={busy} onClick={() => { setCouponCode(c.code); setAttempt(null); }}>ใช้โค้ด</Button>}>
             <strong>{c.code} · ลด {c.percent}%</strong><br />ตั้งแต่ {couponDate(c.startsAt)} ถึงก่อน {couponDate(c.endsAt)} (เวลาไทย)<br />จำกัด {c.maxUses.toLocaleString("th-TH")} สิทธิ์ · 1 ครั้งต่อบัญชี · ระบบตรวจจำนวนสิทธิ์อีกครั้งเมื่อส่งคำสั่งซื้อ
           </Alert>)}
           {couponNow !== null && !config.coupons.some(c => couponState(c, couponNow) === "ใช้งานได้") && <Typography>ขณะนี้ไม่มีโค้ดส่วนลดที่อยู่ในช่วงใช้งาน</Typography>}
-          {quote?.coupon && <Alert severity="success">ใช้โค้ด {quote.coupon.code} ลด {quote.coupon.percent}% ({quote.discount.toLocaleString("th-TH")} บาท)<br />ยอดก่อนลด {quote.subtotal.toLocaleString("th-TH")} บาท · ยอดหลังลด {quote.amount.toLocaleString("th-TH")} บาท<br />สิ้นสุด {couponDate(quote.coupon.endsAt)} (เวลาไทย)</Alert>}
-        </Stack><label>รหัสส่วนลด (ถ้ามี)<input value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase().trim());setAttempt(null);}} maxLength={30}/></label>{couponCode&&!quote&&<p role="alert">รหัสส่วนลดไม่ถูกต้องหรือหมดอายุ กรุณาลบรหัสเพื่อดูยอดเดิม</p>}{quote&&quote.discount>0&&<p>ยอดก่อนส่วนลด {quote.subtotal.toLocaleString()} บาท · ส่วนลด {quote.discount.toLocaleString()} บาท · ใช้ได้ครั้งเดียวต่อบัญชีและนับสิทธิ์เมื่อส่งคำสั่งซื้อ</p>}
-        <p>เว็บไซต์: {website?.name} · {website?.url}</p>
-        {quote ? <><p>{quote.items.length} ช่อง · {days} วัน</p><ul>{quote.items.map(item => <li key={item}>{item}</li>)}</ul><strong className={styles.total}>{quote.amount.toLocaleString()} บาท</strong><p>ราคานี้ยังไม่เรียกเก็บเงิน ระยะเวลา 90/180 วันของรายช่องและเหมาหน้าแรกคิดตามสัดส่วน ไม่มีส่วนลดเหมาทั้งเว็บไซต์</p></> : <p>กรุณาเลือกอย่างน้อยหนึ่งช่อง</p>}
+          {quote?.coupon && <Alert severity="success">ใช้โค้ด {quote.coupon.code} ลด {quote.coupon.percent}% แล้ว<br />สิ้นสุด {couponDate(quote.coupon.endsAt)} (เวลาไทย) · ระบบตรวจสิทธิ์อีกครั้งเมื่อส่งคำขอ</Alert>}
+        </Stack><label>รหัสส่วนลด (ถ้ามี)<input value={couponCode} onChange={e=>{setCouponCode(e.target.value.toUpperCase().trim());setAttempt(null);}} maxLength={30}/></label>{couponCode&&!quote&&<p role="alert">รหัสส่วนลดไม่ถูกต้องหรือหมดอายุ กรุณาลบรหัสเพื่อดูยอดเดิม</p>}</AdsBookingReview>
         <label className={styles.check}><input name="acceptedTerms" type="checkbox" required /> ยอมรับราคาและระยะเวลาตามคำสั่งซื้อ เจ้าหน้าที่ตรวจสื่อหลังชำระเงิน หากไม่ผ่านต้องดำเนินการคืนเงินก่อนยุติรายการ {renewal ? "และนับรอบต่ออายุจากวันสิ้นสุดสัญญาเดิมเมื่อเจ้าหน้าที่อนุมัติ" : "และเริ่มนับอายุเมื่ออนุมัติเริ่มแสดง"}</label>
         <button type="button" disabled={uploading} onClick={() => setStep(1)}>← แก้ไขรายการ</button><button type="submit" disabled={!quote || busy || !ready || uploading || quote.slots.some(slot => occupied.includes(slot)) || quote.slots.some(slot=>!files[slot]?.fileId)}>{busy ? "กำลังส่ง…" : simulation ? "ยืนยัน → ชำระเงินจำลอง" : "ยืนยันและส่งคำขอจอง"}</button>
       </fieldset>

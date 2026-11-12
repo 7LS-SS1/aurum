@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { PublicHeader } from "@/components/public/PublicHeader";
-import { VideoPlayer } from "@/components/public/VideoPlayer";
+import { SampleVideoPlayer } from "@/components/public/SampleVideoPlayer";
 import { EngagementBar } from "@/components/public/EngagementBar";
 import { ViewBeacon } from "@/components/public/ViewBeacon";
 import { buildJwPlayerIframeUrl, getDefaultJwPlayerConfig } from "@/lib/jwplayer";
@@ -11,7 +11,7 @@ import { getDefaultVideoControllerConfig } from "@/lib/player-settings";
 import { resolvePublicMovie } from "@/lib/public-movie";
 import { getViewerFromCookies } from "@/lib/viewer-auth";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function WatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,12 +64,10 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
       <ViewBeacon movieKey={movieKey} />
       <main className="watch">
         <div className="player-col">
-          <div className="video-stage-wrap">
-            {iframeUrl ? (
-              <iframe src={iframeUrl} title={movie.title} allowFullScreen style={{ width: "100%", height: "100%", border: 0 }} />
-            ) : (
-              <VideoPlayer src={movie.videoUrl!} poster={movie.thumbnailUrl ?? undefined} controller={controller} />
-            )}
+          <div className="video-stage-wrap" style={{ minHeight: 340 }}>
+            <SampleVideoPlayer key={movieKey} member={Boolean(viewer)} movieKey={movieKey}
+              src={movie.videoUrl ?? undefined} iframeUrl={iframeUrl ?? undefined}
+              title={movie.title} poster={movie.thumbnailUrl ?? undefined} controller={controller} />
           </div>
 
           <h1 className="w-title serif">{movie.title}</h1>

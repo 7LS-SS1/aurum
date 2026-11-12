@@ -21,7 +21,7 @@ export function getInventory(_config: Pick<AdsPageConfig, "inventoryCounts">) {
 }
 export const statusLabels: Record<string, string> = {
   SCHEDULED: "อนุมัติต่ออายุแล้ว รอเริ่มรอบใหม่", GRACE: "ช่วงต่ออายุ 3 วัน · ยังคงแสดงป้าย",
-  PAYMENT_REVIEW: "Gateway ยืนยันยอดแล้ว รอเจ้าหน้าที่ตรวจรับ",
+  PAYMENT_REVIEW: "รอเจ้าหน้าที่ตรวจสอบการชำระเงิน",
   REVIEW: "รอเปิดช่องทางชำระเงิน", PAYMENT: "รอชำระเงิน", PAID: "ชำระแล้ว รอเจ้าหน้าที่ตรวจและติดตั้ง",
   ACTIVE: "กำลังแสดงโฆษณา", COMPLETED: "ครบระยะเวลา", REJECTED: "ไม่อนุมัติ",
   EXPIRED: "หมดเวลาชำระเงิน", REFUND_REQUIRED: "รอคืนเงิน", REFUNDED: "คืนเงินแล้ว",

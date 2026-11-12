@@ -1,3 +1,4 @@
+import { getTransfer } from "./bank-transfer";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
@@ -30,6 +31,7 @@ export async function startPromptPay(id: string, viewerId: string) {
     if (!order || getSimulation(order.quote)) throw new ApiError("not_found", 404);
     // One durable intent per order. An uncertain response must be reconciled,
     // never retried by creating a second invoice/charge.
+    if (getTransfer(order.quote)) throw new ApiError("bank_transfer_already_assigned",409);
     if (hasStripeBilling(order.quote)) throw new ApiError("stripe_payment_already_assigned", 409);
     if (hasPromptPay(order.quote)) return { existing: true as const, order, payment: getPromptPay(order.quote) };
     if (order.status !== "REVIEW" || order.paymentUrl || order.amount <= 0) throw new ApiError("invalid_transition", 409);

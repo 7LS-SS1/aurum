@@ -15,7 +15,7 @@ export function VideoCatalog({
   categories: string[];
   category?: string;
   query?: string;
-  basePath?: "/" | "/videos";
+  basePath?: "/" | "/videos" | "/catalog";
   pagination?: { page: number; totalPages: number; total: number };
 }) {
   const hrefFor = (nextCategory?: string, page?: number) => {
@@ -94,7 +94,7 @@ export function VideoCatalog({
           </div>
         </div>
 
-        <section className="catalog-intro"><div><p>AURUM COLLECTION</p><h1>{query ? "ผลการค้นหา" : category || (basePath === "/videos" ? "วิดีโอทั้งหมด" : "ค้นพบคอนเทนต์ที่คุณสนใจ")}</h1><span>สำรวจรายการ บันทึกไว้ดูภายหลัง และจัดการบริการผ่านบัญชีสมาชิก</span></div><Link href="/account" className="catalog-account-link">บัญชีของฉัน ↗</Link></section>
+        <section className="catalog-intro"><div><p>AURUM COLLECTION</p><h1>{query ? "ผลการค้นหา" : category || (basePath === "/catalog" ? "บริการตัวอย่าง" : basePath === "/videos" ? "วิดีโอทั้งหมด" : "ค้นพบคอนเทนต์ที่คุณสนใจ")}</h1><span>ทดลองรับชม 15 วินาที สมัครสมาชิกและเข้าสู่ระบบเพื่อรับชมเต็ม</span></div><Link href="/account" className="catalog-account-link">บัญชีของฉัน ↗</Link></section>
         {(category || query) && (
           <div className="public-results-head">
             <div>

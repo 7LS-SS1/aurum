@@ -45,7 +45,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </nav>
             </div>
             <div className="side-sec">
-              <div className="side-cat">การชำระเงิน</div>
+              <div className="side-cat">จัดการบัญชี</div>
+              <Link className="side-link" href="/admin/bank-accounts">บัญชีทั้งหมด</Link>
+              <Link className="side-link" href="/admin/bank-accounts/new">เพิ่มบัญชีใหม่</Link>
               <Link className="side-link" href="/admin/payments">การชำระเงิน Stripe</Link>
             </div>
             <div className="side-sec">

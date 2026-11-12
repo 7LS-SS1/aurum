@@ -67,7 +67,7 @@ select {
   font-family: inherit;
 }
 
-:focus-visible {
+:focus-visible:not(.MuiInputBase-input) {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }

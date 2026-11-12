@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { ApiError } from "../api-response";
 
 type Attachment = { id: string; owner: string; name: string; type: string; size: number };
@@ -76,4 +76,14 @@ export async function saveR2Attachment(file: Attachment, bytes: Buffer, quota: n
     if (!wrote && error instanceof ApiError) throw error;
     throw new ApiError("upload_storage_unavailable", 503);
   } finally { client.destroy(); }
+}
+
+// Only account QR files are eligible; customer evidence is retained.
+export async function deleteR2BankQr(file: Attachment) {
+  if (!file.owner.startsWith("bank:")) throw new ApiError("invalid_qr",422);
+  const {bucket,client}=connection();
+  try {
+    await client.send(new DeleteObjectCommand({Bucket:bucket,Key:ownerPrefix(file.owner)+file.id+".bin"}));
+    await client.send(new DeleteObjectCommand({Bucket:bucket,Key:metadataKey(file.id)}));
+  } finally {client.destroy();}
 }

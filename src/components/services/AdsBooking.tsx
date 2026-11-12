@@ -143,7 +143,7 @@ export function AdsBooking({ config, simulation = false, renewal }: { renewal?: 
         <p>เริ่ม: {date(order.startsAt)}<br />สิ้นสุด: {date(order.endsAt)}</p>{order.staffNote && <p>ข้อความจากทีมงาน: {order.staffNote}</p>}
         {order.paymentUrl && <><p>ชำระภายใน {date(order.holdUntil)} หากหมดเวลาให้ติดต่อทีมงานก่อนชำระ</p><a href={order.paymentUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className={styles.pay}>ไปชำระเงินกับผู้ให้บริการ ↗</a></>}
         {order.simulation && <a className={styles.pay} href={`/services/ads-banner/checkout/${order.id}`}>เปิดหน้าชำระเงินและติดตามรายการจำลอง →</a>}
-        {order.status === "REVIEW" && <p>คำขออยู่ระหว่างรอเจ้าหน้าที่ตรวจสอบ รายการนี้ยังไม่หักเงินและยังไม่กันพื้นที่ ลิงก์ชำระเงินจะแสดงเมื่อเจ้าหน้าที่เปิดชำระ</p>}
+        {order.status === "REVIEW" && <><p>คำขอถูกบันทึกแล้ว ยังไม่หักเงินและยังไม่กันพื้นที่ กรุณาเลือกบัญชีรับชำระในหน้าคำสั่งซื้อก่อนโอนเงิน</p><a className={styles.pay} href={`/services/ads-banner/checkout/${order.id}`}>เลือกช่องทางชำระเงิน →</a></>}
       </article>}
     </section>
   </div>;

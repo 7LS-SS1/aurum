@@ -7,6 +7,7 @@ import { ViewerMenu } from "./ViewerMenu";
 import type { ViewerActor } from "@/lib/viewer-auth";
 
 const links: [string,string,string][] = [
+  ["/catalog", "บริการตัวอย่าง", "▷"],
   ["/services/websites", "เว็บไซต์ตัวอย่าง", "▦"],
   ["/account", "ภาพรวมบัญชี", "◈"], ["/services/select", "เลือกซื้อบริการ", "+"],
   ["/account/website-services", "เว็บไซต์ / Website API", "▤"], ["/services/ads-banner", "โฆษณาและ Banner", "▧"],

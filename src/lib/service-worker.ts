@@ -1,3 +1,4 @@
+import { purgeBankAccounts } from "./bank-transfer-server";
 import { prisma } from "./prisma";
 import { refreshExpiryAlerts } from "./ads-notifications";
 import { orderAlert } from "./ads-notification-events";
@@ -32,9 +33,10 @@ export async function runServiceWorker() {
       const tickets=await tx.adsNotification.findMany({where:{source:"CUSTOMER",status:"OPEN",createdAt:{lte:new Date(Date.now()-24*3600000)}},take:200});
       for(const ticket of tickets)await orderAlert(tx,{orderId:ticket.orderId,key:`ticket-sla:${ticket.id}`,kind:"OTHER_ISSUE",title:"คำร้องยังไม่ปิดเกิน 24 ชั่วโมง",message:"กรุณาตรวจคำร้องและตอบกลับลูกค้าในรายละเอียดคำสั่งซื้อ"});
     });
+    const bankAccountsPurged=await purgeBankAccounts();
     const mail=await deliverServiceMail();
     await prisma.accountAction.deleteMany({where:{expiresAt:{lt:new Date(Date.now()-7*86400000)}}});
-    const details={paymentChecked:checked,paymentFailures:failed,paymentCursor,stripe,mail};
+    const details={bankAccountsPurged,paymentChecked:checked,paymentFailures:failed,paymentCursor,stripe,mail};
     await prisma.serviceWorkerRun.update({where:{id:run.id},data:{status:failed || stripe.failed || mail.uncertain?"DEGRADED":"SUCCEEDED",details,finishedAt:new Date()}});
     return details;
   }catch(error){await prisma.serviceWorkerRun.update({where:{id:run.id},data:{status:"FAILED",finishedAt:new Date(),details:{error:"worker_failed_check_logs"}}});throw error;}

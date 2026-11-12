@@ -1,3 +1,4 @@
+import { getTransfer } from "./bank-transfer";
 import { manualOccupiedSlots } from "./ads-manual";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type AdsOrder } from "@prisma/client";
@@ -211,6 +212,7 @@ export async function actOnOrder(id: string, input: Action, actor: Actor) {
   return locked(async tx => {
     const order = await tx.adsOrder.findUnique({ where: { id } });
     if (!order) throw new ApiError("not_found", 404);
+    if (getTransfer(order.quote) && ["approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund"].includes(input.action)) throw new ApiError("bank_transfer_review_required",409);
     if (order.revision !== input.revision) throw new ApiError("revision_conflict", 409);
     if (hasStripeBilling(order.quote) && ["approve", "reject", "confirm_payment", "confirm_refund", "gateway_confirm", "gateway_close_refund"].includes(input.action)) throw new ApiError("stripe_verification_required", 409);
     if (["assign", "install", "review_installation", "return_installation", "update_progress"].includes(input.action)) return fulfillmentAction(tx, order, input, actor);
@@ -269,6 +271,7 @@ export async function actOnOrder(id: string, input: Action, actor: Actor) {
         data.status = "REFUND_REQUIRED"; break;
       case "confirm_refund":
         if (order.status !== "REFUND_REQUIRED" || !input.reference || input.amount !== order.amount) throw new ApiError("refund_evidence_required", 409);
+        if(getTransfer(order.quote)) await (await import("./bank-transfer-server")).recordTransferRefund(tx,order,input.reference,actor);
         Object.assign(data, { refundAmount: input.amount, refundReference: input.reference, refundedAt: new Date() });
         data.status = "REFUNDED"; break;
       case "confirm_removed":
@@ -305,6 +308,7 @@ export async function simulatePayment(input: z.infer<typeof simulationPaymentSch
     const order = await tx.adsOrder.findFirst({ where: { id: input.id, viewerId } });
     const simulation = order && getSimulation(order.quote);
     if (!order || !simulation) throw new ApiError("not_found", 404);
+    if (getTransfer(order.quote) && ["approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund"].includes(input.action)) throw new ApiError("bank_transfer_review_required",409);
     if (order.revision !== input.revision) throw new ApiError("revision_conflict", 409);
     if (order.status !== "PAYMENT" || simulation.phase !== "checkout" || !order.holdUntil || order.holdUntil <= new Date()) throw new ApiError("invalid_transition", 409);
     let note: string;

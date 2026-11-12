@@ -2,13 +2,13 @@
 /**
  * Plugin Name: AURUM Ads
  * Description: Central AURUM advertising inventory, exclusive banners and a three-step pre-roll player.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Requires at least: 6.4
  * Requires PHP: 8.0
  * License: GPL-2.0-or-later
  */
 defined('ABSPATH') || exit;
-define('AURUM_ADS_VERSION', '1.1.0');
+define('AURUM_ADS_VERSION', '1.2.0');
 function aurum_ads_settings() { return get_option('aurum_ads_settings', array()); }
 function aurum_ads_sync() {
     $s = aurum_ads_settings();
@@ -44,7 +44,7 @@ add_action('rest_api_init', function() {
     }));
 });
 add_action('admin_menu', function() { add_menu_page('AURUM Ads', 'AURUM Ads', 'manage_options', 'aurum-ads', 'aurum_ads_admin', 'dashicons-megaphone', 59); });
-add_action('admin_enqueue_scripts', function($hook) { if ($hook === 'toplevel_page_aurum-ads') wp_enqueue_style('aurum-ads-admin', plugins_url('assets/admin.css', __FILE__), array(), AURUM_ADS_VERSION); });
+add_action('admin_enqueue_scripts', function($hook) { if ($hook !== 'toplevel_page_aurum-ads') return; wp_enqueue_style('aurum-ads-admin', plugins_url('assets/admin.css', __FILE__), array(), AURUM_ADS_VERSION); wp_enqueue_script('aurum-ads-admin', plugins_url('assets/admin.js', __FILE__), array(), AURUM_ADS_VERSION, true); });
 add_action('admin_post_aurum_ads_save', function() {
     if (!current_user_can('manage_options')) wp_die('Forbidden', '', array('response'=>403));
     check_admin_referer('aurum_ads_save');
@@ -69,30 +69,7 @@ function aurum_ads_admin() {
     if (!current_user_can('manage_options')) return;
     $s = aurum_ads_settings(); $data = aurum_ads_manifest();
     $locked = count(array_filter($data['slots'], function($slot) { return !empty($slot['locked']); }));
-    ?>
-    <div class="wrap aa:p-6 aa:max-w-7xl aa:space-y-6">
-      <div class="aa:rounded-2xl aa:bg-slate-950 aa:p-8 aa:text-white"><p class="aa:text-amber-300 aa:tracking-widest">AURUM / ADVERTISING</p><h1 class="aa:text-3xl aa:font-bold aa:text-white">พื้นที่โฆษณาของเว็บไซต์</h1><p class="aa:text-slate-300">จัดการสัญญาที่ AURUM · ตรวจสถานะและการเชื่อมต่อที่นี่</p></div>
-      <?php if (get_option('aurum_ads_last_error')): ?><div class="notice notice-error"><p><?php echo esc_html(get_option('aurum_ads_last_error')); ?></p></div><?php endif; ?>
-      <?php if (defined('RTB_VERSION') || defined('ABA_VERSION')): ?><div class="notice notice-warning"><p>ตรวจพบปลั๊กอินโฆษณาเดิม โปรดย้ายรายการและปิดตำแหน่งเดิมก่อนเปิด AURUM Ads เพื่อป้องกันโฆษณาซ้อนกัน</p></div><?php endif; ?>
-      <div class="aa:grid aa:grid-cols-1 aa:md:grid-cols-3 aa:gap-4">
-        <?php foreach(array('ตำแหน่งทั้งหมด'=>count($data['slots']), 'ถูกล็อก / มีผู้จอง'=>$locked, 'ลำดับวิดีโอสูงสุด'=>3) as $label=>$value): ?><div class="aa:bg-white aa:rounded-xl aa:p-6 aa:border aa:border-slate-200"><p><?php echo esc_html($label); ?></p><strong class="aa:text-3xl"><?php echo esc_html($value); ?></strong></div><?php endforeach; ?>
-      </div>
-      <div class="aa:grid aa:grid-cols-1 aa:lg:grid-cols-3 aa:gap-6">
-        <section class="aa:lg:col-span-2 aa:bg-white aa:p-6 aa:rounded-2xl aa:border aa:border-slate-200"><h2 class="aa:text-xl aa:font-bold">แผนผังตำแหน่งและสถานะ</h2><p>สถานะจาก AURUM เท่านั้น ไม่มีการแก้ป้ายทับสัญญาจาก WordPress</p><div class="aa:grid aa:grid-cols-1 aa:md:grid-cols-2 aa:gap-3">
-          <?php foreach($data['slots'] as $slot): ?><article class="aa:rounded-xl aa:border aa:border-slate-200 aa:p-4"><strong><?php echo esc_html($slot['label']); ?></strong><p class="aa:text-sm"><?php echo esc_html(array('active'=>'กำลังแสดง · ล็อก', 'reserved'=>'มีผู้จอง · ล็อก', 'available'=>'ว่าง', 'conflict'=>'ข้อมูลชนกัน · ล็อก รอตรวจสอบ')[$slot['state']] ?? 'ไม่ทราบสถานะ'); ?></p><code><?php echo esc_html($slot['id']); ?></code></article><?php endforeach; ?>
-          <?php if (!$data['slots']): ?><p>ยังไม่มีข้อมูลที่ยืนยันได้ โปรดเชื่อมต่อและซิงก์ก่อนใช้งาน</p><?php endif; ?>
-        </div></section>
-        <section class="aa:bg-white aa:p-6 aa:rounded-2xl aa:border aa:border-slate-200 aa:space-y-4"><h2 class="aa:text-xl aa:font-bold">เชื่อมต่อ AURUM</h2><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="aa:space-y-4"><input type="hidden" name="action" value="aurum_ads_save"><?php wp_nonce_field('aurum_ads_save'); ?>
-          <label class="aa:block">AURUM URL<input class="aa:w-full" name="origin" type="url" required placeholder="https://aurum123.com" value="<?php echo esc_attr($s['origin'] ?? ''); ?>"></label>
-          <label class="aa:block">Website ID<input class="aa:w-full" name="website" required value="<?php echo esc_attr($s['website'] ?? ''); ?>"></label>
-          <label class="aa:block">คีย์เฉพาะเว็บไซต์<input class="aa:w-full" type="password" name="key" autocomplete="new-password" placeholder="เว้นว่างเพื่อใช้คีย์เดิม"></label>
-          <button class="button button-primary">บันทึกและเชื่อมต่อ</button></form>
-          <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="aurum_ads_sync"><?php wp_nonce_field('aurum_ads_sync'); ?><button class="button">ซิงก์สถานะตอนนี้</button></form>
-          <p>ซิงก์ล่าสุด: <?php echo esc_html(get_option('aurum_ads_last_sync') ? wp_date('d/m/Y H:i:s', get_option('aurum_ads_last_sync')) : 'ยังไม่เคยเชื่อมต่อ'); ?></p>
-        </section>
-      </div>
-      <section class="aa:bg-white aa:p-6 aa:rounded-2xl aa:border aa:border-slate-200"><h2 class="aa:text-xl aa:font-bold">วางตำแหน่งบนธีม</h2><p>Banner: <code>[aurum_ads placement="home_top"]</code> · ใช้ home_bottom, video_top, video_bottom ได้ด้วย</p><p>ตัวเล่นที่รอโฆษณาครบก่อนเริ่มเนื้อหา: <code>[aurum_ads_player src="https://…/video.mp4"]</code> หรือ <code>[aurum_ads_player iframe="https://…/embed/…"]</code></p><p>หน้าแรกและเหนือ/ใต้กรอบวิดีโอแทรกอัตโนมัติ เมื่อพบพื้นที่หลักของธีม ไม่แทรกซ้ำกับ shortcode ที่มีอยู่ · Popup / Fixed แสดงอัตโนมัติ ห้ามเปิดระบบ Pre-roll เดิมซ้อนกัน</p></section>
-    </div><?php
+    require __DIR__ . '/admin-view.php';
 }
 add_action('wp_enqueue_scripts', function() {
     if (is_admin() || is_feed()) return;

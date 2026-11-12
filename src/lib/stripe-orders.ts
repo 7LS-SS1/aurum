@@ -1,3 +1,4 @@
+import { getTransfer } from "./bank-transfer";
 import { createHash } from "node:crypto";
 import { Prisma, type StripeOrder } from "@prisma/client";
 import type Stripe from "stripe";
@@ -43,7 +44,7 @@ export async function createStripeDraft(input: StripeDraft, actor: Actor) {
       return publicStripeOrder(existing);
     }
     const banner = input.kind === "BANNER" ? await tx.adsOrder.findUnique({ where: { id: input.bannerOrderId } }) : null;
-    if (input.kind === "BANNER" && (!banner || !banner.viewerId || banner.status !== "REVIEW" || getSimulation(banner.quote) || hasPromptPay(banner.quote) || hasStripeBilling(banner.quote) || banner.paymentUrl || banner.paymentReference)) throw new ApiError("banner_payment_conflict", 409);
+    if (input.kind === "BANNER" && (!banner || !banner.viewerId || banner.status !== "REVIEW" || getSimulation(banner.quote) || getTransfer(banner.quote) || hasPromptPay(banner.quote) || hasStripeBilling(banner.quote) || banner.paymentUrl || banner.paymentReference)) throw new ApiError("banner_payment_conflict", 409);
     const viewerId = input.kind === "VIDEO" ? input.viewerId : banner!.viewerId!;
     const viewer = await tx.viewer.findUnique({ where: { id: viewerId } });
     if (!viewer || viewer.suspended || !viewer.email) throw new ApiError("customer_email_required", 422);
@@ -62,7 +63,7 @@ export async function createStripeDraft(input: StripeDraft, actor: Actor) {
 async function reserveBanner(tx: Prisma.TransactionClient, row: StripeOrder, expiresAt: Date) {
   if (!row.bannerOrderId) return expiresAt;
   const order = await tx.adsOrder.findUniqueOrThrow({ where: { id: row.bannerOrderId } });
-  if (order.status !== "REVIEW" || hasPromptPay(order.quote) || order.paymentUrl || order.paymentReference || order.amount * 100 !== row.amountSatang) throw new ApiError("banner_payment_conflict", 409);
+  if (order.status !== "REVIEW" || getTransfer(order.quote) || hasPromptPay(order.quote) || order.paymentUrl || order.paymentReference || order.amount * 100 !== row.amountSatang) throw new ApiError("banner_payment_conflict", 409);
   await ensureRenewalPayable(tx, order);
   const settings = await tx.servicePageConfig.findUnique({ where: { id: "ads-banner" } });
   const page = settings ? adsPageSchema.parse(settings.config) : defaultAdsPage;

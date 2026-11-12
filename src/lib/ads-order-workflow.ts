@@ -1,3 +1,4 @@
+import { getTransfer } from "./bank-transfer";
 import { getRenewal, unchangedRenewal } from "./ads-renewal";
 import { getPromptPay, hasPromptPay } from "./promptpay";
 import { getSimulation } from "./ads-simulation";
@@ -76,6 +77,7 @@ const actions: Record<string, [string, string][]> = {
   REMOVAL_REQUIRED: [["confirm_removed", "นำป้ายออกแล้ว · คืนพื้นที่ให้จอง"]],
 };
 export function actionOptions(order: AdminAdsOrder): [string, string][] {
+  if(getTransfer(order.quote) && ["REVIEW","PAYMENT","PAYMENT_REVIEW","EXPIRED"].includes(order.status))return [];
   const normal: [string, string][] = (actions[order.status] || []).map(([key, label]) => [key, key === "activate" && getRenewal(order.quote) ? "อนุมัติต่ออายุ · นับต่อวันสิ้นสุดเดิม" : label]);
   const simulation = getSimulation(order.quote);
   if (order.status === "PAID" && !unchangedRenewal(order.quote)) {

@@ -5,7 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { ApiError } from "./api-response";
-import { attachmentStorageIsR2, readR2AttachmentMetadata, readR2AttachmentBytes, saveR2Attachment } from "./storage/attachment-r2";
+import { deleteR2BankQr, attachmentStorageIsR2, readR2AttachmentMetadata, readR2AttachmentBytes, saveR2Attachment } from "./storage/attachment-r2";
 export const attachmentLimit = 20 * 1024 * 1024;
 const metadata = z.object({ id: z.string().uuid(), owner: z.string(), name: z.string(), type: z.string(), size: z.number() });
 function directory() {
@@ -79,4 +79,14 @@ export async function saveAttachment(req: Request, owner: string) {
     catch(error){await unlink(path.join(dir!,file.id+".bin")).catch(()=>{});throw error;}
   },{maxWait:10000,timeout:r2 ? 60000 : 15000});
   return file;
+}
+
+export async function deleteBankQr(id:string){
+  z.string().uuid().parse(id);
+  let file;
+  try {file=await readAttachment(id);} catch(e){if(e instanceof ApiError&&e.status===404)return;throw e;}
+  if(!file.owner.startsWith("bank:"))throw new ApiError("invalid_qr",422);
+  if(attachmentStorageIsR2()&&await readR2AttachmentMetadata(id)){await deleteR2BankQr(file);return;}
+  const dir=directory();
+  for(const extension of [".bin",".json"]){const target=path.join(dir,id+extension);if(path.dirname(target)!==path.resolve(dir))throw new ApiError("invalid_path",422);await unlink(target).catch(e=>{if(e.code!=="ENOENT")throw e;});}
 }

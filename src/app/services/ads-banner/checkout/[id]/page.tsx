@@ -6,6 +6,9 @@ import { getViewerFromCookies } from "@/lib/viewer-auth";
 import { simulationEnabled } from "@/lib/ads-simulation-server";
 import { prisma } from "@/lib/prisma";
 import { getSimulation } from "@/lib/ads-simulation";
+import { BankTransferCheckout } from "@/components/services/BankTransferCheckout";
+import { hasPromptPay } from "@/lib/promptpay";
+import { hasStripeBilling } from "@/lib/stripe-policy";
 import { PromptPayCheckout } from "@/components/services/PromptPayCheckout";
 import { SimulatedCheckout } from "@/components/services/SimulatedCheckout";
 
@@ -22,5 +25,5 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     if (!simulationEnabled()) notFound();
     return <><SimulatedCheckout id={id} /><div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
   }
-  return <><PromptPayCheckout id={id} /><div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
+  return <>{hasPromptPay(order.quote) || hasStripeBilling(order.quote) ? <PromptPayCheckout id={id} /> : <BankTransferCheckout id={id}/> }<div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
 }

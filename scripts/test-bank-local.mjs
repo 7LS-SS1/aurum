@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict';
+import { randomUUID, randomBytes } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import sharp from 'sharp';
+
+const target = new URL(process.env.DATABASE_URL || 'http://invalid');
+assert.equal(target.hostname, '127.0.0.1'); assert.equal(target.port, '55448'); assert.equal(target.pathname, '/aurum_bank_local');
+const db = new PrismaClient(), base = 'http://localhost:3323';
+const password = 'Local-bank-demo-2026!';
+const adminEmail = 'bank-admin@example.test', buyerEmail = 'bank-customer@example.test';
+const checked = [];
+async function body(r, status = 200) { assert.equal(r.status, status, await r.clone().text()); return r.json(); }
+const headers = cookie => ({ cookie, origin: base, 'Content-Type': 'application/json' });
+try {
+  const passwordHash = await bcrypt.hash(password, 10);
+  await db.user.upsert({ where: {email: adminEmail}, update: {}, create: { email: adminEmail, name: 'ผู้ดูแลทดสอบ LOCAL', role: 'HEAD', passwordHash } });
+  const buyer = await db.viewer.upsert({ where: {email: buyerEmail}, update: {}, create: { email: buyerEmail, displayName: 'ลูกค้าทดสอบ LOCAL', passwordHash, emailVerifiedAt: new Date() } });
+  const config = JSON.parse(readFileSync('src/lib/ads-page-defaults.json','utf8'));
+  const site = {id: randomUUID(), name: 'เว็บไซต์ทดสอบ LOCAL', url: 'https://example.test', enabled: true};
+  config.websites = [site];
+  await db.servicePageConfig.upsert({ where: {id:'ads-banner'}, update:{config}, create:{id:'ads-banner',config} });
+  const jar = new Map();
+  const collect = r => r.headers.getSetCookie().forEach(c => {const [k,...v]=c.split(';')[0].split('=');jar.set(k,v.join('='));});
+  const staffCookie = () => [...jar].map(([k,v])=>k+'='+v).join('; ');
+  const csrf = await fetch(base+'/api/auth/csrf');collect(csrf);
+  const {csrfToken} = await body(csrf);
+  const login = await fetch(base+'/api/auth/callback/credentials',{method:'POST',redirect:'manual',headers:{cookie:staffCookie(),'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({email:adminEmail,password,csrfToken,callbackUrl:base+'/admin/bank-accounts'})});collect(login);
+  const customerLogin = await fetch(base+'/api/public/auth/login',{method:'POST',headers:headers(''),body:JSON.stringify({email:buyerEmail,password})});await body(customerLogin);
+  const customer = customerLogin.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
+  const admin = (action,data) => fetch(base+'/api/bank-accounts',{method:'POST',headers:headers(staffCookie()),body:JSON.stringify({action,data})});
+  const pay = (action,data,cookie=customer) => fetch(base+'/api/public/payments/bank-transfer',{method:'POST',headers:headers(cookie),body:JSON.stringify({action,data})});
+  const read = id => fetch(base+'/api/public/payments/bank-transfer?id='+id,{headers:headers(customer)}).then(body);
+  const image = await sharp({create:{width:500,height:200,channels:3,background:'#e7c97a'}}).composite([{input:Buffer.from(`<svg width="500" height="200"><text x="25" y="100" font-size="24">LOCAL TEST ONLY - NOT PAYMENT</text><text x="25" y="150" font-size="12">${randomUUID()}</text></svg>`)}]).png().toBuffer();
+  writeFileSync('artifacts/bank-test-slip.png',image);
+  const upload = (url,cookie) => fetch(base+url,{method:'POST',headers:{cookie,origin:base,'Content-Type':'image/png','X-File-Name':'local-test-not-payment.png'},body:image}).then(body);
+  const qr = await upload('/api/bank-accounts?upload=qr',staffCookie());
+  const account = await body(await admin('create',{bank:'ธนาคารทดสอบเท่านั้น',name:'LOCAL DEMO ห้ามโอนเงินจริง',number:'0000000000',qr:qr.id}));
+  assert.ok(account.id);checked.push('private QR upload and account creation');
+  assert.equal((await fetch(base+'/api/bank-accounts')).status,401);
+  assert.equal((await fetch(base+'/api/public/ads-attachments?id='+qr.id,{headers:headers(customer)})).status,401);
+  checked.push('account and private QR access control');
+  const file = await upload('/api/public/ads-attachments',customer);
+  async function create(slot) {
+    const token = randomBytes(32).toString('hex');
+    const input = {websiteId:site.id,requestId:randomUUID(),kind:'slots',slots:[slot],days:30,expectedAmount:config.groups[0].rows[0][2],name:buyer.displayName,email:buyerEmail,contact:'local-demo',targetUrl:'https://example.test',attachments:[{slot,fileId:file.id,targetUrl:'https://example.test'}],note:'LOCAL TEST ONLY',acceptedTerms:true};
+    return (await body(await fetch(base+'/api/public/ads-orders',{method:'POST',headers:{...headers(customer),Authorization:'Bearer '+token},body:JSON.stringify(input)}),201)).order;
+  }
+  const order = await create('home_top:L1');
+  await body(await pay('select',{id:order.id,accountId:account.id}));
+  const selected = await read(order.id);assert.equal(selected.order.status,'PAYMENT');assert.equal(selected.accounts.find(a=>a.id===account.id).number,'0000000000');
+  assert.equal((await fetch(base+`/api/public/payments/bank-transfer?id=${order.id}&qr=${account.id}`,{headers:headers(customer)})).status,200);
+  const paidAt = new Date().toISOString();
+  await body(await pay('slip',{id:order.id,attachmentId:file.id,paidAt,amountSatang:order.amount*100}));
+  let pending = await read(order.id);assert.equal(pending.order.status,'PAYMENT_REVIEW');
+  const detail = () => fetch(base+'/api/bank-accounts?id='+account.id,{headers:headers(staffCookie())}).then(body);
+  assert.equal((await detail()).entries.length,0);checked.push('real order creation, selection and evidence upload do not confirm payment');
+  const review = {id:order.id,revision:pending.order.revision,decision:'confirm',note:'ยืนยันข้อมูลทดสอบ ไม่มีการโอนเงินจริง',reference:'LOCAL-'+randomUUID(),paidAt,amountSatang:order.amount*100};
+  const race = await Promise.all([admin('review',review),admin('review',review)]);
+  assert.deepEqual(race.map(r=>r.status).sort(),[200,409]);
+  pending=await read(order.id);assert.equal(pending.order.status,'PAID');assert.equal(pending.order.startsAt,null);assert.equal((await detail()).entries.length,1);
+  checked.push('concurrent confirmation creates exactly one income entry without activating service');
+  await body(await admin('entry',{accountId:account.id,direction:'OUT',amountSatang:10000,reference:'LOCAL-OUT-'+randomUUID(),note:'รายจ่ายทดสอบ',occurredAt:new Date().toISOString()}));
+  assert.equal((await detail()).entries.length,2);checked.push('manual expense ledger');
+  const closed = await body(await admin('create',{bank:'บัญชีทดสอบการปิด',name:'LOCAL CLOSED',number:'0000000001',qr:null}));
+  await body(await admin('close',{id:closed.id}));
+  const demo = await create('home_top:R1');
+  assert.equal((await pay('select',{id:demo.id,accountId:closed.id})).status,409);
+  checked.push('closed accounts rejected immediately');
+  const report={base,accountId:account.id,verifiedOrderId:order.id,demoOrderId:demo.id,adminEmail,buyerEmail,checked};
+  writeFileSync('artifacts/bank-local-result.json',JSON.stringify(report,null,2));
+  console.log(JSON.stringify(report,null,2));
+} finally { await db.$disconnect(); }

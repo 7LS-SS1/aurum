@@ -1,4 +1,4 @@
-# AURUM Ads 1.1.0
+# AURUM Ads 1.2.0
 
 WordPress plugin paired with AURUM's `/api/public/ads-plugin` endpoint. Requires the matching AURUM release; it does not import advertisements from other plugins automatically.
 
@@ -17,7 +17,7 @@ WordPress plugin paired with AURUM's `/api/public/ads-plugin` endpoint. Requires
 1. Back up the project, database and current WordPress advertising settings. Audit existing active ads before changing plugins. This release has no Prisma migration.
 2. Deploy the matching AURUM code to staging first. Add the HTTPS WordPress website to AURUM's advertising website catalog; obtain its Website ID (not the unrelated content TargetSite ID).
 3. In AURUM, use Generate key / Copy on the website card. Paste that key into WordPress. Existing ADS_PLUGIN_KEYS secrets remain supported. Set SERVICE_PUBLIC_ORIGIN to the public HTTPS AURUM origin. Never expose keys to visitors.
-4. Upload `aurum-ads-1.0.0.zip`, activate, open **AURUM Ads**, enter the AURUM origin, Website ID and matching key. Save and sync. A blank key input retains the existing key; keys are never rendered back into the form.
+4. Upload `aurum-ads-1.2.0.zip`, activate, open **AURUM Ads**, enter the AURUM origin, Website ID and matching key. Save and sync. A blank key input retains the existing key; keys are never rendered back into the form.
 5. Configure real WordPress cron once per minute. WP-Cron alone is traffic-dependent. The manifest expires after 10 minutes; expired data stops displaying ads rather than claiming a slot is free. The public WP manifest refreshes banners every 30 seconds. AURUM's booking screen refreshes availability every 15 seconds and validates it again under a database advisory lock.
 6. Map the four main banner zones into the theme using `[aurum_ads placement="home_top"]`, `home_bottom`, `video_top`, `video_bottom`. The eight slots are two columns on desktop and one on mobile. Popup/Fixed positions render via `wp_footer`.
 7. Replace the main player markup in the theme with `[aurum_ads_player src="https://example.org/video.mp4"]` or `[aurum_ads_player iframe="https://example.org/embed/123"]`. The shortcode owns the deferred player; it does not attempt to intercept arbitrary third-party iframe players. Use an iframe from the existing AURUM player for HLS/provider-specific controls. Do not change existing content IDs/embed URLs. Integrate this shortcode once per primary player, never in thumbnail previews.
@@ -56,3 +56,9 @@ Deactivate this plugin and restore the previous theme integration and ad configu
 - Generate/reveal/copy the website key from the AURUM card; the older ADS_PLUGIN_KEYS configuration remains supported. Keys are never sent to site visitors.
 - No schema migration. Manual advertisements are versioned in ServicePageConfig under manual-ads:<website ID>, with audit records. Back up these records with the database. Before reverting the server to a pre-1.1.0 release, disable manual advertisements or pause bookings: older releases do not account for their reserved slots.
 - Rollout: deploy the matching server, then install ZIP on one backed-up WordPress site; purge page cache and verify homepage + video page before broad rollout. Existing plugin configuration is preserved. This release does not auto-import legacy 7M Ads campaigns.
+
+## 1.2.0: refreshed WordPress admin
+
+- Graphite, gold and ivory dashboard with responsive inventory, real status counters, status filters, connection form and expandable integration guide. Unknown or expired data is never reported as available. All content remains readable without JavaScript.
+- Presentation-only release: existing option names, credentials, nonces, permissions, API/shortcode contracts, media playback and booking ownership are unchanged. No schema migration, media changes or worker draining required.
+- Before production: retain the 1.1.0 ZIP and back up WordPress settings. Canary one site and verify saving with a blank key, sync, real inventory and existing banners/player. Production and real AURUM connectivity are not covered by mocked local tests. Roll back by replacing plugin files with 1.1.0; do not restore old orders or database records.

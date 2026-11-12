@@ -11,8 +11,8 @@ const ITEMS = [
     icon: <path d="M3 11.5 12 4l9 7.5M5 10v10h5v-6h4v6h5V10" />,
   },
   {
-    href: "/videos",
-    label: "วิดีโอทั้งหมด",
+    href: "/catalog",
+    label: "บริการตัวอย่าง",
     icon: (
       <>
         <path d="M12 8v4l3 2M12 3a9 9 0 1 0 9 9" />

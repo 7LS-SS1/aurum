@@ -49,7 +49,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
   const meta = (movie.extraMeta as Record<string, unknown>) ?? {};
   const quality = typeof meta.quality === "string" ? meta.quality : null;
   const duration = typeof meta.duration === "string" ? meta.duration : null;
-  const movieKey = movie.slug ?? movie.id;
+  const movieKey = movie.id;
   const totalViewCount = movie.viewCount + movie.wpViewCount;
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "";
@@ -115,7 +115,7 @@ export default async function WatchPage({ params }: { params: Promise<{ id: stri
             วิดีโอแนะนำ
           </div>
           {suggestions.map((s) => (
-            <Link key={s.id} className="rrow" href={`/watch/${s.slug ?? s.id}`}>
+            <Link key={s.id} className="rrow" href={`/watch/${encodeURIComponent(s.id)}`}>
               <div className="rthumb">
                 {s.thumbnailUrl && (
                   // eslint-disable-next-line @next/next/no-img-element -- external CDN hosts vary per env

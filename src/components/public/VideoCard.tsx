@@ -33,7 +33,7 @@ export function VideoCard({ movie, priority = false }: { movie: VideoCardMovie; 
   }
 
   return (
-    <Link className="vcard" href={`/watch/${movie.slug ?? movie.id}`} onMouseEnter={startPreview} onMouseLeave={stopPreview} onFocus={startPreview} onBlur={stopPreview}>
+    <Link className="vcard" href={`/watch/${encodeURIComponent(movie.id)}`} onMouseEnter={startPreview} onMouseLeave={stopPreview} onFocus={startPreview} onBlur={stopPreview}>
       <div className="vthumb">
         {movie.thumbnailUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- external CDN hosts vary per env

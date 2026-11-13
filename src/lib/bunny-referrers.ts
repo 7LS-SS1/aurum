@@ -32,7 +32,9 @@ function withWwwVariant(hostname: string): string[] {
 export function buildReferrerDomains(baseUrls: string[]): string[] {
   const { AURUM_PUBLIC_HOSTNAME } = env();
   const domains = new Set<string>();
-  domains.add((AURUM_PUBLIC_HOSTNAME ?? "aurum.187.77.152.240.sslip.io").toLowerCase());
+  const publicHost = AURUM_PUBLIC_HOSTNAME ?? "aurum.187.77.152.240.sslip.io";
+  const hostname = extractHostname(publicHost.includes("://") ? publicHost : `https://${publicHost}`);
+  if (hostname) for (const variant of withWwwVariant(hostname)) domains.add(variant);
 
   for (const baseUrl of baseUrls) {
     const hostname = extractHostname(baseUrl);

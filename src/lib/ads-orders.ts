@@ -212,6 +212,8 @@ export async function actOnOrder(id: string, input: Action, actor: Actor) {
   return locked(async tx => {
     const order = await tx.adsOrder.findUnique({ where: { id } });
     if (!order) throw new ApiError("not_found", 404);
+    if ((order.quote as Prisma.JsonObject)?.usdt && ["approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund"].includes(input.action))
+      throw new ApiError("usdt_verification_required", 409);
     if (getTransfer(order.quote) && ["approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund"].includes(input.action)) throw new ApiError("bank_transfer_review_required",409);
     if (order.revision !== input.revision) throw new ApiError("revision_conflict", 409);
     if (hasStripeBilling(order.quote) && ["approve", "reject", "confirm_payment", "confirm_refund", "gateway_confirm", "gateway_close_refund"].includes(input.action)) throw new ApiError("stripe_verification_required", 409);

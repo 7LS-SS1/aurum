@@ -1,3 +1,4 @@
+import { usdtCheckoutReady } from "@/lib/usdt-server";
 import { OrderFulfillment } from "@/components/services/OrderFulfillment";
 import { OrderArtwork } from "@/components/services/OrderArtwork";
 import { notFound, redirect } from "next/navigation";
@@ -14,7 +15,7 @@ import { SimulatedCheckout } from "@/components/services/SimulatedCheckout";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "ชำระเงินและติดตามคำสั่งซื้อ | AURUM", robots: { index: false, follow: false } };
-export default async function CheckoutPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CheckoutPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams:Promise<{ method?:string }> }) {
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
   const viewer = await getViewerFromCookies();
@@ -25,5 +26,5 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
     if (!simulationEnabled()) notFound();
     return <><SimulatedCheckout id={id} /><div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
   }
-  return <>{hasPromptPay(order.quote) || hasStripeBilling(order.quote) ? <PromptPayCheckout id={id} /> : <BankTransferCheckout id={id}/> }<div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
+  return <>{hasPromptPay(order.quote) || hasStripeBilling(order.quote) ? <PromptPayCheckout id={id} /> : <BankTransferCheckout id={id} initialMethod={(await searchParams).method==="usdt"?"usdt":(await searchParams).method==="tron"?"tron":"bank"} usdtReady={await usdtCheckoutReady()} tronReady={await usdtCheckoutReady("tron")}/> }<div className="ui-panel" style={{maxWidth:1000,margin:"2rem auto"}}><a href={`/account/orders/${id}/summary`}>สรุปคำสั่งซื้อ / พิมพ์ PDF</a><OrderFulfillment id={id}/><OrderArtwork id={id}/></div></>;
 }

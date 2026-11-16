@@ -71,6 +71,9 @@ export async function reconcileContracts(tx: Prisma.TransactionClient, now = new
   for (const order of payments) {
     // A successful submission awaits staff verification, not a second payment.
     if (paidOnTime(order)) continue;
+    const usdt = (order.quote as Prisma.JsonObject)?.usdt;
+    // Give the scanner time to observe transfers mined before expiry.
+    if (usdt && order.holdUntil && now.getTime() < order.holdUntil.getTime() + 3600000) continue;
     // Keep inventory until Stripe confirms the payment channel cannot accept money.
     if (hasStripeBilling(order.quote) && !await tx.stripeOrder.findFirst({ where: { bannerOrderId: order.id, status: { in: ["EXPIRED", "VOID"] } } })) continue;
     await transition(tx, order, "EXPIRED", "หมดระยะเวลาชำระเงิน");

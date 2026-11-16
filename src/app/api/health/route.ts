@@ -6,12 +6,8 @@ export async function GET() {
     ts: new Date().toISOString(),
     runtime: process.env.NODE_ENV ?? "unknown",
     build: {
-      gitSha:
-        process.env.GIT_COMMIT_SHA ??
-        process.env.GIT_SHA ??
-        process.env.SOURCE_COMMIT ??
-        process.env.COOLIFY_GIT_COMMIT_SHA ??
-        "unknown",
+      gitSha: [process.env.SOURCE_COMMIT, process.env.GIT_COMMIT_SHA, process.env.GIT_SHA, process.env.COOLIFY_GIT_COMMIT_SHA]
+        .find(value => value && /^[0-9a-f]{7,64}$/i.test(value)) ?? "unknown",
     },
   });
 }

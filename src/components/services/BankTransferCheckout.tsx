@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { BankName } from "@/components/payments/BankIdentity";
 import { AurumTheme } from "@/components/ui/AurumTheme";
+import { UsdtCheckout } from "./UsdtCheckout";
 import { ContractSummary } from "./ContractSummary";
 import { OrderHistory } from "./OrderHistory";
 import { OrderRenewal } from "./OrderRenewal";
@@ -54,49 +55,21 @@ const messages: Record<string, string> = {
     "พื้นที่เก็บหลักฐานยังไม่พร้อม กรุณาติดต่อเจ้าหน้าที่",
   rate_limited: "กรุณารอสักครู่แล้วลองใหม่",
 };
-export function PaymentMethods() {
-  return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", md: "repeat(3,1fr)" },
-        gap: 2,
-      }}
-    >
-      <Paper variant="outlined" sx={{ p: 3, borderColor: "primary.main" }}>
-        <Typography variant="h5" aria-hidden>
-          ▣
-        </Typography>
-        <Typography variant="h6">โอนเงินแนบสลิป</Typography>
-        <Chip size="small" label="ตรวจสอบโดยแอดมิน" color="primary" />
-      </Paper>
-      {["BEP20-USDT", "TRC20-USDT"].map((label, i) => (
-        <Paper key={label} variant="outlined" sx={{ p: 3, opacity: 0.65 }}>
-          <Box
-            component="svg"
-            viewBox="0 0 32 32"
-            width={32}
-            height={32}
-            aria-label={i ? "เครือข่าย TRON" : "เครือข่าย BNB Smart Chain"}
-          >
-            <circle cx="16" cy="16" r="15" fill={i ? "#b83232" : "#c99d1a"} />
-            <text x="16" y="22" textAnchor="middle" fill="white" fontSize="20">
-              ₮
-            </text>
-          </Box>
-          <Typography variant="h6">{label}</Typography>
-          <Typography variant="caption">
-            {i ? "TRON · TRC20 (TRON20)" : "BNB Smart Chain · BEP20"}
-          </Typography>
-          <Box>
-            <Chip size="small" label="รอเปิดใช้งานเร็ว ๆ นี้" />
-          </Box>
-        </Paper>
-      ))}
-    </Box>
-  );
+export type PaymentMethod = "bank" | "usdt" | "tron";
+export function PaymentMethods({value,onSelect,usdtReady,tronReady=false}:{value:PaymentMethod|null;onSelect:(v:PaymentMethod)=>void;usdtReady:boolean;tronReady?:boolean}) {
+  const methods=[
+    {id:"bank",title:"โอนเงินแนบสลิป",detail:"ตรวจสอบโดยแอดมิน",enabled:true},
+    {id:"usdt",title:"BEP20-USDT",detail:usdtReady?"BNB Smart Chain · ตรวจยอดอัตโนมัติ":"ยังไม่เปิดรับชำระ",enabled:usdtReady},
+    {id:"tron",title:"TRC20-USDT",detail:tronReady?"TRON · ตรวจยอดอัตโนมัติ":"ยังไม่เปิดรับชำระ",enabled:tronReady}
+  ] as const;
+  return <Box role="group" aria-label="เลือกช่องทางชำระเงิน" sx={{display:"grid",gridTemplateColumns:{xs:"1fr",md:"repeat(3,1fr)"},gap:2}}>
+    {methods.map(m=><Button key={m.id} variant="outlined" disabled={!m.enabled} aria-pressed={value===m.id} onClick={()=>{onSelect(m.id)}} sx={{alignItems:"flex-start",flexDirection:"column",textAlign:"left",p:2.5,borderColor:value===m.id?"primary.main":"divider",bgcolor:value===m.id?"action.selected":"background.paper"}}>
+      <Typography component="span" sx={{fontWeight:700}}>{m.title}</Typography><Typography component="span" variant="body2">{m.detail}</Typography>
+    </Button>)}
+  </Box>;
 }
-export function BankTransferCheckout({ id }: { id: string }) {
+export function BankTransferCheckout({ id, initialMethod, usdtReady,tronReady }: { id: string; initialMethod?:PaymentMethod; usdtReady:boolean;tronReady?:boolean }) {
+  const [method,setMethod]=useState<PaymentMethod>(initialMethod==="usdt" && usdtReady?"usdt":initialMethod==="tron"&&tronReady?"tron":"bank");
   const [data, setData] = useState<State | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -195,8 +168,9 @@ export function BankTransferCheckout({ id }: { id: string }) {
         <Button href="/account" sx={{ alignSelf: "start" }}>
           ← บัญชีและคำสั่งซื้อ
         </Button>
-        <Box><Typography variant="overline" color="primary">PAYMENT • ชำระค่าบริการ</Typography><Typography variant="h4" sx={{ fontWeight: 700, mt: 1 }}>ตรวจสอบยอดและแจ้งการโอนเงิน</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>โอนตามยอดคำสั่งซื้อ แล้วส่งหลักฐานเพื่อให้เจ้าหน้าที่ตรวจสอบ</Typography></Box>
-        <PaymentMethods />
+        <Box><Typography variant="overline" color="primary">PAYMENT • ชำระค่าบริการ</Typography><Typography variant="h4" sx={{ fontWeight: 700, mt: 1 }}>ชำระค่าบริการโฆษณา</Typography><Typography color="text.secondary" sx={{ mt: 1 }}>เลือกวิธีชำระและตรวจสอบสถานะของคำสั่งซื้อ</Typography></Box>
+        {o?.status==="REVIEW" && <PaymentMethods value={method} onSelect={setMethod} usdtReady={usdtReady} tronReady={tronReady}/>}
+        {o && (o.status!=="REVIEW" || method!=="bank") && <UsdtCheckout key={method} network={method==="tron"?"tron":"bsc"} id={id} status={o.status} reload={load} />}
         {error && (
           <Alert
             severity="error"
@@ -246,7 +220,7 @@ export function BankTransferCheckout({ id }: { id: string }) {
                 </Typography>
               </Stack>
             </Paper>
-            <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, minWidth: 0 }}>
+            {(t || (o.status==="REVIEW" && method==="bank")) && <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, minWidth: 0 }}>
               <Stack spacing={2}>
                 <Typography variant="h6">โอนเงินแนบสลิป</Typography>
                 {!t && o.status === "REVIEW" && (
@@ -400,7 +374,7 @@ export function BankTransferCheckout({ id }: { id: string }) {
                   ติดต่อแอดมิน
                 </Button>
               </Stack>
-            </Paper>
+            </Paper>}
             <ContractSummary
               quote={o.quote}
               startsAt={o.startsAt}

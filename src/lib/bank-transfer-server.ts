@@ -263,6 +263,44 @@ export async function readTransferOrder(id: string, viewerId: string) {
     return { order: publicOrder(o), transfer: getTransfer(o.quote), accounts };
   });
 }
+export async function ensureAdsPaymentInventory(tx: Prisma.TransactionClient, o: import("@prisma/client").AdsOrder) {
+    await ensureRenewalPayable(tx, o);
+    const settings = await tx.servicePageConfig.findUnique({
+      where: { id: "ads-banner" },
+    });
+    const page = settings
+      ? adsPageSchema.parse(settings.config)
+      : defaultAdsPage;
+    const websiteId = orderWebsite(o.quote);
+    if (
+      !websiteId ||
+      !page.websites.some((w) => w.id === websiteId && w.enabled)
+    )
+      throw new ApiError("website_unavailable", 409);
+    const inventory = getInventory(page);
+    if (
+      !o.slots.length ||
+      o.slots.some((slot) => !inventory.some((s) => s.id === slot))
+    )
+      throw new ApiError("inventory_changed", 409);
+    const others = await tx.adsOrder.findMany({
+      where: {
+        id: { notIn: [o.id, ...(o.renewalOfId ? [o.renewalOfId] : [])] },
+        status: { in: reservedStatuses },
+      },
+      select: { slots: true, quote: true },
+    });
+    if (
+      adsSlotsOverlap(await manualOccupiedSlots(tx, websiteId), o.slots) ||
+      others.some(
+        (r) =>
+          !getSimulation(r.quote) &&
+          (!orderWebsite(r.quote) || orderWebsite(r.quote) === websiteId) &&
+          adsSlotsOverlap(r.slots, o.slots),
+      )
+    )
+      throw new ApiError("slots_unavailable", 409);
+}
 export async function selectTransferAccount(
   id: string,
   accountId: string,
@@ -289,42 +327,7 @@ export async function selectTransferAccount(
     )
       return;
     if (o.status !== "REVIEW") throw new ApiError("invalid_transition", 409);
-    await ensureRenewalPayable(tx, o);
-    const settings = await tx.servicePageConfig.findUnique({
-      where: { id: "ads-banner" },
-    });
-    const page = settings
-      ? adsPageSchema.parse(settings.config)
-      : defaultAdsPage;
-    const websiteId = orderWebsite(o.quote);
-    if (
-      !websiteId ||
-      !page.websites.some((w) => w.id === websiteId && w.enabled)
-    )
-      throw new ApiError("website_unavailable", 409);
-    const inventory = getInventory(page);
-    if (
-      !o.slots.length ||
-      o.slots.some((slot) => !inventory.some((s) => s.id === slot))
-    )
-      throw new ApiError("inventory_changed", 409);
-    const others = await tx.adsOrder.findMany({
-      where: {
-        id: { notIn: [id, ...(o.renewalOfId ? [o.renewalOfId] : [])] },
-        status: { in: reservedStatuses },
-      },
-      select: { slots: true, quote: true },
-    });
-    if (
-      adsSlotsOverlap(await manualOccupiedSlots(tx, websiteId), o.slots) ||
-      others.some(
-        (r) =>
-          !getSimulation(r.quote) &&
-          (!orderWebsite(r.quote) || orderWebsite(r.quote) === websiteId) &&
-          adsSlotsOverlap(r.slots, o.slots),
-      )
-    )
-      throw new ApiError("slots_unavailable", 409);
+    await ensureAdsPaymentInventory(tx, o);
     await tx.adsOrder.update({
       where: { id },
       data: {

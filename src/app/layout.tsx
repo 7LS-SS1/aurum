@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
-import { Roboto, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "./ui-foundation.css";
 import "./workspace.css";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { AurumTheme } from "@/components/ui/AurumTheme";
 
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const roboto = localFont({
+  src: "./fonts/Roboto.woff2",
+  weight: "100 900",
   variable: "--font-roboto",
   display: "swap",
 });
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["700", "900"],
+const playfair = localFont({
+  src: "./fonts/PlayfairDisplay.woff2",
+  weight: "400 900",
   variable: "--font-playfair",
   display: "swap",
 });

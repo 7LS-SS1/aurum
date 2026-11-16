@@ -15,6 +15,6 @@ const result = await response.json();
 console.log(JSON.stringify(result));
 // HTTP 200 means the job completed, but individual provider checks may still fail.
 // Surface degraded runs to cron/Coolify as failures instead of a false green run.
-if (result.paymentFailures > 0 || result.stripe?.failed > 0 || result.stripe?.configurationError || result.mail?.uncertain > 0) {
+if (result.usdt?.failed > 0 || result.paymentFailures > 0 || result.stripe?.failed > 0 || result.stripe?.configurationError || result.mail?.uncertain > 0) {
   throw new Error('Service worker completed with provider failures or uncertain delivery; inspect admin operations');
 }

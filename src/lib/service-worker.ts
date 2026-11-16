@@ -7,6 +7,7 @@ import { reconcilePromptPay } from "./promptpay-orders";
 import { promptPayReady } from "./promptpay-2c2p";
 import { ApiError } from "./api-response";
 import { recoverStripePayments } from "./stripe-recovery";
+import { recoverUsdt } from "./usdt-server";
 export async function runServiceWorker() {
   const run=await prisma.$transaction(async tx=>{
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(73421, 77)`;
@@ -25,6 +26,7 @@ export async function runServiceWorker() {
       if(!orders.length&&cursor)orders=await prisma.adsOrder.findMany({where,select:{id:true},orderBy:{id:"asc"},take:10});
       for(const order of orders){try{await reconcilePromptPay(order.id);checked++;}catch{failed++;}paymentCursor=order.id;}
     }
+    const usdt = await recoverUsdt((previous?.details as {usdt?:{cursor?:string}} | undefined)?.usdt?.cursor).catch(() => ({failed:1,cursor:""}));
     const stripe = await recoverStripePayments((previous?.details as {stripe?:{cursor?:string}} | undefined)?.stripe?.cursor);
     await refreshExpiryAlerts();
     await prisma.$transaction(async tx=>{
@@ -36,8 +38,8 @@ export async function runServiceWorker() {
     const bankAccountsPurged=await purgeBankAccounts();
     const mail=await deliverServiceMail();
     await prisma.accountAction.deleteMany({where:{expiresAt:{lt:new Date(Date.now()-7*86400000)}}});
-    const details={bankAccountsPurged,paymentChecked:checked,paymentFailures:failed,paymentCursor,stripe,mail};
-    await prisma.serviceWorkerRun.update({where:{id:run.id},data:{status:failed || stripe.failed || mail.uncertain?"DEGRADED":"SUCCEEDED",details,finishedAt:new Date()}});
+    const details={bankAccountsPurged,paymentChecked:checked,paymentFailures:failed,paymentCursor,usdt,stripe,mail};
+    await prisma.serviceWorkerRun.update({where:{id:run.id},data:{status:failed || usdt.failed || stripe.failed || mail.uncertain?"DEGRADED":"SUCCEEDED",details,finishedAt:new Date()}});
     return details;
   }catch(error){await prisma.serviceWorkerRun.update({where:{id:run.id},data:{status:"FAILED",finishedAt:new Date(),details:{error:"worker_failed_check_logs"}}});throw error;}
 }

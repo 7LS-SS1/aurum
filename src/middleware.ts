@@ -41,8 +41,8 @@ export default function middleware(originalRequest: NextRequest, event: NextFetc
   if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
   if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);
   const { pathname } = routing;
-  // This exact endpoint authenticates its dedicated scheduler secret in Node.
-  if (pathname === "/api/internal/service-worker") return NextResponse.next();
+  // These exact endpoints authenticate dedicated secrets in their Node handlers.
+  if (pathname === "/api/internal/service-worker" || pathname === "/api/integrations/v1/videos") return NextResponse.next();
 
   // Monitor ingestion authenticates its scoped token in the Node handler.
   const isPublicApi = pathname === "/api/monitor/ingest" || PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));

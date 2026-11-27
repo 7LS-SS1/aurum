@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api-response";
 import { clientIp } from "@/lib/rate-limit";
+import type { Prisma } from "@prisma/client";
 
 /**
  * Public viewer sessions are deliberately a separate, simpler system from
@@ -35,21 +36,32 @@ export function verifyPassword(password: string, passwordHash: string): Promise<
   return bcrypt.compare(password, passwordHash);
 }
 
-export async function createViewerSession(viewerId: string, req: Request): Promise<{ token: string; expiresAt: Date }> {
-  const member = await prisma.viewer.findUnique({ where: { id: viewerId }, select: { suspended: true } });
-  if (!member || member.suspended) throw new ApiError("account_unavailable", 403);
+export async function lockViewerCredentials(tx: Prisma.TransactionClient, viewerId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${viewerId}), 31)`;
+}
+
+export async function createViewerSession(viewerId: string, req: Request, verifiedPasswordHash?: string): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
-  await prisma.viewerSession.create({
-    data: {
+  const create = async (db: Pick<Prisma.TransactionClient, "viewer" | "viewerSession">) => {
+    const member = await db.viewer.findUnique({ where: { id: viewerId }, select: { suspended: true, passwordHash: true } });
+    if (!member || member.suspended) throw new ApiError("account_unavailable", 403);
+    if (verifiedPasswordHash !== undefined && member.passwordHash !== verifiedPasswordHash) throw new ApiError("invalid_credentials", 401);
+    await db.viewerSession.create({ data: {
       viewerId,
       tokenHash: hashToken(token),
       userAgent: req.headers.get("user-agent")?.slice(0, 255),
       ipAddress: clientIp(req),
       expiresAt,
-    },
-  });
+    } });
+  };
+  if (verifiedPasswordHash !== undefined) {
+    await prisma.$transaction(async (tx) => {
+      await lockViewerCredentials(tx, viewerId);
+      await create(tx);
+    });
+  } else await create(prisma);
 
   return { token, expiresAt };
 }

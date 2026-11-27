@@ -7,9 +7,11 @@ const viewerSessionUpdate = vi.fn();
 const viewerSessionDeleteMany = vi.fn();
 const cookiesMock = vi.fn();
 const viewerFindUnique = vi.fn();
+const executeRaw = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    $transaction: (fn: (tx: unknown) => unknown) => fn({ $executeRaw: executeRaw, viewer: { findUnique: viewerFindUnique }, viewerSession: { create: viewerSessionCreate } }),
     viewer: { findUnique: viewerFindUnique },
     viewerSession: {
       create: viewerSessionCreate,
@@ -70,6 +72,12 @@ describe("hashPassword / verifyPassword", () => {
 });
 
 describe("createViewerSession", () => {
+  it("rejects a login whose verified password has since changed", async () => {
+    viewerFindUnique.mockResolvedValue({ suspended: false, passwordHash: "new-hash" });
+    await expect(createViewerSession("viewer-1", new Request("http://x"), "old-hash")).rejects.toThrow("invalid_credentials");
+    expect(executeRaw).toHaveBeenCalled();
+    expect(viewerSessionCreate).not.toHaveBeenCalled();
+  });
   it("stores a hash of a fresh random token, not the token itself", async () => {
     viewerSessionCreate.mockResolvedValue({});
     const req = new Request("http://x", { headers: { "user-agent": "test-agent" } });

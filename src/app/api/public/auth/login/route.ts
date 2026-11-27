@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       throw new ApiError("invalid_credentials", 401);
     }
 
-    const { token, expiresAt } = await createViewerSession(viewer.id, req);
+    const { token, expiresAt } = await createViewerSession(viewer.id, req, viewer.passwordHash);
     const res = jsonOk({ viewer: { id: viewer.id, email: viewer.email, displayName: viewer.displayName } });
     setViewerSessionCookie(res, token, expiresAt);
     return res;

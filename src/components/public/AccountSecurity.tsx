@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import styles from "./AccountSecurity.module.css";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 type Session = { id: string; userAgent: string | null; createdAt: string; expiresAt: string; current: boolean };
 function deviceLabel(agent: string | null) {
   if (!agent) return "ไม่ระบุอุปกรณ์";
@@ -8,7 +9,7 @@ function deviceLabel(agent: string | null) {
   const browser = /Edg\//.test(agent) ? "Edge" : /Firefox\//.test(agent) ? "Firefox" : /Chrome\//.test(agent) ? "Chrome" : /Safari\//.test(agent) ? "Safari" : "ไคลเอนต์";
   return `${browser} · ${platform}`;
 }
-export function AccountSecurity({ email }: { email: string | null }) {
+export function AccountSecurity({ email, hasPassword }: { email: string | null; hasPassword: boolean }) {
   const [items, setItems] = useState<Session[]>([]), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
   const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null), [loading, setLoading] = useState(true);
   async function load() {
@@ -43,9 +44,11 @@ export function AccountSecurity({ email }: { email: string | null }) {
   }
   return <section className={`ui-panel ${styles.panel}`}>
     <h2>ความปลอดภัยของบัญชี</h2>
-    {email && <><p>ยืนยันช่องทางติดต่อและจัดการการเข้าถึงบัญชีของคุณ</p>
-      <div className={styles.actions}><button className="ui-button" disabled={busy || emailEnabled !== true} onClick={() => void verify()}>ส่งลิงก์ยืนยันอีเมล</button><a className="ui-button ui-button--quiet" href="/account/recovery">ตั้งรหัสผ่านใหม่</a></div>
-      {emailEnabled === false && <p className={styles.note}>บริการอีเมลยังไม่เปิดใช้งาน หากต้องการความช่วยเหลือ กรุณาติดต่อทีมงาน</p>}</>}
+    {hasPassword ? <ChangePasswordForm onChanged={() => {
+      setItems((sessions) => sessions.filter((session) => session.current));
+      void load().catch(() => undefined);
+    }} /> : <p>บัญชีนี้ไม่ได้ใช้รหัสผ่านสำหรับเข้าสู่ระบบ</p>}
+    {email && emailEnabled === true && <div className={styles.actions}><button className="ui-button" disabled={busy} onClick={() => void verify()}>ส่งลิงก์ยืนยันอีเมล</button><a className="ui-button ui-button--quiet" href="/account/recovery">ลืมรหัสผ่าน</a></div>}
     <div className={styles.heading}><h3>อุปกรณ์ที่เข้าสู่ระบบ</h3><button className="ui-button ui-button--quiet" disabled={busy || loading} onClick={() => void load().catch(error => setMessage(error.message))}>อัปเดต</button></div>
     {loading && <p role="status">กำลังโหลดอุปกรณ์…</p>}
     {items.map(item => <article key={item.id} className={styles.device}>

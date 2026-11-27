@@ -6,4 +6,10 @@
 .note { padding: 14px; border-radius: 10px; background: var(--bg, #111); border: 1px solid var(--border, #333); }
 .device { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 18px 0; border-top: 1px solid var(--border, #333); }
 .device .heading { width: 100%; }
+.passwordForm { display: grid; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.passwordForm label { display: grid; gap: 6px; }
+.passwordForm input { min-width: 0; width: 100%; padding: 10px 12px; border: 1px solid var(--field-line); border-radius: 8px; color: var(--text); background: var(--field); }
+.passwordForm button { justify-self: start; }
+.passwordForm .formError { color: var(--red); }
+.passwordForm .formSuccess { color: var(--ok); }
 .device span { font-size: 12px; color: var(--text-muted, #aaa); border: 1px solid var(--border, #333); border-radius: 999px; padding: 4px 10px; }

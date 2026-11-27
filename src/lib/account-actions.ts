@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { ApiError } from "./api-response";
-import { hashToken, hashPassword } from "./viewer-auth";
+import { hashToken, hashPassword, lockViewerCredentials } from "./viewer-auth";
 import { mailReady, queueMail } from "./service-mail";
 export const actionRequestSchema = z.object({ purpose: z.enum(["verify", "reset"]), email: z.string().trim().email().max(200) }).strict();
 export async function requestAccountAction(input: z.infer<typeof actionRequestSchema>, viewerId?: string) {
@@ -13,7 +13,7 @@ export async function requestAccountAction(input: z.infer<typeof actionRequestSc
   return prisma.$transaction(async tx=>{
     const viewer=await tx.viewer.findUnique({where:{email}});
     if(!viewer || viewer.suspended || (input.purpose==="verify" && (viewer.id!==viewerId || viewer.emailVerifiedAt))) return;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${viewer.id}), 31)`;
+    await lockViewerCredentials(tx, viewer.id);
     if(await tx.accountAction.count({where:{viewerId:viewer.id,createdAt:{gte:new Date(Date.now()-3600000)}}})>=3)return;
     const token=randomBytes(32).toString("base64url");
     await tx.accountAction.updateMany({where:{viewerId:viewer.id,purpose:input.purpose,consumedAt:null},data:{consumedAt:new Date()}});
@@ -27,7 +27,11 @@ export async function consumeAccountAction(input:z.infer<typeof consumeActionSch
   if(input.password&&Buffer.byteLength(input.password,"utf8")>72)throw new ApiError("password_too_long",422);
   const passwordHash=input.password?await hashPassword(input.password):undefined;
   return prisma.$transaction(async tx=>{
-    const action=await tx.accountAction.findUnique({where:{tokenHash:hashToken(input.token)},include:{viewer:true}});
+    const tokenHash = hashToken(input.token);
+    const owner = await tx.accountAction.findUnique({ where: { tokenHash }, select: { viewerId: true } });
+    if (!owner) throw new ApiError("invalid_or_expired_link",422);
+    await lockViewerCredentials(tx, owner.viewerId);
+    const action=await tx.accountAction.findUnique({where:{tokenHash},include:{viewer:true}});
     if(!action||action.purpose!==input.purpose||action.consumedAt||action.expiresAt<=new Date()||action.viewer.suspended||action.email!==action.viewer.email)throw new ApiError("invalid_or_expired_link",422);
     const updated=await tx.accountAction.updateMany({where:{id:action.id,consumedAt:null,expiresAt:{gt:new Date()}},data:{consumedAt:new Date()}});
     if(!updated.count)throw new ApiError("invalid_or_expired_link",422);

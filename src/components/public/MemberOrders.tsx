@@ -11,7 +11,7 @@ import { OrderRequests } from "@/components/services/OrderRequests";
 import { simulationLabel } from "@/lib/ads-simulation";
 import { OrderHistory } from "@/components/services/OrderHistory";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { statusLabels } from "@/lib/ads-booking";
 import type { ViewerActor } from "@/lib/viewer-auth";
 import s from "./AccountDashboard.module.css";
@@ -22,9 +22,20 @@ const menus: [View, string, string][] = [["overview", "◈", "Dashboard"], ["act
 const date = (v: string | null) => v ? new Date(v).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Bangkok" }) : "รอเริ่มสัญญา";
 const active = (o: Order) => (o.status === "ACTIVE" && !!o.endsAt && new Date(o.endsAt).getTime() > Date.now()) || o.status === "GRACE";
 const pending = (o: Order) => ["REVIEW", "PAYMENT", "PAYMENT_REVIEW", "PAID", "SCHEDULED", "REFUND_REQUIRED"].includes(o.status);
-export function MemberOrders({ viewer }: { viewer: ViewerActor }) {
+export function MemberOrders({ viewer, hasPassword }: { viewer: ViewerActor; hasPassword: boolean }) {
   const router = useRouter();
-  const [view, setView] = useState<View>("overview"), [orders, setOrders] = useState<Order[]>([]);
+  const showProfile = useSearchParams().get("tab") === "profile";
+  const [orderView, setOrderView] = useState<Exclude<View, "profile">>("overview"), [orders, setOrders] = useState<Order[]>([]);
+  const view: View = showProfile ? "profile" : orderView;
+
+  function setView(next: View) {
+    if (next !== "profile") setOrderView(next);
+    if ((next === "profile") === showProfile) return;
+    const url = new URL(window.location.href);
+    if (next === "profile") url.searchParams.set("tab", "profile");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url);
+  }
   const [busy, setBusy] = useState(true), [message, setMessage] = useState("");
   const [token, setToken] = useState(""), [name, setName] = useState(viewer.displayName), [savedName, setSavedName] = useState(viewer.displayName);
   const [saving, setSaving] = useState(false), [profileMessage, setProfileMessage] = useState("");
@@ -72,6 +83,6 @@ export function MemberOrders({ viewer }: { viewer: ViewerActor }) {
     {view === "overview" && <><CustomerInbox/><div className={s.stats}>{([["active", "บริการที่เปิดใช้งาน", running.length, "แคมเปญที่กำลังแสดง"], ["pending", "ระหว่างดำเนินการ", waiting.length, "ชำระเงิน / รอติดตั้ง / คืนเงิน"], ["active", "ใกล้ครบสัญญา", ending.length, "ภายใน 7 วันข้างหน้า"], ["history", "คำสั่งซื้อโฆษณา", orders.length, "ตรวจสอบรายการย้อนหลัง"]] as const).map(([target, label, count, hint]) => <button key={label} onClick={() => setView(target)}><span>{label}</span><strong>{busy || message ? "—" : count.toLocaleString("th-TH")}</strong><small>{hint}</small></button>)}</div>{!busy && !message && waiting.length > 0 && <button className={s.notice} onClick={() => setView("pending")}>มี {waiting.length} รายการระหว่างดำเนินการ · ตรวจสอบความคืบหน้า <span>ดูรายการ →</span></button>}<div className={s.sectionHeading}><div><h2>บริการที่เปิดใช้งาน</h2><p>ติดตามระยะเวลาสัญญาและผลการดำเนินงาน</p></div><button className={s.textButton} onClick={() => setView("active")}>ดูทั้งหมด →</button></div></>}
     {!busy && !message && !visible.length && <div className={s.empty}><span aria-hidden="true">▤</span><h2>{view === "history" ? "ยังไม่มีประวัติการใช้บริการ" : view === "pending" ? "ไม่มีรายการระหว่างดำเนินการ" : "ยังไม่มีบริการที่เปิดใช้งาน"}</h2><p>รายการและระยะเวลาสัญญาจะแสดงตามสถานะจริงของคำสั่งซื้อ</p><Link className={s.primary} href="/services/select">เลือกบริการที่เหมาะกับคุณ →</Link></div>}{!busy && !message && visible.length > 0 && <MemberOrdersTable key={view} orders={visible} compact={view === "overview"} renderDetails={order => cards([order])} />}
     {view === "history" && <details className={s.panel}><summary>เชื่อมคำสั่งซื้อที่ทำไว้ก่อนสมัครสมาชิก</summary><form onSubmit={claim}><label>รหัสติดตามคำสั่งซื้อเดิม<input value={token} onChange={e => setToken(e.target.value)} autoComplete="off" pattern="[a-f0-9]{64}" required /></label><p className={s.muted}>ใช้รหัสลับที่ได้รับตอนสั่งซื้อเพื่อยืนยันความเป็นเจ้าของ</p><button className={s.primary} disabled={busy}>เชื่อมคำสั่งซื้อ</button></form></details>}</>}
-    {view === "profile" && <div className={s.profileGrid}><AccountSecurity email={viewer.email}/><form className={s.panel} onSubmit={save}><h2>ข้อมูลโปรไฟล์</h2><p className={s.muted}>ชื่อสำหรับแสดงในพื้นที่สมาชิกของคุณ</p><label>ชื่อที่แสดง<input value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={80} required autoComplete="nickname" /></label><label>อีเมลสำหรับเข้าสู่ระบบ<input value={viewer.email || "สมัครสมาชิกด้วยเบอร์โทร"} readOnly /></label><p className={s.muted}>หากต้องการเปลี่ยนอีเมลหรือเบอร์โทร กรุณาติดต่อทีมงานเพื่อยืนยันตัวตน</p>{profileMessage && <p role="status">{profileMessage}</p>}<button className={s.primary} disabled={saving || name.trim() === savedName}>{saving ? "กำลังบันทึก…" : "บันทึกการเปลี่ยนแปลง"}</button></form><section className={s.panel}><h2>บัญชีและการติดต่อ</h2><p className={s.muted}>คำสั่งซื้อเชื่อมกับบัญชีนี้โดยอัตโนมัติ คุณติดตามการชำระเงินและผลการติดตั้งได้จากเมนูบริการ</p><a className={s.secondary} href="https://t.me/thaitubevideo" target="_blank" rel="noopener noreferrer">ติดต่อเจ้าหน้าที่ ↗</a></section></div>}
+    {view === "profile" && <div className={s.profileGrid}><form className={s.panel} onSubmit={save}><h2>ข้อมูลโปรไฟล์</h2><p className={s.muted}>ชื่อสำหรับแสดงในพื้นที่สมาชิกของคุณ</p><label>ชื่อที่แสดง<input value={name} onChange={e => setName(e.target.value)} minLength={2} maxLength={80} required autoComplete="nickname" /></label><label>อีเมลสำหรับเข้าสู่ระบบ<input value={viewer.email || "สมัครสมาชิกด้วยเบอร์โทร"} readOnly /></label><p className={s.muted}>หากต้องการเปลี่ยนอีเมลหรือเบอร์โทร กรุณาติดต่อทีมงานเพื่อยืนยันตัวตน</p>{profileMessage && <p role="status">{profileMessage}</p>}<button className={s.primary} disabled={saving || name.trim() === savedName}>{saving ? "กำลังบันทึก…" : "บันทึกการเปลี่ยนแปลง"}</button></form><AccountSecurity email={viewer.email} hasPassword={hasPassword}/><section className={s.panel}><h2>บัญชีและการติดต่อ</h2><p className={s.muted}>คำสั่งซื้อเชื่อมกับบัญชีนี้โดยอัตโนมัติ คุณติดตามการชำระเงินและผลการติดตั้งได้จากเมนูบริการ</p><a className={s.secondary} href="https://t.me/thaitubevideo" target="_blank" rel="noopener noreferrer">ติดต่อเจ้าหน้าที่ ↗</a></section></div>}
     <p className={s.footnote}>แสดงคำสั่งซื้อโฆษณาที่เชื่อมกับบัญชีของคุณ · ติดตามคำขอ Website API ได้จากเมนูบริการ Website API</p></div></main>;
 }

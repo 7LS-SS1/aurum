@@ -15,7 +15,7 @@ function publicBaseUrl(hostnameOrUrl: string): string {
 }
 
 /** Cloudflare R2 is S3-API-compatible — same SDK, just a different endpoint. */
-function r2Client(): S3Client {
+export function r2Client(): S3Client {
   const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } = env();
   if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
     throw new ApiError("R2 is not configured (R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY)", 503);
@@ -105,4 +105,11 @@ export function getR2ObjectKeyFromPublicUrl(fileUrl: string): string | null {
 
   const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
   return key || null;
+}
+
+/** Public URL for an object key in the main media bucket. */
+export function r2PublicUrl(key: string): string {
+  const { R2_PUBLIC_HOSTNAME } = env();
+  if (!R2_PUBLIC_HOSTNAME) throw new ApiError("R2_PUBLIC_HOSTNAME is not configured", 503);
+  return `${publicBaseUrl(R2_PUBLIC_HOSTNAME)}/${key}`;
 }

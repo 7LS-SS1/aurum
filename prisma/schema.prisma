@@ -1123,3 +1123,177 @@ model SiteAnalytics {
   site TargetSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@map("site_analytics")
 }
+
+enum AutoDownloadStatus {
+  QUEUED
+  DOWNLOADING
+  DONE
+  FAILED
+}
+
+/// Automatic download queue. A worker copies the remote media into R2 and
+/// creates the Movie directly in READY_FOR_REVIEW ("รอตรวจสอบ") — no approval
+/// gate before the download; staff review the result afterwards.
+model AutoDownloadJob {
+  id           String             @id @default(cuid())
+  sourceUrl    String             @map("source_url")
+  thumbnailUrl String?            @map("thumbnail_url")
+  title        String
+  mainCategory String             @map("main_category")
+  categories   Json               @default("[]")
+  tags         Json               @default("[]")
+  status       AutoDownloadStatus @default(QUEUED)
+  attempts     Int                @default(0)
+  error        String?
+  bytes        BigInt?
+  movieId      String?            @unique @map("movie_id")
+  createdById  String?            @map("created_by_id")
+  startedAt    DateTime?          @map("started_at")
+  finishedAt   DateTime?          @map("finished_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@map("auto_download_jobs")
+}
+
+enum SourceAdapter {
+  HTML_RECIPE
+  JSON_CATALOG
+  AUTO
+}
+
+enum SourceControl {
+  RUN
+  PAUSE
+  STOP
+}
+
+enum SourcePageState {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum SourceItemState {
+  PENDING
+  RESOLVING
+  DOWNLOADING
+  DONE
+  FAILED
+  UNSUPPORTED
+}
+
+model VideoSource {
+  id                  String           @id @default(cuid())
+  name                String
+  baseUrl             String
+  allowedHosts        Json
+  adapter             SourceAdapter
+  recipe              Json
+  recipeVersion       Int              @default(1)
+  control             SourceControl    @default(STOP)
+  stopVersion         Int              @default(0)
+  scanIntervalMinutes Int              @default(60)
+  requestIntervalMs   Int              @default(1000)
+  maxPagesPerRun      Int              @default(10)
+  maxItemsTotal       Int              @default(1000)
+  maxFileBytes        BigInt           @default(4294967296)
+  mainCategory        String
+  defaultTags         Json             @default("[]")
+  scanComplete        Boolean          @default(false)
+  nextScanAt          DateTime         @default(now())
+  lastScanAt          DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  pages               SourcePage[]
+  items               SourceItem[]
+  events              SourceEvent[]
+
+  @@index([control, nextScanAt])
+  @@map("video_sources")
+}
+
+model SourcePage {
+  id          String          @id @default(cuid())
+  sourceId    String
+  source      VideoSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  url         String
+  state       SourcePageState @default(PENDING)
+  terminal    Boolean         @default(false)
+  attempts    Int             @default(0)
+  error       String?
+  errorCode   String?
+  claimToken  String?
+  retryAt     DateTime         @default(now())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([sourceId, url])
+  @@index([sourceId, state, retryAt])
+  @@map("source_pages")
+}
+
+model SourceItem {
+  id          String          @id @default(cuid())
+  sourceId    String
+  source      VideoSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  externalId  String
+  pageUrl     String
+  title       String
+  description String          @default("")
+  mediaUrl    String?
+  coverUrl    String?
+  tags        Json            @default("[]")
+  categories  Json            @default("[]")
+  state       SourceItemState @default(PENDING)
+  attempts    Int             @default(0)
+  error       String?
+  errorCode   String?
+  bytes       BigInt?
+  durationSec Float?
+  movieId     String?         @unique
+  claimToken  String?
+  retryAt     DateTime        @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([sourceId, externalId])
+  @@index([sourceId, state, retryAt])
+  @@map("source_items")
+}
+
+model SourceEvent {
+  id       String      @id @default(cuid())
+  sourceId String
+  source   VideoSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  itemId   String?
+  code     String
+  message  String
+  at       DateTime    @default(now())
+
+  @@index([sourceId, at])
+  @@map("source_events")
+}
+
+// A global expiring lease serializes scanner and recipe-test requests across replicas.
+model ScannerLease {
+  id        String   @id
+  token     String
+  expiresAt DateTime
+
+  @@map("scanner_leases")
+}
+
+model ScannerWorkerStatus {
+  id          String   @id
+  sampledAt   DateTime
+  freeBytes   BigInt?
+  totalBytes  BigInt?
+
+  @@map("scanner_worker_status")
+}

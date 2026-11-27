@@ -32,7 +32,7 @@ RUN NODE_ENV=test npm test && node scripts/test-release-dependencies.mjs && npm 
 
 FROM node:24-slim AS runner
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ffmpeg && rm -rf /var/lib/apt/lists/*
 ARG GIT_COMMIT_SHA=unknown
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -59,6 +59,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/service-worker.mjs ./scripts/service-worker.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/auto-download-worker.mjs ./scripts/auto-download-worker.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/source-scanner-worker.mjs ./scripts/source-scanner-worker.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/site-analytics-worker.mjs ./scripts/site-analytics-worker.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/sync-wp-engagement-once.mjs ./scripts/sync-wp-engagement-once.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/release-preflight.mjs ./scripts/release-preflight.mjs

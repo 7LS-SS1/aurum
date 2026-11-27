@@ -31,6 +31,9 @@ export function AdminVideoMenu({ canCreate }: { canCreate: boolean }) {
       <div className="side-cat">เนื้อหา</div>
       <Link className={`side-link ${isCurrentPath(pathname, "/admin/videos") ? "active" : ""}`} href="/admin/videos">วิดีโอทั้งหมด</Link>
       {canCreate && <Link className={`side-link ${isCurrentPath(pathname, "/admin/videos/new") ? "active" : ""}`} href="/admin/videos/new">เพิ่มวิดีโอใหม่</Link>}
+      <Link className={`side-link ${isCurrentPath(pathname, "/admin/video-sources") ? "active" : ""}`} href="/admin/video-sources">สแกนแหล่งวิดีโอ</Link>
+      <Link className={`side-link ${isCurrentPath(pathname, "/admin/review") ? "active" : ""}`} href="/admin/review">รายการรอตรวจสอบ</Link>
+      {canCreate && <Link className={`side-link ${isCurrentPath(pathname, "/admin/auto-download") ? "active" : ""}`} href="/admin/auto-download">ดาวน์โหลดอัตโนมัติ</Link>}
 
       <button type="button" className="side-disclosure" aria-expanded={managementOpen} onClick={() => setManagementOpen((open) => !open)}>
         <span>จัดการเนื้อหาวิดีโอ</span><span aria-hidden="true">{managementOpen ? "−" : "+"}</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TagSuggestions } from "./TagSuggestions";
 import { ActorSelector } from "./ActorSelector";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { presignAndUpload } from "@/lib/upload-client";
@@ -408,11 +409,6 @@ export function NewVideosWizard({
   function removeTag(tag: string) {
     if (!current) return;
     updateItem(current.key, { tags: current.tags.filter((t) => t !== tag) });
-  }
-
-  function addAllPopularTags() {
-    if (!current) return;
-    addTag((popularTags ?? []).slice(0, 20).map(({ tag }) => tag).join(","));
   }
 
   async function uploadThumbnail(item: QueueItem, file: File) {
@@ -978,20 +974,7 @@ export function NewVideosWizard({
                       placeholder="พิมพ์แท็กแล้วกด Enter (ใช้ , คั่นได้หลายแท็ก)"
                     />
                   </div>
-                  {popularTags && popularTags.length > 0 && (
-                    <>
-                      <button type="button" className="btn-ghost" style={{ marginTop: 10, padding: "6px 12px", borderRadius: 8, fontSize: 12.5 }} onClick={addAllPopularTags}>
-                        เพิ่มแท็กอัตโนมัติ (20 แท็ก)
-                      </button>
-                      <div className="chipbar" style={{ padding: "10px 0 0" }}>
-                        {popularTags.map(({ tag }) => (
-                          <button key={tag} type="button" className={`chip ${current.tags.includes(tag) ? "active" : ""}`} onClick={() => (current.tags.includes(tag) ? removeTag(tag) : addTag(tag))}>
-                            {tag}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+                  <TagSuggestions selected={current.tags} title={current.title} popular={popularTags} onAdd={addTag} onRemove={removeTag} />
                 </div>
 
                 <ActorSelector actors={actors} selectedIds={current.actorIds} onChange={ids => updateItem(current.key, { actorIds: ids })} disabled={saving} />

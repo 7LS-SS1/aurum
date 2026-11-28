@@ -8,6 +8,8 @@ import {
 } from "@/lib/service-page-request";
 import {
   addBankAccount,
+  editBankAccount,
+  editAccountSchema,
   readBankAccounts,
   bankDetail,
   closeBankAccount,
@@ -48,11 +50,12 @@ export async function POST(req: NextRequest) {
     }
     const body = z
       .object({
-        action: z.enum(["create", "close", "entry", "review"]),
+        action: z.enum(["create", "update", "close", "entry", "review"]),
         data: z.unknown(),
       })
       .strict()
       .parse(await readServicePageBody(req));
+    if (body.action === "update") return jsonOk(await editBankAccount(editAccountSchema.strict().parse(body.data), actor));
     if (body.action === "create")
       return jsonOk(
         await addBankAccount(newAccountSchema.strict().parse(body.data), actor),

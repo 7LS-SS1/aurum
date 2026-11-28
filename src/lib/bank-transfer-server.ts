@@ -142,6 +142,30 @@ export async function addBankAccount(
     return a;
   });
 }
+export const editAccountSchema = newAccountSchema.extend({ id: z.string().uuid(), expected: newAccountSchema });
+export async function editBankAccount(input: z.infer<typeof editAccountSchema>, actor: Actor) {
+  return locked(async (tx) => {
+    const a = await account(tx, input.id);
+    if (!accountAvailable(a)) throw new ApiError("บัญชีที่ปิดแล้วไม่สามารถแก้ไขได้", 409);
+    for (const key of ["bank", "number", "name", "qr"] as const) {
+      if (a[key] !== input.expected[key]) throw new ApiError("ข้อมูลเปลี่ยนแล้ว กรุณารีเฟรชก่อนแก้ไข", 409);
+    }
+    const changed = a.bank !== input.bank || a.number !== input.number || a.name !== input.name || a.qr !== input.qr;
+    if (changed && (await tx.adsOrder.findFirst({ where: { quote: { path: ["bankTransfer", "accountId"], equals: a.id } }, select: { id: true } }) ||
+      await tx.servicePageConfig.findFirst({ where: { id: { startsWith: `bank-ledger:${a.id}:` } }, select: { id: true } }))) {
+      throw new ApiError("บัญชีนี้มีประวัติธุรกรรมแล้ว กรุณาเพิ่มบัญชีใหม่เพื่อรักษาข้อมูลการชำระเดิม", 409);
+    }
+    if (input.qr && input.qr !== a.qr) {
+      const f = await readAttachment(input.qr);
+      if (f.owner !== `bank:${actor.id}` || !f.type.startsWith("image/")) throw new ApiError("invalid_qr", 422);
+      if (await tx.servicePageConfig.findFirst({ where: { id: { startsWith: "bank-account:" }, config: { path: ["qr"], equals: input.qr } } })) throw new ApiError("qr_already_used", 409);
+    }
+    const updated = { ...a, bank: input.bank, number: input.number, name: input.name, qr: input.qr };
+    await put(tx, accountKey(a.id), updated);
+    await audit(tx, actor, a.id, "bank_account_updated", "แก้ไขบัญชีรับชำระก่อนมีธุรกรรม");
+    return updated;
+  });
+}
 export async function closeBankAccount(id: string, actor: Actor) {
   return locked(async (tx) => {
     const a = await account(tx, id);

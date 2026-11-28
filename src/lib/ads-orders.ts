@@ -1,3 +1,4 @@
+import { canCancelUnpaid } from "./ads-order-cancellation";
 import { getTransfer } from "./bank-transfer";
 import { manualOccupiedSlots } from "./ads-manual";
 import { createHash, randomUUID } from "node:crypto";
@@ -23,7 +24,7 @@ const hash = (value: string) => createHash("sha256").update(value).digest("hex")
 export const tokenSchema = z.string().regex(/^[a-f0-9]{64}$/);
 export const actionSchema = z.object({
   revision: z.number().int().positive(),
-  action: z.enum(["assign", "install", "review_installation", "return_installation", "update_progress", "approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund", "activate", "request_refund", "confirm_refund", "confirm_removed", "sim_verify", "sim_retry", "sim_install", "sim_review", "sim_activate", "sim_update", "sim_cancel"]),
+  action: z.enum(["cancel_unpaid", "assign", "install", "review_installation", "return_installation", "update_progress", "approve", "reject", "confirm_payment", "gateway_confirm", "gateway_close_refund", "activate", "request_refund", "confirm_refund", "confirm_removed", "sim_verify", "sim_retry", "sim_install", "sim_review", "sim_activate", "sim_update", "sim_cancel"]),
   note: z.string().trim().min(1).max(2000),
   paymentUrl: z.string().max(2000).optional(),
   reference: z.string().trim().min(3).max(200).optional(),
@@ -224,6 +225,11 @@ export async function actOnOrder(id: string, input: Action, actor: Actor) {
     if (hasPromptPay(order.quote) && ["approve", "reject", "confirm_payment", "confirm_refund"].includes(input.action)) throw new ApiError("gateway_verification_required", 409);
     const data: Prisma.AdsOrderUpdateInput = { staffNote: input.note, revision: { increment: 1 } };
     switch (input.action) {
+      case "cancel_unpaid": {
+        if (!canCancelUnpaid(order)) throw new ApiError("รายการนี้มีข้อมูลการชำระหรือไม่อยู่ในสถานะที่ยกเลิกได้ กรุณารีเฟรชและตรวจสอบ", 409);
+        Object.assign(data, { status: "REJECTED", holdUntil: null, paymentUrl: null });
+        break;
+      }
       case "gateway_close_refund": {
         if (!getPromptPay(order.quote) || order.status !== "REFUND_REQUIRED") throw new ApiError("invalid_transition", 409);
         data.status = "REFUNDED";

@@ -3,7 +3,19 @@
 // https://www.dpa.or.th/Protected-Financial-Institutions
 // https://www.bot.or.th/th/fi-branch.html
 // https://catalog.fpo.go.th/dataset/msi_d300
-// Badges use abbreviations, not reproduced official bank trademarks.
+// Local logo assets: omise/banks-logo. See public/images/banks/LICENSE.txt.
+const bankLogoIds: Record<string, string> = {
+  bbl: "bbl", kbank: "kbank", ktb: "ktb", scb: "scb", bay: "bay",
+  ttb: "ttb", uob: "uob", cimb: "cimb", kkp: "kk", tisco: "tisco",
+  lh: "lhb", tcrb: "tcrb", icbc: "icbc", mega: "mega", scbt: "sc",
+  gsb: "gsb", baac: "baac", ghb: "ghb", ibank: "ibank", citi: "citi",
+  hsbc: "hsbc", jpm: "jpm", boa: "boa", smbc: "smbc", db: "db",
+  bnp: "bnp", mizuho: "mb",
+};
+export function thaiBankLogo(id: string) {
+  if (id === "kkp") return "/images/banks/kkp.png";
+  return bankLogoIds[id] ? `/images/banks/${bankLogoIds[id]}.svg` : undefined;
+}
 export type ThaiBank = {
   id: string;
   name: string;

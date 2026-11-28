@@ -58,6 +58,10 @@ export function BankAccounts({
     [number, setNumber] = useState(""),
     [name, setName] = useState(""),
     [qr, setQr] = useState<string | null>(null);
+  const [editing, setEditing] = useState<BankAccount | null>(null);
+  function beginEdit(a: BankAccount) {
+    setError(""); setBank(a.bank); setNumber(a.number); setName(a.name); setQr(a.qr); setEditing(a);
+  }
   const [reference, setReference] = useState(""),
     [note, setNote] = useState(""),
     [amount, setAmount] = useState(""),
@@ -220,27 +224,30 @@ export function BankAccounts({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "repeat(2,1fr)" },
-              gap: 2,
+              gridTemplateColumns: { xs: "minmax(0,1fr)", sm: "repeat(2,minmax(0,1fr))", lg: "repeat(3,minmax(0,1fr))" },
+              gap: 3,
             }}
           >
             {accounts
               .filter((a) => !a.deletedAt)
               .map((a) => (
-                <Paper key={a.id} sx={{ p: 3 }}>
-                  <Stack spacing={2}>
-                    <Typography variant="h6">
-                      <BankName name={a.bank} />
-                      {a.name}
-                    </Typography>
-                    <Typography>{a.number}</Typography>
+                <Paper key={a.id} variant="outlined" sx={{ overflow: "hidden", minWidth: 0, transition: "border-color .2s", "&:hover": { borderColor: "primary.main" } }}>
+                  <Stack spacing={2.5} sx={{ p: 3, position: "relative", overflow: "hidden", background: a.closedAt ? "linear-gradient(135deg,#1c2335,#141925)" : "linear-gradient(125deg,#222a3f,#161b29 75%)", "&:after": { content: '""', position: "absolute", width: 190, height: 190, borderRadius: "50%", border: "30px solid rgba(66,141,240,.04)", right: -90, top: -70, pointerEvents: "none" } }}>
+                    <BankName name={a.bank} />
                     <Chip
                       label={a.closedAt ? "ปิดบัญชีแล้ว" : "รับชำระได้"}
                       color={a.closedAt ? "default" : "success"}
+                      size="small" sx={{ alignSelf: "start" }}
                     />
-                    <Button href={`/admin/bank-accounts/${a.id}`}>
+                    <Box><Typography variant="caption" color="text.secondary">เลขที่บัญชี</Typography><Typography sx={{ fontSize: { xs: 23, md: 26 }, fontWeight: 600, letterSpacing: 1, fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" }}>{a.number}</Typography></Box>
+                    <Box><Typography variant="caption" color="text.secondary">ชื่อบัญชี</Typography><Typography sx={{ overflowWrap: "anywhere" }}>{a.name}</Typography></Box>
+                    <Typography variant="caption" color="text.secondary">{a.qr ? "มี QR รับชำระเงิน" : "รับชำระด้วยเลขบัญชี"}</Typography>
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ p: 2 }}>
+                    <Button fullWidth variant="outlined" href={`/admin/bank-accounts/${a.id}`}>
                       ดูรายละเอียดและประวัติ
                     </Button>
+                    <Button disabled={!!a.closedAt || busy} onClick={() => beginEdit(a)}>แก้ไข</Button>
                   </Stack>
                 </Paper>
               ))}
@@ -278,6 +285,7 @@ export function BankAccounts({
                 <Stack spacing={2} sx={{ minWidth: 0 }}>
                   <Typography variant="overline" color="primary">บัญชีรับชำระเงิน</Typography>
                   <BankName name={detail.account.bank} />
+                  <Button variant="outlined" disabled={!!detail.account.closedAt || busy} onClick={() => beginEdit(detail.account)}>แก้ไขข้อมูลบัญชี</Button>
                   <Chip size="small" label={detail.account.closedAt ? "ปิดรับชำระ" : "เปิดรับชำระ"} color={detail.account.closedAt ? "default" : "success"} sx={{ alignSelf: "start" }} />
                   <Box><Typography variant="caption" color="text.secondary">ชื่อบัญชี</Typography><Typography variant="h6">{detail.account.name}</Typography></Box>
                   <Box><Typography variant="caption" color="text.secondary">เลขที่บัญชี</Typography><Typography sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 700, overflowWrap: "anywhere", fontVariantNumeric: "tabular-nums" }}>{detail.account.deletedAt ? "ลบเลขบัญชีแล้ว" : detail.account.number}</Typography></Box>
@@ -432,6 +440,28 @@ export function BankAccounts({
             </>
           )
         )}
+        <Dialog open={!!editing} onClose={() => !busy && setEditing(null)} fullWidth maxWidth="sm">
+          <DialogTitle>แก้ไขข้อมูลบัญชี</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Alert severity="info">แก้ไขได้ก่อนบัญชีมีคำสั่งซื้อหรือประวัติรับ–จ่าย หากมีประวัติแล้วให้เพิ่มบัญชีใหม่ เพื่อเก็บข้อมูลการชำระเดิมให้ถูกต้อง</Alert>
+              {error && <Alert severity="error">{error}</Alert>}
+              <BankSelect value={bank} onChange={setBank} disabled={busy} />
+              <TextField label="เลขที่บัญชี" value={number} disabled={busy} onChange={e => setNumber(e.target.value)} />
+              <TextField label="ชื่อบัญชี" value={name} disabled={busy} onChange={e => setName(e.target.value)} />
+              <Button component="label" variant="outlined" disabled={busy}>เปลี่ยน QR รับชำระ<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e => void upload(e.target.files?.[0])} /></Button>
+              {qr && <Box component="img" alt="QR รับชำระ" src={`/api/public/ads-attachments?id=${qr}&preview=1`} sx={{ width: "200px !important", maxWidth: "100%", maxHeight: 260, objectFit: "contain", alignSelf: "center" }} />}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button disabled={busy} onClick={() => setEditing(null)}>ยกเลิก</Button>
+            <Button variant="contained" disabled={busy || !bank || !number || !name} onClick={async () => {
+              if (!editing) return;
+              const { bank: oldBank, number: oldNumber, name: oldName, qr: oldQr } = editing;
+              if (await act("update", { id: editing.id, bank, number, name, qr, expected: { bank: oldBank, number: oldNumber, name: oldName, qr: oldQr } })) setEditing(null);
+            }}>บันทึกการแก้ไข</Button>
+          </DialogActions>
+        </Dialog>
         <Dialog open={closing} onClose={() => !busy && setClosing(false)}>
           <DialogTitle>ปิดบัญชีรับชำระ?</DialogTitle>
           <DialogContent>

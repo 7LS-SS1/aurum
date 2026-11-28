@@ -25,7 +25,7 @@ const eventTitles: Record<string, string> = {
   sim_created: "สร้างคำสั่งซื้อจำลอง", sim_select: "เลือกช่องทางชำระเงิน", sim_submit: "ทดลองชำระเงิน",
   sim_verify: "ตรวจยอดแล้ว", sim_retry: "ส่งกลับให้ชำระใหม่", sim_install: "รับงานติดตั้ง",
   sim_review: "ส่งตรวจผลงาน", sim_activate: "อนุมัติเริ่มบริการ", sim_update: "แจ้งความคืบหน้า",
-  sim_cancel: "ยุติรายการจำลอง", approve: "เปิดชำระเงิน", reject: "ไม่อนุมัติคำขอ",
+  cancel_unpaid: "ยกเลิกรายการ · ยังไม่ชำระเงิน", sim_cancel: "ยุติรายการจำลอง", approve: "เปิดชำระเงิน", reject: "ไม่อนุมัติคำขอ",
   confirm_payment: "บันทึกยอดเงินเข้า", activate: "อนุมัติเริ่มบริการ", request_refund: "ส่งเข้าคิวคืนเงิน",
   confirm_refund: "ยืนยันคืนเงิน", confirm_removed: "นำป้ายออกและปิดงาน", expired: "ครบกำหนดเวลา",
 };

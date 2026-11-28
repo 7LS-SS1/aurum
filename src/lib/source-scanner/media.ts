@@ -24,14 +24,24 @@ export async function runMediaTool(tool: "ffmpeg" | "ffprobe", args: string[], s
   });
 }
 
-export function parseHls(text: string) {
+export function parseHls(text: string, variantPolicy: "single" | "lowest-bandwidth" = "single") {
   const lines = text.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines[0] !== "#EXTM3U" || lines.some((l) => /^#EXT-X-(?:KEY|SESSION-KEY):/i.test(l) && l !== "#EXT-X-KEY:METHOD=NONE")) throw new ScannerError("UNSUPPORTED_PLAYER");
   if (lines.some((l) => /^#EXT-X-(?:MEDIA:|BYTERANGE:|PART:|PRELOAD-HINT:|SESSION-DATA:)/.test(l))) throw new ScannerError("UNSUPPORTED_PLAYER");
   const uris = lines.filter((l) => !l.startsWith("#"));
   if (lines.some((l) => l.startsWith("#EXT-X-STREAM-INF:"))) {
-    if (uris.length !== 1) throw new ScannerError("AMBIGUOUS_MEDIA");
-    return { variant: uris[0]!, lines: [] as string[], uris };
+    if (uris.length === 1) return { variant: uris[0]!, lines: [] as string[], uris };
+    if (variantPolicy === "single") throw new ScannerError("AMBIGUOUS_MEDIA");
+    const variants = lines.flatMap((line, index) => {
+      if (!line.startsWith("#EXT-X-STREAM-INF:")) return [];
+      const bandwidth = Number(line.match(/(?:^#EXT-X-STREAM-INF:|,)BANDWIDTH=(\d+)(?:,|$)/)?.[1]);
+      const uri = lines[index + 1];
+      if (!Number.isSafeInteger(bandwidth) || bandwidth < 1 || !uri || uri.startsWith("#")) throw new ScannerError("AMBIGUOUS_MEDIA");
+      return [{ bandwidth, uri }];
+    });
+    if (variants.length !== uris.length || !variants.length) throw new ScannerError("AMBIGUOUS_MEDIA");
+    variants.sort((a, b) => a.bandwidth - b.bandwidth);
+    return { variant: variants[0]!.uri, lines: [] as string[], uris };
   }
   if (!lines.includes("#EXT-X-ENDLIST") || !uris.length || uris.length > 5000) throw new ScannerError("UNSUPPORTED_PLAYER");
   for (const line of lines) {

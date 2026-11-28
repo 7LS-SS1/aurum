@@ -3,6 +3,7 @@ import { load } from "cheerio";
 import { allowedUrl, Recipe, recipeSchema, ScannerError, standardCatalogRecipe } from "./contracts";
 import { readLimited, SourceFetch } from "./network";
 import { autoPlayerRecipe, discoverMarkup } from "./auto-markup";
+import { resolveLumierePlayer } from "./lumiere-player";
 
 export interface DiscoveredItem {
   externalId: string; pageUrl: string; title: string; description: string;
@@ -129,7 +130,9 @@ export async function resolveItem(item: DiscoveredItem, config: AdapterConfig, f
     const urls = mediaElements.toArray().flatMap((el) => {
       const node = $(el); return [node.attr("src"), node.attr("href"), ...node.find("source[src]").toArray().map((child) => $(child).attr("src"))].filter((v): v is string => !!v);
     }).map((raw) => allowedUrl(raw, config.allowedHosts as string[], base));
-    const media = one(urls);
+    const media = one(urls) ?? (config.adapter === "AUTO"
+      ? await resolveLumierePlayer($, base, config.allowedHosts as string[], fetcher)
+      : null);
     if (media) { if (!result.title) throw new ScannerError("INVALID_RECIPE"); return { ...result, mediaUrl: media }; }
     const frames = r.iframe ? $(r.iframe).toArray().map((el) => {
       const frame = $(el);

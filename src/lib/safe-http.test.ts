@@ -25,4 +25,19 @@ describe("pinned safe HTTPS transport", () => {
     await expect(safeFetch("https://catalog.test", new AbortController().signal)).rejects.toThrow(/สาธารณะ/);
     expect(mocks.request).toHaveBeenCalledTimes(1); expect(mocks.lookup).toHaveBeenCalledTimes(1);
   });
+  it("does not redirect a playback POST or attach browser credentials", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "1.1.1.1", family: 4 }]);
+    mocks.request.mockImplementation((_url, options, respond) => {
+      expect(options.method).toBe("POST");
+      expect(options.headers).not.toHaveProperty("authorization");
+      expect(options.headers).not.toHaveProperty("cookie");
+      expect(options.headers).not.toHaveProperty("referer");
+      return Object.assign(new EventEmitter(), { setTimeout: vi.fn(), end: () => {
+        respond(Object.assign(Readable.from([]), { statusCode: 307, headers: { location: "https://other.test/" } }));
+      } });
+    });
+    await expect(safeFetch("https://catalog.test/", new AbortController().signal, { method: "POST" }))
+      .rejects.toThrow("playback selection redirect");
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+  });
 });

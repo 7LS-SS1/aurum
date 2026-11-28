@@ -28,6 +28,7 @@ export interface SafeFetchOptions {
   beforeRequest?: (url: URL) => Promise<void>;
   userAgent?: string;
   allowErrorStatus?: boolean;
+  method?: "GET" | "POST";
 }
 // Pin the validated DNS result to the socket; no second DNS lookup/rebinding window.
 export async function safeFetch(raw: string, signal: AbortSignal, options: SafeFetchOptions = {}): Promise<Response> {
@@ -39,7 +40,7 @@ export async function safeFetch(raw: string, signal: AbortSignal, options: SafeF
     const target = await publicTarget(url.toString());
     const res = await new Promise<Response>((resolve, reject) => {
       const req = request(target.url, {
-        signal, agent: false,
+        signal, agent: false, method: options.method ?? "GET",
         lookup: (_host, opts, cb) => opts.all
           ? cb(null, [{ address: target.address.address, family: target.address.family }])
           : cb(null, target.address.address, target.address.family),
@@ -60,6 +61,7 @@ export async function safeFetch(raw: string, signal: AbortSignal, options: SafeF
     });
     if ([301, 302, 303, 307, 308].includes(res.status) && res.headers.get("location")) {
       await res.body?.cancel();
+      if (options.method === "POST") throw new Error("playback selection redirect");
       current = new URL(res.headers.get("location")!, target.url).toString();
       continue;
     }

@@ -20,7 +20,7 @@ export async function readLimited(res: Response, limit: number) {
   } finally { await reader.cancel().catch(() => undefined); }
 }
 
-export type SourceFetch = (url: string) => Promise<Response>;
+export type SourceFetch = (url: string, method?: "POST") => Promise<Response>;
 export interface HostBackoffPolicy { backoffs: Map<string, Date>; onRateLimit: (host: string, until: Date) => Promise<void> }
 /** One network context is shared by the globally leased scanner run. */
 export function networkContext(signal: AbortSignal, fetcher = safeFetch, cooldown?: HostBackoffPolicy) {
@@ -75,9 +75,9 @@ export function networkContext(signal: AbortSignal, fetcher = safeFetch, cooldow
       if (rules.isAllowed(url.toString(), "AURUM-Scanner") === false) throw new ScannerError("ROBOTS_DENIED");
       await throttle(url, Math.max(interval, (rules.getCrawlDelay("AURUM-Scanner") ?? 0) * 1000), activeSignal);
     }
-    return async (raw) => {
+    return async (raw, method) => {
       try {
-        const response = await fetcher(allowedUrl(raw, hosts), activeSignal, { userAgent, allowErrorStatus: true, beforeRequest: policy });
+        const response = await fetcher(allowedUrl(raw, hosts), activeSignal, { userAgent, allowErrorStatus: true, beforeRequest: policy, ...(method ? { method } : {}) });
         if (response.status === 429) await rateLimited(response, raw);
         if (!response.ok || !response.body) { await response.body?.cancel(); throw new ScannerError("SOURCE_HTTP"); }
         return response;

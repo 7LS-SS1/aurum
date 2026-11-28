@@ -54,6 +54,30 @@ describe("scanner adapters", () => {
       .toMatchObject({ items: [expect.objectContaining({ pageUrl: item.pageUrl })], next: "https://catalog.test/page2", additionalPages: ["https://catalog.test/page3"] });
     expect(() => parseListing(JSON.stringify({ items: [{ ...row, mainContent: false }], next: [], terminal: true }), item.pageUrl, json)).toThrow(/INVALID_RECIPE/);
   });
+  it("uses the Lumiere playback selection for the iframe's video ID", async () => {
+    const id = "12345678-1234-1234-1234-123456789abc";
+    const player = "https://lumierecore.com/" + id;
+    const configUrl = "https://lumierecore.com/player-config/v2/" + id + ".js?p2p=1&v=2";
+    const endpoint = "https://px.lumierecore.com/api/proxy/" + id;
+    const masterUrl = "https://cdn.test/hls/" + id + "/master.m3u8?version=2";
+    const variantUrl = "https://cdn.test/hls/" + id + "/360.m3u8?version=2";
+    const config = { ...auto, allowedHosts: ["catalog.test", "cdn.test", "lumierecore.com", "px.lumierecore.com"] };
+    const fetcher = vi.fn(async (url: string) => new Response(new Map([
+      [item.pageUrl, '<h1>Fixture</h1><div class="video-player"><iframe src="' + player + '"></iframe></div>'],
+      [player, '<script src="' + configUrl + '"></script>'],
+      [configUrl, 'window.PLAYER_PROXY_SELECTION_URL = "' + endpoint + '";'],
+      [endpoint, JSON.stringify({ baseUrl: "https://cdn.test/", masterUrl })],
+      [masterUrl, "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=500000\n720.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=100000\n360.m3u8?version=2"],
+    ]).get(url)));
+    await expect(resolveItem(item, config, fetcher)).resolves.toMatchObject({ title: "Fixture", mediaUrl: variantUrl });
+    expect(fetcher).toHaveBeenNthCalledWith(4, endpoint, "POST");
+    expect(fetcher).toHaveBeenLastCalledWith(masterUrl);
+
+    fetcher.mockClear();
+    await expect(resolveItem(item, { ...auto, allowedHosts: ["catalog.test", "lumierecore.com"] }, fetcher)).rejects.toThrow(/INVALID_URL/);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenLastCalledWith(configUrl);
+  });
   it("validates selectors and required recipe fields", () => {
     expect(() => validateRecipe("HTML_RECIPE", { ...config.recipe as object, media: "[" })).toThrow();
     expect(() => validateRecipe("HTML_RECIPE", { title: "h1", next: ".next", terminal: ".end" })).toThrow();
@@ -113,5 +137,10 @@ describe("HLS validation", () => {
     expect(() => parseHls(vod.replace("#EXT-X-ENDLIST", ""))).toThrow(/UNSUPPORTED_PLAYER/);
     expect(() => parseHls(vod.replace("#EXTINF", '#EXT-X-KEY:METHOD=AES-128,URI="key"\n#EXTINF'))).toThrow(/UNSUPPORTED_PLAYER/);
     expect(() => parseHls("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\na.m3u8\n#EXT-X-STREAM-INF:BANDWIDTH=200\nb.m3u8")).toThrow(/AMBIGUOUS_MEDIA/);
+  });
+  it("chooses the lowest published bandwidth from a valid HLS master playlist", () => {
+    const master = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\nhi.m3u8\n#EXT-X-STREAM-INF:RESOLUTION=640x360,BANDWIDTH=180000\nlo.m3u8";
+    expect(parseHls(master, "lowest-bandwidth").variant).toBe("lo.m3u8");
+    expect(() => parseHls(master.replace("180000", "0"), "lowest-bandwidth")).toThrow(/AMBIGUOUS_MEDIA/);
   });
 });

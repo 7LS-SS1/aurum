@@ -18,6 +18,25 @@ describe("scanner adapters", () => {
     expect(parseListing(links + '<nav class="pagination"><button class="next" disabled>ถัดไป</button></nav>', item.pageUrl, auto)).toMatchObject({ terminal: true });
     expect(() => parseListing('<a data-video-page href="https://outside.test/watch">External</a>', item.pageUrl, auto)).toThrow(/INVALID_URL/);
   });
+  it("matches the pager and rel=next despite a click ID and recognizes a disabled pagination-next", () => {
+    const video = '<article><h2><a href="/watch/one">Fixture</a></h2></article>';
+    const first = '<link rel="next" href="/page/2/?sort=recent"><nav class="pagination"><a class="pagination-previous" disabled>ย้อนกลับ</a><a class="pagination-next" href="/page/2/?sort=recent&amp;fbclid=click">หน้าถัดไป</a></nav>';
+    expect(parseListing(video + first, "https://catalog.test/", auto)).toMatchObject({
+      items: [expect.objectContaining({ pageUrl: item.pageUrl })],
+      next: "https://catalog.test/page/2/?sort=recent", terminal: false,
+    });
+    const last = '<nav class="pagination"><a class="pagination-previous" href="/page/2/">ย้อนกลับ</a><a class="pagination-next" href="#" disabled aria-disabled="true">หน้าถัดไป</a></nav>';
+    expect(parseListing(video + last, "https://catalog.test/page/3/", auto)).toMatchObject({
+      items: [expect.objectContaining({ pageUrl: item.pageUrl })], next: null, terminal: true,
+    });
+  });
+  it("keeps discovered videos while flagging genuinely different next pages", () => {
+    const html = '<link rel="next" href="/catalog?page=2"><article><h2><a href="/watch/one">Fixture</a></h2></article><nav class="pagination"><a class="pagination-next" href="/catalog?page=3&amp;fbclid=click">หน้าถัดไป</a></nav>';
+    expect(parseListing(html, "https://catalog.test/catalog", auto)).toMatchObject({
+      items: [expect.objectContaining({ pageUrl: item.pageUrl })],
+      next: null, terminal: false, paginationError: "PAGINATION_UNPROVEN",
+    });
+  });
   it("resolves standard HTML video and reads 7m-storage JSON catalogs", async () => {
     await expect(resolveItem(item, auto, async () => new Response(fixture("player.html")))).resolves.toMatchObject({ title: "Fixture video", mediaUrl: "https://cdn.test/one.mp4?token=secret" });
     const json = { ...config, adapter: "JSON_CATALOG" as const, recipe: {} };

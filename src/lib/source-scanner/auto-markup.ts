@@ -19,11 +19,12 @@ const linkPatterns = [
 ];
 const pager = '.pagination, .wp-pagenavi, .paging-navigation, nav[aria-label="Pagination" i]';
 const nextLabels = new Set(["next", "next page", "next page »", "หน้าถัดไป", "หน้าต่อไป", "ถัดไป", "»", "›"]);
+const disabledNext = ':is([rel~="next"], .next, .pagination-next):is([aria-disabled="true"], [disabled], .disabled)';
 
 export function discoverMarkup(body: string, pageUrl: string, hosts: string[]) {
   const $ = load(body);
   $(autoPlayerRecipe.ads!).remove();
-  $('a[aria-disabled="true"], a.disabled').removeAttr("href");
+  $('a[aria-disabled="true"], a[disabled], a.disabled').removeAttr("href");
   const pagers = $(pager);
   const nextLinks = $(`${autoPlayerRecipe.next}, link[rel~="next"][href]`).add(pagers.find('a.next[href], a.pagination-next[href], a[href]').filter((_index, el) => {
     const link = $(el);
@@ -32,11 +33,19 @@ export function discoverMarkup(body: string, pageUrl: string, hosts: string[]) {
   const toUrl = (raw: string) => allowedUrl(raw, hosts, pageUrl);
   const links = [...new Set((linkPatterns.map((pattern) => $(pattern)).find((group) => group.length)?.toArray() ?? [])
     .map((el) => $(el).attr("href")?.trim()).filter((v): v is string => Boolean(v) && !/^(#|javascript:|mailto:)/i.test(v!)).map(toUrl))];
-  const next = [...new Set(nextLinks.toArray().map((el) => $(el).attr("href")?.trim())
-    .filter((v): v is string => Boolean(v) && !/^(#|javascript:)/i.test(v!)).map(toUrl))];
-  if (next.length > 1) throw new ScannerError("PAGINATION_UNPROVEN");
-  const terminal = $(autoPlayerRecipe.terminal).length > 0 || pagers.find('[rel~="next"][aria-disabled="true"], .next[aria-disabled="true"], .next.disabled, button.next:disabled, [rel~="last"][aria-current="page"]').length > 0;
-  if (terminal && next.length) throw new ScannerError("PAGINATION_UNPROVEN");
+  const nextByPage = new Map<string, string>();
+  for (const url of nextLinks.toArray().map((el) => $(el).attr("href")?.trim())
+    .filter((v): v is string => Boolean(v) && !/^(#|javascript:)/i.test(v!)).map(toUrl)) {
+    // A pager can decorate its link with a click ID while rel=next publishes the same page without it.
+    // Compare without the click ID, and prefer the untagged URL when the page supplies one.
+    const identity = new URL(url);
+    if (identity.searchParams.has("fbclid")) identity.searchParams.delete("fbclid");
+    const key = identity.href;
+    if (!nextByPage.has(key) || key === url) nextByPage.set(key, url);
+  }
+  const terminal = $(autoPlayerRecipe.terminal).length > 0 || pagers.find(`${disabledNext}, [rel~="last"][aria-current="page"]`).length > 0;
+  // Keep video links when pagination evidence conflicts. The caller leaves the scan incomplete.
+  if (nextByPage.size > 1 || (terminal && nextByPage.size)) return { links, next: null, terminal: false };
   if (!links.length && !terminal) throw new ScannerError("AUTO_LINKS_NOT_FOUND");
-  return { links, next: next[0] ?? null, terminal };
+  return { links, next: nextByPage.values().next().value ?? null, terminal };
 }

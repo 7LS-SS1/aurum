@@ -257,7 +257,7 @@ export function BankTransferCheckout({ id, initialMethod, usdtReady,tronReady }:
                 )}
                 {t && o.status === "PAYMENT" && a && (
                   <>
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 300px" }, gap: 3, alignItems: "center", p: { xs: 2, md: 3 }, border: "1px solid", borderColor: "divider", borderRadius: 3, background: "linear-gradient(135deg, rgba(230,195,112,.09), transparent)" }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 300px" }, gap: 3, alignItems: "center", p: { xs: 2, md: 3 }, border: "1px solid", borderColor: "divider", borderRadius: 3, background: "linear-gradient(135deg, rgba(66,146,250,.09), transparent)" }}>
                       <Stack spacing={2} sx={{ minWidth: 0 }}>
                         <Typography variant="overline" color="primary">01 / บัญชีรับชำระ</Typography>
                         <BankName name={a.bank} />

@@ -28,7 +28,7 @@ export function VideoWorkspace({ movie, role, sites, distributions, player, edit
   const statuses: Record<string, string> = { DRAFT: "ฉบับร่าง", DONE: "เผยแพร่สำเร็จ", PARTIAL: "สำเร็จบางส่วน", FAILED: "เผยแพร่ล้มเหลว", APPROVED: "พร้อมเผยแพร่", PUBLISHING: "กำลังเผยแพร่", REJECTED: "ต้องแก้ไข", ARCHIVED: "เก็บถาวร" };
   return <Stack spacing={3} sx={{ maxWidth: 1400, mx: "auto", pb: 5 }}>
     <Button href="/admin/videos" sx={{ alignSelf: "flex-start" }}>← กลับคลังวิดีโอ</Button>
-    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 }, background: "linear-gradient(120deg, rgba(229,196,119,.10), transparent 65%)" }}><Stack spacing={2.5}>
+    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 }, background: "linear-gradient(120deg, rgba(66,146,250,.10), transparent 65%)" }}><Stack spacing={2.5}>
       <Stack direction="row" spacing={1}><Chip size="small" label="VIDEO WORKSPACE" variant="outlined" /><Chip size="small" color={movie.status === "DONE" ? "success" : "default"} label={statuses[movie.status] || movie.status} /></Stack>
       <Typography variant="h4" sx={{ fontWeight: 750, lineHeight: 1.5, maxWidth: 1000, overflowWrap: "anywhere" }}>{movie.title}</Typography>
       <Typography color="text.secondary">{movie.mainCategory || "ยังไม่ระบุประเภท"} · อัปเดต {new Date(movie.updatedAt).toLocaleString("th-TH")}</Typography>

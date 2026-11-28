@@ -13,7 +13,7 @@ export async function PublicHeader({ q = "", searchAction = "/" }: { q?: string;
 
   return (
     <>
-      <AppBar position="sticky" elevation={0} sx={{bgcolor:"#101114",borderBottom:"1px solid rgba(230,226,211,.12)"}}><Toolbar className="topbar public-topbar" sx={{width:"100%",position:"relative"}}>
+      <AppBar position="sticky" elevation={0} sx={{bgcolor:"#0e111a",borderBottom:"1px solid rgba(126,180,252,.12)"}}><Toolbar className="topbar public-topbar" sx={{width:"100%",position:"relative"}}>
       <div className="tb-left">
         <SidebarToggleButton />
         <Link className="logo" href="/">

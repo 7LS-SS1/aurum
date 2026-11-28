@@ -5,7 +5,7 @@ export function PaymentSlipHelp({id,amount,expanded=false}:{id:string;amount:num
  const [message,setMessage]=useState("");
  async function copy(){try{await navigator.clipboard.writeText(id);setMessage("คัดลอกหมายเลขคำสั่งซื้อแล้ว");}catch{setMessage("คัดลอกไม่สำเร็จ กรุณาเลือกและคัดลอกหมายเลขด้านบน");}}
  return <details className={s.receipt} open={expanded}>
-  <summary style={{cursor:"pointer",fontWeight:700,color:"#e7c789"}}>แจ้งสลิปชำระเงิน</summary>
+  <summary style={{cursor:"pointer",fontWeight:700,color:"#519afb"}}>แจ้งสลิปชำระเงิน</summary>
   <p>หาก PromptPay มีปัญหา หรือชำระแล้วแต่สถานะยังไม่อัปเดต สามารถส่งหลักฐานให้แอดมินตรวจสอบได้</p>
   <div><small>หมายเลขคำสั่งซื้อ</small><code style={{display:"block",overflowWrap:"anywhere",userSelect:"text"}}>{id}</code><button type="button" className="ui-button" onClick={copy}>คัดลอกหมายเลขคำสั่งซื้อ</button></div>
   <p>ยอดตามคำสั่งซื้อ: <strong>{amount.toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})} บาท</strong></p>

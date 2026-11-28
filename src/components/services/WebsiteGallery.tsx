@@ -11,7 +11,7 @@ export function WebsiteGallery({ sites, unavailable = false }: { sites: Website[
   const term = query.trim().toLocaleLowerCase();
   const visible = sites.filter(site => `${site.name} ${site.url}`.toLocaleLowerCase().includes(term));
   return <Box component="main" sx={{ py: { xs: 3, md: 6 } }}>
-    <Box sx={{ mb: 4, p: { xs: 3, md: 5 }, border: "1px solid", borderColor: "divider", borderRadius: 4, background: "linear-gradient(120deg,rgba(230,192,110,.12),transparent)" }}>
+    <Box sx={{ mb: 4, p: { xs: 3, md: 5 }, border: "1px solid", borderColor: "divider", borderRadius: 4, background: "linear-gradient(120deg,rgba(66,146,250,.12),transparent)" }}>
       <Typography variant="overline" color="primary">AURUM · WEBSITE SHOWCASE</Typography>
       <Typography component="h1" variant="h3" sx={{ mt: 1, mb: 2, fontWeight: 800 }}>เว็บไซต์ตัวอย่าง</Typography>
       <Typography color="text.secondary" sx={{ maxWidth: 720 }}>สำรวจเว็บไซต์ที่เชื่อมต่อกับ AURUM ดูรูปแบบการนำเสนอและคลิกเข้าชมเว็บไซต์จริง เพื่อค้นหาแนวทางที่เหมาะกับเว็บไซต์ของคุณ</Typography>

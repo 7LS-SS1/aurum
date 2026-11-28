@@ -151,7 +151,7 @@
 .overview h2 span {
   font-size: 11px;
   font-weight: 400;
-  color: #888;
+  color: var(--muted);
   margin-left: 10px;
 }
 .summary {
@@ -183,7 +183,7 @@
 }
 .summary small {
   display: block;
-  color: #888;
+  color: var(--muted);
   font-size: 10px;
 }
 .summary em {
@@ -284,19 +284,19 @@
 .directoryRow small {
   display: block;
   font-size: 10px;
-  color: #888;
+  color: var(--muted);
   margin-top: 5px;
   overflow-wrap: anywhere;
 }
 .siteIcon {
   font-size: 21px;
-  color: #bda45f;
+  color: #888;
   width: 26px;
   flex-shrink: 0;
 }
 .directory footer {
   font-size: 10px;
-  color: #888;
+  color: var(--muted);
   border-top: 1px solid #ffffff08;
   padding-top: 13px;
   line-height: 1.6;
@@ -378,17 +378,17 @@
 }
 .chartEmpty p {
   font-size: 11px;
-  color: #777;
+  color: var(--muted);
 }
 .hint {
   font-size: 10px;
-  color: #888;
+  color: var(--muted);
   line-height: 1.8;
   margin-top: 12px;
 }
 .alertPanel header > span {
   font-size: 10px;
-  color: #888;
+  color: var(--muted);
 }
 .alert {
   border-left: 3px solid #d4af37;
@@ -440,7 +440,7 @@
 .empty {
   text-align: center;
   padding: 70px 12px;
-  color: #888;
+  color: var(--muted);
   font-size: 12px;
 }
 .page button:focus-visible,

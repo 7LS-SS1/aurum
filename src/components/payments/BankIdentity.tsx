@@ -8,7 +8,7 @@ import {
   Typography,
   createFilterOptions,
 } from "@mui/material";
-import { findThaiBank, thaiBanks, type ThaiBank } from "@/lib/thai-banks";
+import { findThaiBank, thaiBanks, thaiBankLogo, type ThaiBank } from "@/lib/thai-banks";
 
 export function BankIcon({ name }: { name: string }) {
   const bank = findThaiBank(name);
@@ -16,6 +16,8 @@ export function BankIcon({ name }: { name: string }) {
     <Avatar
       component="span"
       aria-hidden
+      src={bank ? thaiBankLogo(bank.id) : undefined}
+      alt=""
       sx={{
         width: 38,
         height: 38,
@@ -25,6 +27,7 @@ export function BankIcon({ name }: { name: string }) {
         fontWeight: 700,
         fontSize: bank && bank.short.length > 5 ? 8 : 10,
         borderRadius: 2,
+        "& img": { objectFit: "contain", width: "100%", height: "100%", padding: "5px", boxSizing: "border-box" },
       }}
     >
       {bank?.short || (

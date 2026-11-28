@@ -16,6 +16,13 @@ import { managementOrigin, managementRoute } from "@/lib/management-host";
 const { auth } = NextAuth(authConfig);
 
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health", "/api/public"];
+// These exact endpoints authenticate dedicated secrets in their Node handlers.
+const SECRET_AUTHENTICATED_API_PATHS = new Set([
+  "/api/internal/service-worker",
+  "/api/internal/auto-download",
+  "/api/internal/source-scanner",
+  "/api/integrations/v1/videos",
+]);
 
 export default function middleware(originalRequest: NextRequest, event: NextFetchEvent) {
   // Auth.js rewrites req.nextUrl to AUTH_URL; preserve the actual ingress URL per request.
@@ -41,8 +48,7 @@ export default function middleware(originalRequest: NextRequest, event: NextFetc
   if (routing.kind === "reject") return NextResponse.json({ error: "management_host_required" }, { status: 409 });
   if (routing.kind === "redirect") return NextResponse.redirect(routing.target, 307);
   const { pathname } = routing;
-  // These exact endpoints authenticate dedicated secrets in their Node handlers.
-  if (pathname === "/api/internal/service-worker" || pathname === "/api/internal/auto-download" || pathname === "/api/internal/source-scanner") return NextResponse.next();
+  if (SECRET_AUTHENTICATED_API_PATHS.has(pathname)) return NextResponse.next();
 
   // Monitor ingestion authenticates its scoped token in the Node handler.
   const isPublicApi = pathname === "/api/monitor/ingest" || PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));

@@ -39,6 +39,6 @@
   color: var(--muted);
   font-size: 12px;
 }
-.timeout { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #ffffff12; }
-.timeout > div { height: 100%; background: var(--gold-bright, #e5c14b); transform-origin: left; }
+.timeout { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: #eff1f512; }
+.timeout > div { height: 100%; background: var(--gold-bright, #4292fa); transform-origin: left; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } }

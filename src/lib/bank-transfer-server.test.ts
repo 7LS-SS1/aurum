@@ -67,6 +67,7 @@ vi.mock("./ads-renewal-server", () => ({
 vi.mock("./customer-notices", () => ({ orderNotice: m.notice }));
 vi.mock("./ads-notification-events", () => ({ orderAlert: m.alert }));
 import {
+  editBankAccount,
   closeBankAccount,
   purgeBankAccounts,
   submitTransferSlip,
@@ -112,6 +113,18 @@ beforeEach(() => {
   m.bytes.mockResolvedValue(Buffer.from("unique image"));
 });
 describe("manual bank transfers", () => {
+  it("updates an unused account and rejects stale edits", async () => {
+    const expected = { bank: "Test bank", number: "1234567890", name: "Test", qr: null };
+    await editBankAccount({ id: accountId, ...expected, name: "Updated", expected }, actor);
+    expect((m.configs.get(`bank-account:${accountId}`)!.config as any).name).toBe("Updated");
+    await expect(editBankAccount({ id: accountId, ...expected, expected }, actor)).rejects.toThrow("ข้อมูลเปลี่ยนแล้ว");
+  });
+  it("preserves recipient details once an order uses the account", async () => {
+    const expected = { bank: "Test bank", number: "1234567890", name: "Test", qr: null };
+    tx.adsOrder.findFirst.mockResolvedValueOnce(m.order);
+    await expect(editBankAccount({ id: accountId, ...expected, name: "Changed", expected }, actor)).rejects.toThrow("มีประวัติธุรกรรมแล้ว");
+    expect((m.configs.get(`bank-account:${accountId}`)!.config as any).name).toBe("Test");
+  });
   it("closes immediately and schedules exact 30 day retention without removing ledger", async () => {
     await closeBankAccount(accountId, actor);
     const a: any = m.configs.get(`bank-account:${accountId}`)!.config;

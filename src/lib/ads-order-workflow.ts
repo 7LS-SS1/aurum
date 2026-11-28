@@ -1,3 +1,4 @@
+import { canCancelUnpaid } from "./ads-order-cancellation";
 import { getTransfer } from "./bank-transfer";
 import { getRenewal, unchangedRenewal } from "./ads-renewal";
 import { getPromptPay, hasPromptPay } from "./promptpay";
@@ -41,6 +42,7 @@ export function orderWorkflow(order: AdminAdsOrder, events: OrderEvent[]): Workf
 }
 
 export const actionHelp: Record<string, string> = {
+  cancel_unpaid: "ตรวจสอบบัญชีจริงแล้วว่าเงินยังไม่เข้า ระบุเหตุผลเพื่อยกเลิกและคืนพื้นที่จอง ประวัติคำสั่งซื้อยังคงอยู่ หากมีสลิปต้องตรวจสอบก่อน",
   assign: "กำหนดผู้รับผิดชอบและเวลาส่งงาน ลูกค้าจะเห็นชื่อผู้ดูแลและกำหนดเสร็จ",
   install: "รับงานและเริ่มติดตั้งตามตำแหน่งและไฟล์ที่ลูกค้าเลือก",
   review_installation: "ตรวจ Desktop และ Mobile แล้วแนบลิงก์หลักฐานให้ครบทุกตำแหน่งก่อนส่งตรวจ",
@@ -77,6 +79,7 @@ const actions: Record<string, [string, string][]> = {
   REMOVAL_REQUIRED: [["confirm_removed", "นำป้ายออกแล้ว · คืนพื้นที่ให้จอง"]],
 };
 export function actionOptions(order: AdminAdsOrder): [string, string][] {
+  if (canCancelUnpaid(order)) return [["cancel_unpaid", "ยกเลิกรายการ · ลูกค้ายังไม่ชำระเงิน"]];
   if(getTransfer(order.quote) && ["REVIEW","PAYMENT","PAYMENT_REVIEW","EXPIRED"].includes(order.status))return [];
   const normal: [string, string][] = (actions[order.status] || []).map(([key, label]) => [key, key === "activate" && getRenewal(order.quote) ? "อนุมัติต่ออายุ · นับต่อวันสิ้นสุดเดิม" : label]);
   const simulation = getSimulation(order.quote);

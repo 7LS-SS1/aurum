@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import "./ui-foundation.css";
 import "./workspace.css";
@@ -10,6 +11,16 @@ const roboto = localFont({
   src: "./fonts/Roboto.woff2",
   weight: "100 900",
   variable: "--font-roboto",
+  display: "swap",
+});
+
+// Thai loopless sans with a width axis: condensed + heavy for headings
+// (poster style), normal width for body text.
+const notoThai = Noto_Sans_Thai({
+  subsets: ["thai", "latin"],
+  weight: "variable",
+  axes: ["wdth"],
+  variable: "--font-thai",
   display: "swap",
 });
 
@@ -27,7 +38,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th" className={`${roboto.variable} ${playfair.variable}`}>
+    <html lang="th" className={`${notoThai.variable} ${roboto.variable} ${playfair.variable}`}>
       <body suppressHydrationWarning><AppRouterCacheProvider><AurumTheme>{children}</AurumTheme></AppRouterCacheProvider></body>
     </html>
   );

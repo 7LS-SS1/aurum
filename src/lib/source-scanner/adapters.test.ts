@@ -37,6 +37,15 @@ describe("scanner adapters", () => {
       next: null, terminal: false, paginationError: "PAGINATION_UNPROVEN",
     });
   });
+  it("ignores UTM tracking without dropping the real pagination query", () => {
+    const html = '<link rel="next" href="/catalog?page=13"><article><h2><a href="/watch/one">Fixture</a></h2></article><nav class="pagination"><a class="pagination-next" href="/catalog?utm_source=share&amp;page=13&amp;utm_medium=video&amp;utm_content=card">หน้าถัดไป</a></nav>';
+    expect(parseListing(html, "https://catalog.test/catalog?page=12", auto)).toMatchObject({
+      next: "https://catalog.test/catalog?page=13", terminal: false,
+    });
+    const trackedOnly = html.replace('<link rel="next" href="/catalog?page=13">', "");
+    expect(parseListing(trackedOnly, "https://catalog.test/catalog?page=12", auto).next)
+      .toBe("https://catalog.test/catalog?utm_source=share&page=13&utm_medium=video&utm_content=card");
+  });
   it("resolves standard HTML video and reads 7m-storage JSON catalogs", async () => {
     await expect(resolveItem(item, auto, async () => new Response(fixture("player.html")))).resolves.toMatchObject({ title: "Fixture video", mediaUrl: "https://cdn.test/one.mp4?token=secret" });
     const json = { ...config, adapter: "JSON_CATALOG" as const, recipe: {} };

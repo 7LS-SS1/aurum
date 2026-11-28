@@ -60,6 +60,12 @@ export async function setControl(id: string, action: "RUN" | "PAUSE" | "STOP", a
       ...(action === "RUN" && (!source.scanComplete || source.scanIntervalMinutes > 0) ? { nextScanAt: new Date() } : {}), ...(remove ? { deletedAt: new Date() } : {}),
     } });
     if (!updated.count) throw new ApiError("ข้อมูลเปลี่ยนแล้ว กรุณาลองใหม่", 409);
+    if (action === "RUN" && source.control === "STOP" && !source.scanComplete) {
+      await tx.sourcePage.updateMany({
+        where: { sourceId: id, state: "FAILED", errorCode: "PAGINATION_UNPROVEN" },
+        data: { state: "PENDING", attempts: 0, terminal: false, retryAt: new Date(), error: null, errorCode: null, claimToken: null },
+      });
+    }
     await event(tx, id, remove ? "DELETED" : action, remove ? "หยุดและลบแหล่งออกจากรายการแล้ว" : { RUN: "เริ่มทำงาน", PAUSE: "พักการเริ่มงานใหม่", STOP: "ส่งคำสั่งหยุดงานปัจจุบัน" }[action]);
     await tx.auditLog.create({ data: { actorId: actor.id, actorRole: actor.role, action: remove ? "source_delete" : `source_${action.toLowerCase()}`, resourceType: "video_source", resourceId: id } });
     return { id, control: action };

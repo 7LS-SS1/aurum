@@ -20,6 +20,7 @@ const linkPatterns = [
 const pager = '.pagination, .wp-pagenavi, .paging-navigation, nav[aria-label="Pagination" i]';
 const nextLabels = new Set(["next", "next page", "next page »", "หน้าถัดไป", "หน้าต่อไป", "ถัดไป", "»", "›"]);
 const disabledNext = ':is([rel~="next"], .next, .pagination-next):is([aria-disabled="true"], [disabled], .disabled)';
+const trackingParams = ["fbclid", "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "utm_id"];
 
 export function discoverMarkup(body: string, pageUrl: string, hosts: string[]) {
   const $ = load(body);
@@ -36,10 +37,12 @@ export function discoverMarkup(body: string, pageUrl: string, hosts: string[]) {
   const nextByPage = new Map<string, string>();
   for (const url of nextLinks.toArray().map((el) => $(el).attr("href")?.trim())
     .filter((v): v is string => Boolean(v) && !/^(#|javascript:)/i.test(v!)).map(toUrl)) {
-    // A pager can decorate its link with a click ID while rel=next publishes the same page without it.
-    // Compare without the click ID, and prefer the untagged URL when the page supplies one.
+    // Compare known tracking parameters separately from the actual pagination cursor.
+    // Keep the published untagged URL when available, or preserve the original tagged URL.
     const identity = new URL(url);
-    if (identity.searchParams.has("fbclid")) identity.searchParams.delete("fbclid");
+    for (const param of trackingParams) {
+      if (identity.searchParams.has(param)) identity.searchParams.delete(param);
+    }
     const key = identity.href;
     if (!nextByPage.has(key) || key === url) nextByPage.set(key, url);
   }

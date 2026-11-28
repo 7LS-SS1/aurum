@@ -5,13 +5,13 @@ const mocks = vi.hoisted(() => {
     scannerLease: { upsert: vi.fn(), updateMany: vi.fn() },
     sourceItem: { findFirst: vi.fn(), updateMany: vi.fn() },
     sourcePage: { findFirst: vi.fn(), updateMany: vi.fn() },
-    videoSource: { findMany: vi.fn(), updateMany: vi.fn() },
+    videoSource: { findMany: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
     sourceEvent: { create: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() }, $transaction: vi.fn(),
   }; return { db };
 });
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.db }));
-import { claimItem, claimPage, fence, recoverStale, withScannerLease } from "./store";
+import { claimItem, claimPage, fence, recoverStale, setControl, withScannerLease } from "./store";
 describe("scanner persistence fences", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -31,6 +31,17 @@ describe("scanner persistence fences", () => {
     mocks.db.sourcePage.findFirst.mockResolvedValue({ id: "p", state: "PENDING", attempts: 0, updatedAt: new Date() });
     mocks.db.sourcePage.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
     expect((await Promise.all([claimPage("s"), claimPage("s")])).filter(Boolean)).toHaveLength(1);
+  });
+  it.each(["STOP", "PAUSE", "RUN"] as const)("requeues ambiguous catalog pages on restart from STOP only (from %s)", async (control) => {
+    mocks.db.videoSource.findFirst.mockResolvedValue({ id: "s", control, scanComplete: false, updatedAt: new Date() });
+    await setControl("s", "RUN", { id: "manager", role: "MANAGER" });
+    if (control === "STOP") {
+      expect(mocks.db.sourcePage.updateMany).toHaveBeenCalledExactlyOnceWith({
+        where: { sourceId: "s", state: "FAILED", errorCode: "PAGINATION_UNPROVEN" },
+        data: { state: "PENDING", attempts: 0, terminal: false, retryAt: expect.any(Date), error: null, errorCode: null, claimToken: null },
+      });
+    } else expect(mocks.db.sourcePage.updateMany).not.toHaveBeenCalled();
+    expect(mocks.db.sourceItem.updateMany).not.toHaveBeenCalled();
   });
   it("releases only the current global lease and rejects overlapping runs", async () => {
     mocks.db.scannerLease.updateMany.mockResolvedValueOnce({ count: 0 });
